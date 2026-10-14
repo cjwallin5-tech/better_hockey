@@ -1,5 +1,6 @@
 """Pull skater stats from the NHL APIs into Postgres. Safe to re-run (upserts)."""
 import json
+import sys
 import time
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
@@ -639,6 +640,19 @@ def fetch_onice_inputs(game_id):
     return game_id, pbp, rows, "api", cov
 
 
+def onice_xg(shots, shift_rows, skater_ids):
+    """{player_id: [xG for, xG against]} at 5v5: each attempt's xG is credited to every skater on the ice."""
+    spans, team_of = corsi.parse_shifts(shift_rows)
+    onice = {pid: [0.0, 0.0] for pid in skater_ids}
+    for r in shots:
+        if r["xg"] is None or r["situation"] != corsi.FIVE_ON_FIVE:
+            continue
+        for pid, sp in spans.items():
+            if pid in onice and corsi.on_ice(sp, r["time_sec"]):
+                onice[pid][0 if team_of[pid] == r["team_id"] else 1] += r["xg"]
+    return onice
+
+
 def store_shots(cur, game_id, pbp, shift_rows, skater_ids):
     """Every shot attempt with its xG, plus each skater's 5v5 on-ice xG for/against."""
     abbrev = {pbp["homeTeam"]["id"]: pbp["homeTeam"]["abbrev"], pbp["awayTeam"]["id"]: pbp["awayTeam"]["abbrev"]}
@@ -656,15 +670,7 @@ def store_shots(cur, game_id, pbp, shift_rows, skater_ids):
           r["goalie_id"], r["kind"], r["shot_type"], r["x"], r["y"], r["distance"], r["angle"],
           r["strength"], r["situation"], r["empty_net"], r["rebound"], r["xg"]) for r in rows if r["event_id"] is not None],
     )
-    # On-ice xG at 5v5: credit each attempt's xG to every skater who was on the ice.
-    spans, team_of = corsi.parse_shifts(shift_rows)
-    onice = {pid: [0.0, 0.0] for pid in skater_ids}
-    for r in rows:
-        if r["xg"] is None or r["situation"] != corsi.FIVE_ON_FIVE:
-            continue
-        for pid, sp in spans.items():
-            if pid in onice and corsi.on_ice(sp, r["time_sec"]):
-                onice[pid][0 if team_of[pid] == r["team_id"] else 1] += r["xg"]
+    onice = onice_xg(rows, shift_rows, skater_ids)
     cur.executemany(
         "UPDATE skater_game_onice SET xgf = %s, xga = %s WHERE player_id = %s AND game_id = %s",
         [(v[0], v[1], pid, game_id) for pid, v in onice.items()],
@@ -745,7 +751,72 @@ def ingest_onice(conn):
             conn.commit()
             if i % 25 == 0:
                 print(f"  {i}/{len(todo)}", flush=True)
+    conn.execute("""UPDATE skater_game_onice o SET team = g.team FROM skater_game g
+                    WHERE g.player_id = o.player_id AND g.game_id = o.game_id AND o.team IS NULL""")
+    conn.commit()
     print(f"on-ice: {len(todo) - missing} games stored, {missing} without usable shift data")
+
+
+def onice_rows(game_id, season_id, pbp, shift_rows, skater_ids):
+    """One skater_game_onice row per skater for a game, computed without storing shots or lines:
+    5v5 Corsi/Fenwick, goals, xG for/against, 5v5 time and the player's team."""
+    totals = corsi.game_corsi(pbp["plays"], shift_rows)
+    shots = shotlib.extract_shots(pbp)
+    for r in shots:
+        r["xg"] = shotlib.xg(r)
+    xg = onice_xg(shots, shift_rows, skater_ids)
+    toi = corsi.game_lines(pbp["plays"], shift_rows, pbp["rosterSpots"])["toi"]
+    abbrev = {pbp["homeTeam"]["id"]: pbp["homeTeam"]["abbrev"], pbp["awayTeam"]["id"]: pbp["awayTeam"]["abbrev"]}
+    team = {r["playerId"]: abbrev.get(r["teamId"]) for r in pbp["rosterSpots"]}
+    zero = dict(cf=0, ca=0, ff=0, fa=0, gf=0, ga=0)
+    return [(pid, game_id, season_id, *(totals.get(pid, zero)[k] for k in ("cf", "ca", "ff", "fa", "gf", "ga")),
+             toi.get(pid, 0), xg[pid][0], xg[pid][1], team.get(pid)) for pid in skater_ids]
+
+
+def backfill_onice(conn, seasons, limit=None):
+    """On-ice stats for past seasons' games (from skater_game_hist), so defensive impact can be compared
+    across seasons. Resumable: games already checked (game_shift_status) are skipped. Slow by design,
+    about two requests per game at the NHL's rate limits; run it by hand, not in the nightly job."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT h.game_id, h.season_id, array_agg(h.player_id) FROM skater_game_hist h
+               LEFT JOIN game_shift_status s USING (game_id)
+               WHERE h.season_id = ANY(%s) AND s.game_id IS NULL
+               GROUP BY h.game_id, h.season_id ORDER BY h.season_id, h.game_id""", (seasons,))
+        todo = cur.fetchall()
+    if limit:
+        todo = todo[:limit]
+    print(f"on-ice backfill: {len(todo)} games to process", flush=True)
+    info = {game_id: (season_id, ids) for game_id, season_id, ids in todo}
+    stored = unusable = 0
+    started = time.time()
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for i, (game_id, pbp, shift_rows, source, cov) in enumerate(pool.map(fetch_onice_inputs, [t[0] for t in todo]), 1):
+            season_id, ids = info[game_id]
+            usable = cov >= MIN_SHIFT_COVERAGE
+            if usable:
+                cur.executemany(
+                    """INSERT INTO skater_game_onice (player_id, game_id, season_id, cf, ca, ff, fa, gf, ga,
+                                                      toi_5v5_sec, xgf, xga, team)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                       ON CONFLICT (player_id, game_id) DO UPDATE SET cf=EXCLUDED.cf, ca=EXCLUDED.ca, ff=EXCLUDED.ff,
+                           fa=EXCLUDED.fa, gf=EXCLUDED.gf, ga=EXCLUDED.ga, toi_5v5_sec=EXCLUDED.toi_5v5_sec,
+                           xgf=EXCLUDED.xgf, xga=EXCLUDED.xga, team=EXCLUDED.team""",
+                    onice_rows(game_id, season_id, pbp, shift_rows, ids))
+                stored += 1
+            else:
+                unusable += 1
+            cur.execute(
+                """INSERT INTO game_shift_status (game_id, has_shifts, coverage, source, lines_version)
+                   VALUES (%s,%s,%s,%s,%s)
+                   ON CONFLICT (game_id) DO UPDATE SET has_shifts=EXCLUDED.has_shifts, coverage=EXCLUDED.coverage,
+                       source=EXCLUDED.source, lines_version=EXCLUDED.lines_version, checked_at=now()""",
+                (game_id, usable, cov, source if usable else None, 0))  # lines_version 0: no line tables for these games
+            conn.commit()
+            if i % 25 == 0:
+                rate = i / (time.time() - started)
+                print(f"  {i}/{len(todo)} ({stored} stored, {unusable} unusable, {(len(todo) - i) / rate / 60:.0f} min left)", flush=True)
+    print(f"on-ice backfill: {stored} games stored, {unusable} without usable shift data")
 
 
 def goalie_rows(game_id, box):
@@ -886,4 +957,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["backfill-onice"]:
+        # python ingest.py backfill-onice [20222023,20232024,...] [--limit N]
+        args = sys.argv[2:]
+        limit = int(args[args.index("--limit") + 1]) if "--limit" in args else None
+        wanted = [a for a in args if a.isdigit() or "," in a]
+        seasons = [int(x) for x in wanted[0].split(",")] if wanted else [config.SEASON_ID - 10001 * i for i in range(1, 5)]
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            backfill_onice(conn, seasons, limit)
+    else:
+        main()

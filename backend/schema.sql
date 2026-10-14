@@ -302,3 +302,4 @@ CREATE TABLE IF NOT EXISTS defense_season (
     giveaways        INTEGER NOT NULL,
     PRIMARY KEY (player_id, season_id)
 );
+ALTER TABLE skater_game_onice ADD COLUMN IF NOT EXISTS team TEXT;

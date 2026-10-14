@@ -81,3 +81,56 @@ def career_profile(rows, ctx):
                    "diff": round((actual[stat] - expected[stat]) / mins * 60, 2),
                    "index": round(actual[stat] / expected[stat], 2) if stat in RATIO_STATS and expected[stat] > 0 else None}
             for stat in STATS}
+
+
+# --- On-ice impact (5v5 expected goals against), from the shift-chart data ------------------------
+# Hits and blocks say how a player plays; on-ice xGA says what happens around him. Raw xGA/60 mostly
+# reflects the team, so the main figure is relative: the team's xGA/60 with the player on the ice minus
+# with him off it (in the same games). Negative is good. It still carries linemates, zone starts and
+# opponents, so it is a clue, not a verdict.
+ONICE_MIN_SEC = 300 * 60   # 5v5 time before a season counts toward percentiles
+OFF_MIN_SEC = 600          # off-ice time needed for the "relative" figure to mean anything
+
+
+def onice_metrics(r):
+    """r: summed on-ice and team totals for one player-season (seconds and expected goals)."""
+    per60 = lambda x, t: x / t * 3600 if t > 0 else None
+    off_toi = r["t_toi"] - r["on_toi"]
+    xga60 = per60(r["on_xga"], r["on_toi"])
+    off_xga60 = per60(r["t_xga"] - r["on_xga"], off_toi) if off_toi >= OFF_MIN_SEC else None
+    xgf, xga = r["on_xgf"], r["on_xga"]
+    cf, ca = r["on_cf"], r["on_ca"]
+    return {
+        "toi_min": round(r["on_toi"] / 60), "xga60": round(xga60, 2) if xga60 is not None else None,
+        "rel_xga60": round(xga60 - off_xga60, 2) if xga60 is not None and off_xga60 is not None else None,
+        "xgf_pct": round(xgf / (xgf + xga), 3) if xgf + xga > 0 else None,
+        "cf_pct": round(cf / (cf + ca), 3) if cf + ca > 0 else None,
+    }
+
+
+def build_onice(rows):
+    """{(player_id, season_id): metrics}, with percentiles (higher is better) among same-role skaters."""
+    out, peers = {}, defaultdict(list)
+    for r in rows:
+        m = onice_metrics(r)
+        out[r["player_id"], r["season_id"]] = (role(r["position"]), m)
+        if r["on_toi"] >= ONICE_MIN_SEC:
+            for k in ("xga60", "rel_xga60"):
+                if m[k] is not None:
+                    peers[r["season_id"], role(r["position"]), k].append(m[k])
+    result = {}
+    for key, (rl, m) in out.items():
+        m = dict(m)
+        for k in ("xga60", "rel_xga60"):
+            pool = peers.get((key[1], rl, k))
+            if m[k] is not None and pool and m["toi_min"] * 60 >= ONICE_MIN_SEC:
+                m[k + "_pct"] = round(100 * sum(1 for v in pool if v > m[k]) / len(pool))  # share of peers allowing more
+        result[key] = m
+    return result
+
+
+def onice_career(rows):
+    """Pooled on-ice metrics over several seasons of one player (sums, not an average of rates)."""
+    keys = ("on_toi", "on_xgf", "on_xga", "on_cf", "on_ca", "t_toi", "t_xgf", "t_xga")
+    total = {k: sum(r[k] or 0 for r in rows) for k in keys}
+    return onice_metrics(total) if total["on_toi"] > 0 else None

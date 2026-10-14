@@ -13,6 +13,13 @@ const NET = { id: 'net_takeaways', label: 'Net take-aways' }
 
 const idx = (v) => (v == null ? '–' : `${v.toFixed(2)}×`)
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
+const one = (v) => (v == null ? '–' : v.toFixed(2))
+const pctText = (v) => (v == null ? '–' : `${(v * 100).toFixed(1)}%`)
+const ONICE_NOTE =
+  'On-ice columns are 5v5, from shift charts (2022-23 on). xGA/60 is expected goals against per 60 minutes; ' +
+  '"vs. teammates" is the team\'s xGA/60 with the player on the ice minus with him off it in the same games, ' +
+  'so negative is better. It still reflects linemates, zone starts and opponents, so treat it as a clue. ' +
+  'Hover for the percentile among same-role skaters (higher is better).'
 const lastName = (full) => full.split(' ').slice(1).join(' ') || full
 
 function useDefense(id) {
@@ -38,6 +45,7 @@ export default function DefenseProfile({ playerId }) {
   const data = useDefense(playerId)
   if (!data || data.seasons.length === 0) return null
   const { career, seasons } = data
+  const hasOnice = seasons.some((s) => s.onice)
 
   return (
     <section>
@@ -50,6 +58,7 @@ export default function DefenseProfile({ playerId }) {
               <th className="left">Season</th><th className="left">Team</th><th>GP</th><th>TOI</th>
               {STATS.map((s) => <th key={s.id} title={s.note}>{s.label}/60</th>)}
               <th title="Takeaways minus giveaways per 60, against the league's rate">Net T–G/60</th>
+              {hasOnice && <><th>5v5 min</th><th>xGA/60</th><th title="Team xGA/60 with him on the ice minus off it">xGA/60 vs. mates</th><th>CF%</th></>}
             </tr>
           </thead>
           <tbody>
@@ -68,6 +77,15 @@ export default function DefenseProfile({ playerId }) {
                   )
                 })}
                 <td title={`${s.stats.net_takeaways.percentile}th percentile`}>{signed(s.stats.net_takeaways.diff)}</td>
+                {hasOnice && (
+                  <>
+                    <td title={s.onice && s.onice.toi_min < 300 ? 'Under 300 minutes: too little to read much into' : undefined}
+                      className={s.onice && s.onice.toi_min < 300 ? 'muted' : ''}>{s.onice?.toi_min ?? '–'}</td>
+                    <td title={s.onice?.xga60_pct != null ? `${s.onice.xga60_pct}th percentile (higher is better)` : undefined}>{one(s.onice?.xga60)}</td>
+                    <td className={s.onice?.rel_xga60 < 0 ? 'accent' : ''} title={s.onice?.rel_xga60_pct != null ? `${s.onice.rel_xga60_pct}th percentile (higher is better)` : undefined}>{signed(s.onice?.rel_xga60)}</td>
+                    <td>{pctText(s.onice?.cf_pct)}</td>
+                  </>
+                )}
               </tr>
             ))}
             {career && (
@@ -77,12 +95,21 @@ export default function DefenseProfile({ playerId }) {
                   <td key={st.id}><strong>{career[st.id].rate.toFixed(2)}</strong> <small>{idx(career[st.id].index)}</small></td>
                 ))}
                 <td><strong>{signed(career.net_takeaways.diff)}</strong></td>
+                {hasOnice && (
+                  <>
+                    <td><strong>{data.onice_career?.toi_min ?? '–'}</strong></td>
+                    <td><strong>{one(data.onice_career?.xga60)}</strong></td>
+                    <td><strong>{signed(data.onice_career?.rel_xga60)}</strong></td>
+                    <td><strong>{pctText(data.onice_career?.cf_pct)}</strong></td>
+                  </>
+                )}
               </tr>
             )}
           </tbody>
         </table>
       </div>
       <p className="axis-note">Net T–G is shown as a difference from the league rate, because the league's net is negative.</p>
+      {hasOnice && <p className="axis-note">{ONICE_NOTE}</p>}
     </section>
   )
 }
@@ -106,16 +133,28 @@ export function DefenseCompare({ players }) {
   if (loaded.length === 0) return null
   const missing = players.length - loaded.length
 
+  const isOnice = stat === 'rel_xga60'
   const series = loaded
     .map((p) => ({
       id: p.id, slot: p.slot, name: lastName(p.name),
-      points: p.def.seasons.filter((s) => s.qualified && s.age != null && s.stats[stat].index != null)
-        .map((s) => ({ x: s.age, y: s.stats[stat].index })),
+      points: isOnice
+        ? p.def.seasons.filter((s) => s.age != null && s.onice?.rel_xga60 != null && s.onice.toi_min >= 300)
+            .map((s) => ({ x: s.age, y: s.onice.rel_xga60 }))
+        : p.def.seasons.filter((s) => s.qualified && s.age != null && s.stats[stat].index != null)
+            .map((s) => ({ x: s.age, y: s.stats[stat].index })),
     }))
     .filter((s) => s.points.length)
-  const top = Math.max(2, Math.ceil(Math.max(1, ...series.flatMap((s) => s.points.map((p) => p.y))) * 2) / 2)
-  const yDomain = { min: 0, max: top, ticks: Array.from({ length: top * 2 + 1 }, (_, i) => i / 2) }
-  const label = STATS.find((s) => s.id === stat).label.toLowerCase()
+  const values = series.flatMap((s) => s.points.map((p) => p.y))
+  let yDomain
+  if (isOnice) {
+    const span = Math.max(0.5, Math.ceil(Math.max(0.1, ...values.map(Math.abs)) * 4) / 4)
+    yDomain = { min: -span, max: span, ticks: [-span, -span / 2, 0, span / 2, span] }
+  } else {
+    const top = Math.max(2, Math.ceil(Math.max(1, ...values) * 2) / 2)
+    yDomain = { min: 0, max: top, ticks: Array.from({ length: top * 2 + 1 }, (_, i) => i / 2) }
+  }
+  const label = isOnice ? 'xGA/60' : STATS.find((s) => s.id === stat).label.toLowerCase()
+  const hasOniceChart = loaded.some((p) => p.def.seasons.some((s) => s.onice?.rel_xga60 != null))
 
   return (
     <>
@@ -146,6 +185,22 @@ export function DefenseCompare({ players }) {
               <td className="left">{NET.label}/60 (vs. league)</td>
               {loaded.map((p) => <td key={p.id}>{signed(p.def.career?.net_takeaways.diff)}</td>)}
             </tr>
+            {loaded.some((p) => p.def.onice_career) && (
+              <>
+                <tr>
+                  <td className="left">On-ice xGA/60, 5v5 (since 2022-23)</td>
+                  {loaded.map((p) => <td key={p.id}>{one(p.def.onice_career?.xga60)}</td>)}
+                </tr>
+                <tr>
+                  <td className="left">xGA/60 vs. teammates (negative is better)</td>
+                  {loaded.map((p) => <td key={p.id}>{signed(p.def.onice_career?.rel_xga60)}</td>)}
+                </tr>
+                <tr>
+                  <td className="left">5v5 minutes tracked</td>
+                  {loaded.map((p) => <td key={p.id}>{p.def.onice_career?.toi_min ?? '–'}</td>)}
+                </tr>
+              </>
+            )}
             <tr>
               <td className="left">Seasons / games</td>
               {loaded.map((p) => <td key={p.id}>{p.def.seasons.length} / {p.def.seasons.reduce((t, s) => t + s.games_played, 0)}</td>)}
@@ -159,14 +214,20 @@ export function DefenseCompare({ players }) {
             {STATS.map((s) => (
               <button key={s.id} role="tab" aria-selected={stat === s.id} className={stat === s.id ? 'on' : ''} onClick={() => setStat(s.id)}>{s.label}</button>
             ))}
+            {hasOniceChart && (
+              <button role="tab" aria-selected={isOnice} className={isOnice ? 'on' : ''} onClick={() => setStat('rel_xga60')}>xGA vs. teammates</button>
+            )}
           </div>
           <CompareChart
-            title={`${STATS.find((s) => s.id === stat).label} per 60 vs. league average, by age`}
+            title={isOnice ? 'On-ice xGA/60 relative to teammates, by age (below 0 is better)'
+              : `${STATS.find((s) => s.id === stat).label} per 60 vs. league average, by age`}
             series={series}
             xLabel="Age"
-            yLabel={`${label} per 60 as a multiple of the league average (1.0 = average), seasons with ${loaded[0].def.min_gp}+ games`}
+            yLabel={isOnice
+              ? 'team xGA/60 with him on the ice minus off it at 5v5, seasons with 300+ minutes (2022-23 on)'
+              : `${label} per 60 as a multiple of the league average (1.0 = average), seasons with ${loaded[0].def.min_gp}+ games`}
             yDomain={yDomain}
-            yFmt={(v) => `${v.toFixed(1)}×`}
+            yFmt={isOnice ? (v) => (v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2)) : (v) => `${v.toFixed(1)}×`}
           />
         </>
       )}

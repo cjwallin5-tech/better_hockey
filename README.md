@@ -46,6 +46,10 @@ Things worth knowing:
   `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `PUBLIC_URL` (the site's address, used in the link) for the API; any provider's
   SMTP works (Resend, SES, Gmail...). With `SMTP_HOST` unset, the link is printed to the API log instead, which is for local
   development only. Over HTTPS the session cookie is marked Secure; put the API behind HTTPS before exposing it publicly.
+- **On-ice defense for past seasons**: `python ingest.py backfill-onice` (from `backend/`, optionally with seasons like `20222023,20232024` and
+  `--limit N`) computes 5v5 shot attempts, expected goals and ice time per skater for every game of the previous four seasons
+  from the NHL play-by-play and shift charts. It's resumable (finished games are skipped) and takes about an hour at the NHL's rate
+  limits, so it isn't part of the nightly job. It feeds the "xGA/60 vs. teammates" columns and chart on player and Compare pages.
 - **Daily roster email**: signed-in users can turn it on from the Account page. `backend/digest.py` emails today's games for
   each rostered player (with a likely-starter guess for goalies), who's hot and who's missing games, at most once per Eastern
   day, using the same SMTP settings as password reset. Preview without sending: `.venv/bin/python digest.py --dry`, or

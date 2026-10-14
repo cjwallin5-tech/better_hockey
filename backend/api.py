@@ -480,6 +480,38 @@ def _similar_players(everyone, player, limit=8):
 _defense_cache = {"sig": None, "ctx": None, "rows": None}
 
 
+_onice_cache = {"sig": None, "data": None}
+ONICE_SQL = """
+WITH tg AS (
+    -- team totals per game: every shot is counted once per skater on the ice, five a side at 5v5
+    SELECT game_id, team, sum(toi_5v5_sec) / 5.0 AS t_toi, sum(xgf) / 5.0 AS t_xgf, sum(xga) / 5.0 AS t_xga
+    FROM skater_game_onice WHERE team IS NOT NULL AND xga IS NOT NULL GROUP BY game_id, team
+)
+SELECT o.player_id, o.season_id, c.position,
+       sum(o.toi_5v5_sec)::float AS on_toi, sum(o.xgf)::float AS on_xgf, sum(o.xga)::float AS on_xga,
+       sum(o.cf)::float AS on_cf, sum(o.ca)::float AS on_ca,
+       sum(tg.t_toi)::float AS t_toi, sum(tg.t_xgf)::float AS t_xgf, sum(tg.t_xga)::float AS t_xga
+FROM skater_game_onice o
+JOIN tg ON tg.game_id = o.game_id AND tg.team = o.team
+JOIN career_skater c ON c.player_id = o.player_id AND c.game_type = 2
+WHERE o.xga IS NOT NULL AND o.toi_5v5_sec > 0
+GROUP BY o.player_id, o.season_id, c.position
+"""
+
+
+def _onice_profiles():
+    """On-ice defensive metrics for every skater-season we have shift data for, cached until it changes."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        sig = tuple(conn.execute("SELECT count(*) AS n, sum(cf) AS c FROM skater_game_onice").fetchone().values())
+        if _onice_cache["sig"] != sig:
+            rows = conn.execute(ONICE_SQL).fetchall()
+            by_player = {}
+            for r in rows:
+                by_player.setdefault(r["player_id"], []).append(r)
+            _onice_cache.update(sig=sig, data={"metrics": defense.build_onice(rows), "rows": by_player})
+    return _onice_cache["data"]
+
+
 @app.get("/api/players/{player_id}/defense")
 def defense_profile(player_id: int):
     """Per-season and since-2005-06 defensive rates as an index against the league (see defense.py)."""
@@ -498,6 +530,7 @@ def defense_profile(player_id: int):
         raise HTTPException(404, "No skater career data for this player")
     mine = sorted(_defense_cache["rows"].get(player_id, []), key=lambda r: r["season_id"])
     ctx = _defense_cache["ctx"]
+    onice = _onice_profiles()
     seasons = []
     for r in mine:
         profile = defense.season_profile(r, ctx)
@@ -506,10 +539,11 @@ def defense_profile(player_id: int):
                 "season_id": r["season_id"], "team": r["team"], "games_played": r["games_played"],
                 "toi_per_game_sec": r["toi_per_game_sec"], "qualified": r["games_played"] >= defense.MIN_GP,
                 "age": trajectory.age_in(r["season_id"], who["birth_date"]) if who["birth_date"] else None,
-                "stats": profile})
+                "stats": profile, "onice": onice["metrics"].get((player_id, r["season_id"]))})
     return {"player": {"player_id": player_id, "name": who["name"], "position": who["position"]},
             "min_gp": defense.MIN_GP, "first_tracked": 20052006,
-            "seasons": seasons, "career": defense.career_profile(mine, ctx)}
+            "seasons": seasons, "career": defense.career_profile(mine, ctx),
+            "onice_career": defense.onice_career(onice["rows"].get(player_id, []))}
 
 
 # --- Career-trajectory comparables --------------------------------------------------------------
