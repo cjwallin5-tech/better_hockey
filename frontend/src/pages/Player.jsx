@@ -13,6 +13,7 @@ import PaceHistory from '../components/PaceHistory.jsx'
 import Similar from '../components/Similar.jsx'
 import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
+import TrackingProfile from '../components/TrackingProfile.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
@@ -179,6 +180,8 @@ export default function Player() {
             label: 'Shots & lines',
             content: (
               <>
+              <TrackingProfile playerId={p.player_id} />
+
               <SkaterShots playerId={p.player_id} />
 
               <Linemates playerId={p.player_id} />

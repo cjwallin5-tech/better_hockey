@@ -52,6 +52,12 @@ Things worth knowing:
   `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `PUBLIC_URL` (the site's address, used in the link) for the API; any provider's
   SMTP works (Resend, SES, Gmail...). With `SMTP_HOST` unset, the link is printed to the API log instead, which is for local
   development only. Over HTTPS the session cookie is marked Secure; put the API behind HTTPS before exposing it publicly.
+- **Speed & shots** (`/tracking`, under More, plus a section on each player page): the NHL's EDGE puck and player tracking, since 2021-22.
+  Hardest shots, top skating speed, bursts over 22 mph, average shot speed, distance skated, zone time and high-danger shots for
+  skaters, and save % by shot range for goalies, each with the NHL's own percentile. `backend/edge.py` flattens the NHL responses;
+  `python ingest.py backfill-edge` loads past seasons. The NHL allows only about 70 requests a minute, so the full backfill takes
+  hours: it loads the core stats for everyone first, then the speed extras (bursts, average shot speed, shot-speed bands) in a
+  second sweep. The nightly run tops up the current season (core stats for players who played; extras weekly).
 - **Head-to-head** (`/head-to-head`, under More, and linked from every game page): team-vs-team results and a skater's scoring against a
   team, over this season and the previous four (the games we store). Past seasons are paired into opponents by
   `ingest_team_abbrevs`; the Coyotes' games count toward Utah. Goalies aren't covered.

@@ -621,6 +621,123 @@ def probable_goalies_week(ids: str = "", days: int = 7):
     return {"from": today, "to": end, "goalies": out}
 
 
+# --- NHL EDGE tracking stats ------------------------------------------------------------------------
+# stat id -> (SQL expression over edge_skater_season e / career_season s, label, unit, column holding the NHL
+# percentile or None, column holding the date of the event or None, game-id column or None).
+TRACKING_STATS = {
+    "top_shot": ("e.top_shot_mph", "Hardest shot", "mph", "top_shot_pctile", "top_shot_date", "top_shot_game_id"),
+    "avg_shot": ("e.avg_shot_mph", "Average shot speed", "mph", "avg_shot_pctile", None, None),
+    "hard_shots": ("coalesce(e.shots_90_100, 0) + coalesce(e.shots_100_plus, 0)", "Shots at 90+ mph", "shots", None, None, None),
+    "top_speed": ("e.top_speed_mph", "Fastest skating speed", "mph", "top_speed_pctile", "top_speed_date", "top_speed_game_id"),
+    "bursts_22": ("e.bursts_22_plus", "Bursts over 22 mph", "bursts", "bursts_22_pctile", None, None),
+    "bursts_20": ("coalesce(e.bursts_22_plus, 0) + coalesce(e.bursts_20_22, 0)", "Bursts over 20 mph", "bursts", None, None, None),
+    "distance_per_game": ("e.distance_miles / nullif(s.games_played, 0)", "Distance skated per game", "mi", None, None, None),
+    "distance": ("e.distance_miles", "Distance skated", "mi", "distance_pctile", None, None),
+    "distance_max_game": ("e.distance_max_game_miles", "Most distance in a game", "mi", None, None, None),
+    "oz_time": ("e.oz_pct", "Offensive-zone time", "share", "oz_pctile", None, None),
+    "dz_time": ("e.dz_pct", "Defensive-zone time", "share", "dz_pctile", None, None),
+    "hd_sog": ("e.hd_sog", "High-danger shots on goal", "shots", None, None, None),
+}
+EDGE_SEASONS_SQL = "SELECT DISTINCT season_id FROM edge_skater_season WHERE has_data ORDER BY season_id DESC"
+
+
+@app.get("/api/tracking/leaders")
+def tracking_leaders(stat: str = "top_shot", season: str = "", position: str = "", min_gp: int = 10,
+                     dir: str = "desc", limit: int = 50):
+    """Skater leaderboard for one EDGE stat in one season, or across every stored season (season=all)."""
+    if stat not in TRACKING_STATS:
+        raise HTTPException(400, f"Unknown stat; choose one of {', '.join(TRACKING_STATS)}")
+    expr, label, unit, pct_col, date_col, game_col = TRACKING_STATS[stat]
+    direction = "ASC" if dir.lower() == "asc" else "DESC"
+    limit = max(1, min(limit, 200))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        seasons = [r["season_id"] for r in conn.execute(EDGE_SEASONS_SQL)]
+        if not seasons:
+            return {"stat": stat, "label": label, "unit": unit, "seasons": [], "season": None, "rows": []}
+        where, params = ["e.has_data", f"({expr}) IS NOT NULL", "s.games_played >= %(min_gp)s"], {"min_gp": max(0, min_gp)}
+        if season == "all":
+            chosen = "all"
+        else:
+            chosen = int(season) if season.isdigit() else seasons[0]
+            where.append("e.season_id = %(season)s")
+            params["season"] = chosen
+        if position == "F":
+            where.append("c.position <> 'D'")
+        elif position in ("C", "L", "R", "D"):
+            where.append("c.position = %(position)s")
+            params["position"] = position
+        rows = conn.execute(
+            f"""SELECT e.player_id, e.season_id, c.name, c.position, s.team, s.games_played, ({expr}) AS value,
+                       {('e.' + pct_col) if pct_col else 'NULL::real'} AS percentile,
+                       {('e.' + date_col) if date_col else 'NULL::date'} AS event_date,
+                       {('e.' + game_col) if game_col else 'NULL::bigint'} AS game_id,
+                       (e.season_id = %(current)s) AS current_season
+                FROM edge_skater_season e
+                JOIN career_season s ON s.player_id = e.player_id AND s.season_id = e.season_id
+                JOIN career_skater c ON c.player_id = e.player_id AND c.game_type = 2
+                WHERE {' AND '.join(where)} ORDER BY value {direction}, c.name LIMIT %(limit)s""",
+            {**params, "limit": limit, "current": config.SEASON_ID}).fetchall()
+    return {"stat": stat, "label": label, "unit": unit, "seasons": seasons, "season": chosen, "rows": rows,
+            "stats": [{"id": k, "label": v[1], "unit": v[2]} for k, v in TRACKING_STATS.items()]}
+
+
+GOALIE_TRACKING = {
+    # stat -> (column, label, shots-faced columns used for the minimum)
+    "sv_high": ("sv_high", "High-danger save %", ("saves_high", "ga_high"), 60),
+    "sv_mid": ("sv_mid", "Mid-range save %", ("saves_mid", "ga_mid"), 120),
+    "sv_long": ("sv_long", "Long-range save %", ("saves_long", "ga_long"), 120),
+    "sv_all": ("sv_all", "Overall save %", ("saves_high", "ga_high"), 60),
+    "games_above_900": ("games_above_900", "Share of games above .900", ("saves_high", "ga_high"), 60),
+}
+
+
+@app.get("/api/tracking/goalies")
+def tracking_goalies(stat: str = "sv_high", season: str = "", limit: int = 50):
+    """Goalie leaderboard for an EDGE save stat; goalies need a minimum number of shots faced from that range."""
+    if stat not in GOALIE_TRACKING:
+        raise HTTPException(400, f"Unknown stat; choose one of {', '.join(GOALIE_TRACKING)}")
+    col, label, shot_cols, minimum = GOALIE_TRACKING[stat]
+    limit = max(1, min(limit, 200))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        seasons = [r["season_id"] for r in conn.execute(
+            "SELECT DISTINCT season_id FROM edge_goalie_season WHERE has_data ORDER BY season_id DESC")]
+        if not seasons:
+            return {"stat": stat, "label": label, "seasons": [], "season": None, "rows": []}
+        chosen = int(season) if season.isdigit() else seasons[0]
+        rows = conn.execute(
+            f"""SELECT e.player_id, e.season_id, c.name, g.team, e.{col} AS value, e.sv_all, e.sv_high, e.sv_mid, e.sv_long,
+                       e.{shot_cols[0]} + e.{shot_cols[1]} AS shots_faced
+                FROM edge_goalie_season e
+                JOIN career_goalie c ON c.player_id = e.player_id AND c.game_type = 2
+                LEFT JOIN goalie_season g ON g.player_id = e.player_id AND g.season_id = e.season_id
+                WHERE e.has_data AND e.season_id = %s AND e.{col} IS NOT NULL
+                  AND e.{shot_cols[0]} + e.{shot_cols[1]} >= %s
+                ORDER BY value DESC, c.name LIMIT %s""", (chosen, minimum, limit)).fetchall()
+    return {"stat": stat, "label": label, "seasons": seasons, "season": chosen, "minimum_shots": minimum, "rows": rows,
+            "stats": [{"id": k, "label": v[1]} for k, v in GOALIE_TRACKING.items()]}
+
+
+@app.get("/api/players/{player_id}/tracking")
+def player_tracking(player_id: int):
+    """One player's EDGE stats season by season (a skater's speeds, distance and zone time, or a goalie's
+    save percentage by shot range)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        skater = conn.execute("SELECT name, position FROM career_skater WHERE player_id = %s AND game_type = 2",
+                              (player_id,)).fetchone()
+        if skater:
+            rows = conn.execute(
+                """SELECT e.*, s.games_played, s.team FROM edge_skater_season e
+                   LEFT JOIN career_season s ON s.player_id = e.player_id AND s.season_id = e.season_id
+                   WHERE e.player_id = %s AND e.has_data ORDER BY e.season_id DESC""", (player_id,)).fetchall()
+            return {"kind": "skater", "name": skater["name"], "position": skater["position"], "seasons": rows}
+        goalie = conn.execute("SELECT name FROM career_goalie WHERE player_id = %s AND game_type = 2", (player_id,)).fetchone()
+        if not goalie:
+            raise HTTPException(404, "Player not found")
+        rows = conn.execute(
+            "SELECT * FROM edge_goalie_season WHERE player_id = %s AND has_data ORDER BY season_id DESC", (player_id,)).fetchall()
+    return {"kind": "goalie", "name": goalie["name"], "position": "G", "seasons": rows}
+
+
 # --- Career-trajectory comparables --------------------------------------------------------------
 _traj_cache = {"sig": None, "data": None}
 

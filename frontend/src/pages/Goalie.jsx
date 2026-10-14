@@ -6,6 +6,7 @@ import Trophies from '../components/Trophies.jsx'
 import Rankings from '../components/Rankings.jsx'
 import FantasyStar from '../components/FantasyStar.jsx'
 import { GoalieShots } from '../components/Shots.jsx'
+import TrackingProfile from '../components/TrackingProfile.jsx'
 import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
 import { GsaaChart } from '../components/Charts.jsx'
@@ -116,6 +117,8 @@ export default function Goalie() {
             label: 'Shots faced',
             content: (
               <>
+              <TrackingProfile playerId={g.player_id} />
+
               <GoalieShots playerId={g.player_id} />
               </>
             ),

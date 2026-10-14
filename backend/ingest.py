@@ -2,7 +2,7 @@
 import json
 import sys
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -11,6 +11,7 @@ import requests
 
 import config
 import corsi
+import edge
 import era
 import html_shifts
 import shots as shotlib
@@ -976,6 +977,161 @@ def ingest_team_abbrevs(conn):
     print(f"team abbreviations: {loose} past team-games still unmatched")
 
 
+EDGE_FIRST_SEASON = 20212022   # the NHL's tracking data starts here
+EDGE_BASE = f"{config.WEB_API}/edge"
+EDGE_REFETCH_HOURS = 20       # the current season is refreshed for players who have played since the last fetch
+
+
+def edge_get(path):
+    """One EDGE response, or None when the NHL has none for that player and season (HTTP 404)."""
+    try:
+        return get_json(f"{EDGE_BASE}/{path}")
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            return None
+        raise
+
+
+# Columns only the two speed-detail endpoints fill. The nightly run refreshes the core stats from the summary
+# endpoint and these only weekly: each skater needs three requests otherwise, and the NHL allows about 70 a minute.
+EDGE_EXTRA_COLUMNS = {"avg_shot_mph", "avg_shot_pctile", "shots_100_plus", "shots_90_100", "shots_80_90", "shots_70_80",
+                      "bursts_22_plus", "bursts_22_pctile", "bursts_20_22", "bursts_18_20",
+                      "top_shot_game_id", "top_speed_game_id"}
+# The speed endpoints also carry the top speeds with more decimals, and the games they happened in.
+EDGE_REFINED_COLUMNS = {"top_shot_mph", "top_shot_pctile", "top_shot_date", "top_speed_mph", "top_speed_pctile", "top_speed_date"}
+EDGE_EXTRAS_REFRESH_DAYS = 7
+
+
+def fetch_edge_skater(job):
+    """The summary response: top shot and speed, distance, zone time, shots."""
+    player_id, season = job
+    return job, [edge_get(f"skater-detail/{player_id}/{season}/{config.GAME_TYPE}")]
+
+
+def fetch_edge_skater_extras(job):
+    """The two speed-detail responses: bursts, average shot speed and shot-speed bands."""
+    player_id, season = job
+    tail = f"{player_id}/{season}/{config.GAME_TYPE}"
+    skating = edge_get(f"skater-skating-speed-detail/{tail}")
+    time.sleep(0.15)
+    return job, [skating, edge_get(f"skater-shot-speed-detail/{tail}")]
+
+
+def fetch_edge_goalie(job):
+    player_id, season = job
+    return job, [edge_get(f"goalie-detail/{player_id}/{season}/{config.GAME_TYPE}")]
+
+
+def ensure_edge_columns(conn):
+    for table, cols in (("edge_skater_season", edge.SKATER_COLUMNS), ("edge_goalie_season", edge.GOALIE_COLUMNS)):
+        for col, sql_type in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {sql_type}")
+    conn.commit()
+
+
+def edge_jobs(conn, seasons, limit=None):
+    """(skater jobs, goalie jobs): player-seasons still to fetch. Past seasons are fetched once; the current
+    season again for players who have played since we last looked."""
+    skaters, goalies = [], []
+    for season in seasons:
+        have = {r[0]: r[1] for r in conn.execute(
+            "SELECT player_id, fetched_at FROM edge_skater_season WHERE season_id = %s", (season,))}
+        if season == config.SEASON_ID:
+            played = {r[0]: r[1] for r in conn.execute(
+                "SELECT player_id, max(game_date) FROM skater_game WHERE season_id = %s GROUP BY player_id", (season,))}
+            ids = [p for p, last in played.items() if p not in have or last >= have[p].date()]
+            ids = [p for p in ids if p not in have or have[p] < datetime.now(have[p].tzinfo) - timedelta(hours=EDGE_REFETCH_HOURS)]
+        else:
+            ids = [r[0] for r in conn.execute(
+                "SELECT player_id FROM career_season WHERE season_id = %s AND games_played > 0", (season,)) if r[0] not in have]
+        skaters += [(p, season) for p in ids]
+
+        have_g = {r[0]: r[1] for r in conn.execute(
+            "SELECT player_id, fetched_at FROM edge_goalie_season WHERE season_id = %s", (season,))}
+        if season == config.SEASON_ID:
+            played = {r[0]: r[1] for r in conn.execute(
+                "SELECT player_id, max(game_date) FROM goalie_game WHERE season_id = %s GROUP BY player_id", (season,))}
+            gids = [p for p, last in played.items() if p not in have_g or (last >= have_g[p].date()
+                    and have_g[p] < datetime.now(have_g[p].tzinfo) - timedelta(hours=EDGE_REFETCH_HOURS))]
+        else:
+            gids = [p for p in _season_player_ids("goalie", season) if p not in have_g]
+        goalies += [(p, season) for p in gids]
+    if limit:
+        skaters, goalies = skaters[:limit], goalies[: max(1, limit // 10)]
+    return skaters, goalies
+
+
+def edge_extras_jobs(conn, seasons, limit=None):
+    """Skater-seasons that have core stats but not the speed-detail extras (or, for the current season, whose
+    extras are a week old)."""
+    jobs = [(p, s) for p, s in conn.execute(
+        """SELECT player_id, season_id FROM edge_skater_season
+           WHERE has_data AND season_id = ANY(%s)
+             AND (extras_at IS NULL OR (season_id = %s AND extras_at < now() - make_interval(days => %s)))
+           ORDER BY season_id DESC, player_id""", (seasons, config.SEASON_ID, EDGE_EXTRAS_REFRESH_DAYS))]
+    return jobs[:limit] if limit else jobs
+
+
+def ingest_edge(conn, seasons, limit=None, extras=True):
+    """Tracking stats (shot speed, skating speed, distance, zone time) for skaters and goalies. Core stats come
+    first for everyone; the speed extras follow. Past seasons are fetched once (see `ingest.py backfill-edge`);
+    the nightly run only tops up the current season."""
+    ensure_edge_columns(conn)
+    skater_jobs, goalie_jobs = edge_jobs(conn, seasons, limit)
+    print(f"edge: {len(skater_jobs)} skater-seasons and {len(goalie_jobs)} goalie-seasons to fetch", flush=True)
+    started, done = time.time(), 0
+
+    def progress(total):
+        nonlocal done
+        done += 1
+        if done % 100 == 0:
+            left = (total - done) / (done / (time.time() - started)) / 60
+            print(f"  {done}/{total} ({left:.0f} min left)", flush=True)
+
+    def upsert(kind, columns, skip=()):
+        names = [c for c, _ in columns if c not in skip]
+        return names, (
+            f"INSERT INTO edge_{kind}_season (player_id, season_id, has_data, fetched_at, {', '.join(names)}) "
+            f"VALUES (%s, %s, %s, now(), {', '.join(['%s'] * len(names))}) "
+            f"ON CONFLICT (player_id, season_id) DO UPDATE SET has_data = EXCLUDED.has_data, fetched_at = now(), "
+            + ", ".join(f"{c} = EXCLUDED.{c}" for c in names))
+
+    total = len(skater_jobs) + len(goalie_jobs)
+    # Skaters: core stats only (the extras columns are left as they are)
+    names, sql = upsert("skater", edge.SKATER_COLUMNS, skip=EDGE_EXTRA_COLUMNS)
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for (player_id, season), responses in pool.map(fetch_edge_skater, skater_jobs):
+            row = edge.parse_skater(responses[0], None, None)
+            cur.execute(sql, (player_id, season, responses[0] is not None, *(row[c] for c in names)))
+            conn.commit()
+            progress(total)
+    names, sql = upsert("goalie", edge.GOALIE_COLUMNS)
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for (player_id, season), responses in pool.map(fetch_edge_goalie, goalie_jobs):
+            row = edge.parse_goalie(responses[0])
+            cur.execute(sql, (player_id, season, responses[0] is not None, *(row[c] for c in names)))
+            conn.commit()
+            progress(total)
+
+    if extras:
+        extra_jobs = edge_extras_jobs(conn, seasons, limit)
+        print(f"edge: {len(extra_jobs)} skater-seasons need the speed extras", flush=True)
+        total, done, started = len(extra_jobs), 0, time.time()
+        names = sorted(EDGE_EXTRA_COLUMNS)
+        refined = sorted(EDGE_REFINED_COLUMNS)
+        sql = ("UPDATE edge_skater_season SET extras_at = now(), "
+               + ", ".join(f"{c} = %s" for c in names)
+               + ", " + ", ".join(f"{c} = COALESCE(%s, {c})" for c in refined)
+               + " WHERE player_id = %s AND season_id = %s")
+        with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+            for (player_id, season), (skating, shot) in pool.map(fetch_edge_skater_extras, extra_jobs):
+                row = edge.parse_skater(None, skating, shot)
+                cur.execute(sql, (*(row[c] for c in names), *(row[c] for c in refined), player_id, season))
+                conn.commit()
+                progress(total)
+    print(f"edge: finished, {done} fetched in the last pass")
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -992,10 +1148,22 @@ def main():
         ingest_era_adjusted(conn)
         ingest_history(conn)
         ingest_team_abbrevs(conn)
+        ingest_edge(conn, [config.SEASON_ID])
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["backfill-onice"]:
+    if sys.argv[1:2] == ["backfill-edge"]:
+        # python ingest.py backfill-edge [20212022,20222023,...] [--limit N]
+        args = sys.argv[2:]
+        limit = int(args[args.index("--limit") + 1]) if "--limit" in args else None
+        wanted = [a for a in args if a.isdigit() or "," in a]
+        seasons = [int(x) for x in wanted[0].split(",")] if wanted else \
+            [s for s in range(EDGE_FIRST_SEASON, config.SEASON_ID, 10001)]
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            ingest_edge(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-onice"]:
         # python ingest.py backfill-onice [20222023,20232024,...] [--limit N]
         args = sys.argv[2:]
         limit = int(args[args.index("--limit") + 1]) if "--limit" in args else None

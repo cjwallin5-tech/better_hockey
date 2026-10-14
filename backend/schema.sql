@@ -313,3 +313,20 @@ ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS adj_points_per_game REAL;
 -- Abbreviations for the past-season team results, so head-to-head can pair teams with opponents.
 ALTER TABLE team_game_hist ADD COLUMN IF NOT EXISTS team TEXT;
 ALTER TABLE team_game_hist ADD COLUMN IF NOT EXISTS opponent TEXT;
+
+-- NHL EDGE tracking stats per player and regular season (columns are added from edge.py's column lists).
+CREATE TABLE IF NOT EXISTS edge_skater_season (
+    player_id  INTEGER NOT NULL,
+    season_id  INTEGER NOT NULL,
+    has_data   BOOLEAN NOT NULL DEFAULT false,   -- false when the NHL had nothing for this player-season
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (player_id, season_id)
+);
+CREATE TABLE IF NOT EXISTS edge_goalie_season (
+    player_id  INTEGER NOT NULL,
+    season_id  INTEGER NOT NULL,
+    has_data   BOOLEAN NOT NULL DEFAULT false,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (player_id, season_id)
+);
+ALTER TABLE edge_skater_season ADD COLUMN IF NOT EXISTS extras_at TIMESTAMPTZ;   -- when the speed-detail extras were fetched
