@@ -379,3 +379,8 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .view-chip.on { border-color: var(--accent); background: var(--accent-bg); }
 .view-name { display: inline-flex; gap: 6px; align-items: center; }
 .view-name input { padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
+
+.h2h-picks { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin: 12px 0; }
+.h2h-pick { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.h2h-pick select, .h2h-pick input { min-width: 200px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
+.h2h-matches { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 2px; }

@@ -15,6 +15,7 @@ import auth
 import config
 import defense
 import era
+import headtohead
 import playoff_odds
 import probable_goalies
 import trajectory
@@ -748,6 +749,80 @@ def skater_context(player_id: int):
 @app.get("/api/goalies/{player_id}/context")
 def goalie_context(player_id: int):
     return _context(player_id, goalie=True)
+
+
+# --- Head-to-head -----------------------------------------------------------------------------------
+H2H_TEAM_SQL = """
+SELECT t.season_id, t.game_id, t.game_date, t.goals_for AS gf, t.goals_against AS ga,
+       CASE WHEN t.wins = 1 THEN CASE WHEN o.points = 1 THEN 'OTW' ELSE 'W' END
+            WHEN t.points = 1 THEN 'OTL' ELSE 'L' END AS result
+FROM team_game_hist t JOIN team_game_hist o ON o.game_id = t.game_id AND o.team = t.opponent
+WHERE t.team = %(a)s AND t.opponent = %(b)s
+UNION ALL
+SELECT g.season_id, g.game_id, g.game_date,
+       CASE WHEN g.home = %(a)s THEN g.home_score ELSE g.away_score END,
+       CASE WHEN g.home = %(a)s THEN g.away_score ELSE g.home_score END,
+       CASE WHEN (g.home = %(a)s) = (g.home_score > g.away_score)
+            THEN CASE WHEN g.last_period = 'REG' THEN 'W' ELSE 'OTW' END
+            ELSE CASE WHEN g.last_period = 'REG' THEN 'L' ELSE 'OTL' END END
+FROM game g
+WHERE g.state IN ('OFF', 'FINAL') AND g.home_score IS NOT NULL AND g.season_id = %(season)s
+  AND ((g.home = %(a)s AND g.away = %(b)s) OR (g.home = %(b)s AND g.away = %(a)s))
+"""
+
+H2H_PLAYER_SQL = """
+SELECT season_id, game_id, game_date, opponent, goals, assists FROM skater_game WHERE player_id = %(p)s
+UNION ALL
+SELECT h.season_id, h.game_id, h.game_date, t.opponent, h.goals, h.assists
+FROM skater_game_hist h
+JOIN skater_game_onice o ON o.player_id = h.player_id AND o.game_id = h.game_id
+JOIN team_game_hist t ON t.game_id = h.game_id AND t.team = CASE WHEN o.team = 'ARI' THEN 'UTA' ELSE o.team END
+WHERE h.player_id = %(p)s
+"""
+
+
+@app.get("/api/head-to-head/teams")
+def head_to_head_teams(a: str, b: str):
+    """Results between two teams over the stored seasons (this one and the previous four)."""
+    a, b = a.upper(), b.upper()
+    if a == b:
+        raise HTTPException(400, "Pick two different teams")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        names = {r["abbrev"]: r["name"] for r in conn.execute(
+            "SELECT abbrev, name FROM team_season WHERE season_id = %s", (config.SEASON_ID,))}
+        if a not in names or b not in names:
+            raise HTTPException(404, "Team not found")
+        games = conn.execute(H2H_TEAM_SQL, {"a": a, "b": b, "season": config.SEASON_ID}).fetchall()
+        current = {r["game_id"] for r in conn.execute(
+            "SELECT game_id FROM game WHERE season_id = %s", (config.SEASON_ID,))}
+    summary = headtohead.team_summary(games)
+    recent = sorted(games, key=lambda g: (g["game_date"], g["game_id"]), reverse=True)[:20]
+    return {"a": {"abbrev": a, "name": names[a]}, "b": {"abbrev": b, "name": names[b]},
+            "first_season": min((g["season_id"] for g in games), default=None),
+            "summary": summary,
+            "recent": [{**g, "link": g["game_id"] in current} for g in recent]}
+
+
+@app.get("/api/head-to-head/player")
+def head_to_head_player(player_id: int, team: str):
+    """A skater's scoring against one team over the stored seasons, next to his scoring against everyone else."""
+    team = team.upper()
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        who = conn.execute("SELECT name, position FROM career_skater WHERE player_id = %s AND game_type = 2",
+                           (player_id,)).fetchone()
+        if not who:
+            raise HTTPException(404, "No skater with that id")
+        tname = conn.execute("SELECT name FROM team_season WHERE season_id = %s AND abbrev = %s",
+                             (config.SEASON_ID, team)).fetchone()
+        if not tname:
+            raise HTTPException(404, "Team not found")
+        rows = conn.execute(H2H_PLAYER_SQL, {"p": player_id}).fetchall()
+    out = headtohead.player_summary(rows, team)
+    games = sorted((r for r in rows if r["opponent"] == team), key=lambda r: (r["game_date"], r["game_id"]), reverse=True)
+    return {"player": {"player_id": player_id, "name": who["name"], "position": who["position"]},
+            "team": {"abbrev": team, "name": tname["name"]},
+            "stored_games": len(rows), **out,
+            "recent": [{k: r[k] for k in ("season_id", "game_id", "game_date", "goals", "assists")} for r in games[:20]]}
 
 
 # --- Playoff odds -------------------------------------------------------------------------------

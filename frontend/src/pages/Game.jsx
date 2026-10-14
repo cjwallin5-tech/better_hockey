@@ -67,6 +67,7 @@ export default function Game() {
         <p>
           {finished ? (g.last_period === 'REG' ? 'Final' : `Final / ${g.last_period}`) : g.state} · {longDate(g.game_date)}
           {g.venue ? ` · ${g.venue}` : ''}
+          {' · '}<Link to={`/head-to-head?a=${g.home}&b=${g.away}`}>Head-to-head history</Link>
         </p>
       </header>
 

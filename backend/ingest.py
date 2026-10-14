@@ -956,6 +956,26 @@ def ingest_era_adjusted(conn):
     print(f"era-adjusted: {len(adj)} skaters")
 
 
+# The Coyotes' games count toward the same franchise as Utah, so head-to-head history carries over the move.
+TEAM_ALIASES = {"Arizona Coyotes": "UTA", "Utah Hockey Club": "UTA"}
+
+
+def ingest_team_abbrevs(conn):
+    """Give past-season team results an abbreviation and an opponent (each game has one row per team)."""
+    names = {name: abbrev for abbrev, name in conn.execute(
+        "SELECT abbrev, name FROM team_season WHERE season_id = %s", (config.SEASON_ID,))}
+    names.update(TEAM_ALIASES)
+    with conn.cursor() as cur:
+        cur.executemany("UPDATE team_game_hist SET team = %s WHERE team_name = %s AND team IS NULL",
+                        [(abbrev, name) for name, abbrev in names.items()])
+        cur.execute("""UPDATE team_game_hist t SET opponent = o.team FROM team_game_hist o
+                       WHERE o.game_id = t.game_id AND o.team_name <> t.team_name AND t.opponent IS NULL""")
+        cur.execute("SELECT count(*) FROM team_game_hist WHERE team IS NULL OR opponent IS NULL")
+        loose = cur.fetchone()[0]
+    conn.commit()
+    print(f"team abbreviations: {loose} past team-games still unmatched")
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -971,6 +991,7 @@ def main():
         ingest_defense_seasons(conn)
         ingest_era_adjusted(conn)
         ingest_history(conn)
+        ingest_team_abbrevs(conn)
 
 
 if __name__ == "__main__":
