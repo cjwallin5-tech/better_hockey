@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ShotMap from '../components/ShotMap.jsx'
-import { ShiftChart, XgFlow } from '../components/GameCharts.jsx'
+import { CorsiFlow, ShiftChart, XgFlow } from '../components/GameCharts.jsx'
 import { fmtPct, fmtToi } from '../format.js'
 
 const longDate = (iso) =>
@@ -101,6 +101,8 @@ export default function Game() {
       </div>
 
       {hasShots && <XgFlow shots={shots} goals={goals} away={g.away} home={g.home} />}
+
+      {hasShots && <CorsiFlow shots={shots} goals={goals} away={g.away} home={g.home} />}
 
       {finished && <ShiftChart game={g} goals={goals} away={g.away} home={g.home} />}
 

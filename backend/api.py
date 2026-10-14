@@ -1822,7 +1822,7 @@ def game_detail(game_id: int):
             "SELECT player_id, name FROM skater_season WHERE season_id = %s", (game["season_id"],))}
         shots = conn.execute(
             """SELECT event_id, team, opponent, period, time_sec, kind, shot_type, x, y, distance, xg, strength,
-                      rebound, shooter_id, goalie_id, %s::date AS game_date
+                      rebound, shooter_id, goalie_id, situation, %s::date AS game_date
                FROM shot WHERE game_id = %s ORDER BY time_sec""",
             (game["game_date"], game_id),
         ).fetchall()
