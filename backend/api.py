@@ -14,6 +14,7 @@ from psycopg.types.json import Jsonb
 import auth
 import config
 import playoff_odds
+import probable_goalies
 
 app = FastAPI(title="Hockey Stats")
 app.include_router(auth.router)
@@ -664,6 +665,79 @@ def schedule_grid():
             cells.append({"games": len(wk), "back_to_backs": b2b, "days": wk})
         out.append({**t, "weeks": cells, "total": sum(c["games"] for c in cells)})
     return {"weeks": weeks, "teams": out}
+
+
+# --- Probable goalies ---------------------------------------------------------------------------
+# Starters the NHL has confirmed, read from the boxscore only near or after puck drop and cached briefly.
+CONFIRM_LEAD = timedelta(hours=2)   # start looking this long before puck drop
+CONFIRM_TTL = 60                    # seconds; finished games never change, so they are kept an hour
+_confirm_cache = {}
+
+
+def _confirmed_starters(game):
+    now = datetime.now(timezone.utc)
+    if game["state"] == "FUT" and (game["start_time"] is None or game["start_time"] - now > CONFIRM_LEAD):
+        return {}
+    hit = _confirm_cache.get(game["game_id"])
+    final = game["state"] in ("FINAL", "OFF")
+    if hit and time.time() - hit[0] < (3600 if final else CONFIRM_TTL):
+        return hit[1]
+    try:
+        box = requests.get(f"{config.WEB_API}/gamecenter/{game['game_id']}/boxscore", timeout=10).json()
+        found = probable_goalies.confirmed_starters(box)
+    except (requests.RequestException, ValueError, KeyError):
+        return hit[1] if hit else {}  # NHL API hiccup: keep the last answer, or fall back to the guess
+    _confirm_cache[game["game_id"]] = (time.time(), found)
+    return found
+
+
+@app.get("/api/probable-goalies")
+def probable_goalies_endpoint(date: str | None = None):
+    """Inferred starters for one day's games (default: today, Eastern). See probable_goalies.py."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        if date is None:
+            day = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        else:
+            try:
+                day = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+        games = conn.execute(
+            "SELECT game_id, start_time, state, home, away FROM game "
+            "WHERE season_id = %s AND game_date = %s ORDER BY start_time, game_id",
+            (config.SEASON_ID, day)).fetchall()
+        starts = conn.execute(
+            """SELECT g.team, g.player_id, g.game_date, s.name FROM goalie_game g
+               LEFT JOIN goalie_season s ON s.season_id = g.season_id AND s.player_id = g.player_id
+               WHERE g.season_id = %s AND g.started AND g.game_date < %s ORDER BY g.game_date DESC, g.game_id DESC""",
+            (config.SEASON_ID, day)).fetchall()
+    by_team = {}
+    for r in starts:
+        by_team.setdefault(r["team"], []).append(r)
+
+    # How often a goalie starts both ends of a back-to-back, league-wide this season so far.
+    b2b = repeats = 0
+    for rows in by_team.values():
+        for newer, older in zip(rows, rows[1:]):
+            if (newer["game_date"] - older["game_date"]).days == 1:
+                b2b += 1
+                repeats += newer["player_id"] == older["player_id"]
+    p_repeat = probable_goalies.repeat_rate(b2b, repeats)
+
+    def side(abbrev, confirmed):
+        rows = by_team.get(abbrev, [])
+        tired = bool(rows) and (day - rows[0]["game_date"]).days == 1
+        candidates = probable_goalies.predict(
+            [(r["player_id"], r["name"] or "Unknown") for r in rows], tired, p_repeat)
+        if abbrev in confirmed:
+            candidates = probable_goalies.apply_confirmed(candidates, confirmed[abbrev])
+        return {"team": abbrev, "back_to_back": tired, "confirmed": abbrev in confirmed, "candidates": candidates}
+
+    out = []
+    for g in games:
+        confirmed = _confirmed_starters(g)
+        out.append({**g, "away_goalies": side(g["away"], confirmed), "home_goalies": side(g["home"], confirmed)})
+    return {"date": day, "repeat_rate": round(p_repeat, 3), "games": out}
 
 
 # --- Live scores --------------------------------------------------------------------------------

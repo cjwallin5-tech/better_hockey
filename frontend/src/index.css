@@ -363,3 +363,8 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .sg-cell sup { color: var(--accent); margin-left: 1px; }
 .check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 
+.pg-games { display: flex; flex-wrap: wrap; gap: 10px; }
+.pg-game { display: grid; gap: 6px; min-width: 220px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.pg-side { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.pg-team { font-weight: 600; min-width: 36px; }
+.pg-side small, .pg-game em { color: var(--muted); font-size: 12px; font-style: normal; }

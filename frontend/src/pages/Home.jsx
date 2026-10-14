@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import LiveGames from '../components/LiveGames.jsx'
+import ProbableGoalies from '../components/ProbableGoalies.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { fmt1, fmtToi } from '../format.js'
 
@@ -46,6 +47,7 @@ export default function Home() {
       </header>
 
       <LiveGames />
+      <ProbableGoalies />
 
       <div className="home-grid">
         <section className="card">
