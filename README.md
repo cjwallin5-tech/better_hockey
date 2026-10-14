@@ -70,9 +70,8 @@ Things worth knowing:
 - **Daily roster email**: signed-in users can turn it on from the Account page. `backend/digest.py` emails today's games for
   each rostered player (with a likely-starter guess for goalies), who's hot and who's missing games, at most once per Eastern
   day, using the same SMTP settings as password reset. Preview without sending: `.venv/bin/python digest.py --dry`, or
-  `--preview 8478402,8480069` for a list of player ids. To send every morning, copy `~/Library/LaunchAgents/com.hockeystats.ingest.plist`
-  to `com.hockeystats.digest.plist`, point it at `backend/run_digest.sh`, set `Hour` to 8, change the `Label`, and run
-  `launchctl load` on it (logs in `backend/logs/digest.log`).
+  `--preview 8478402,8480069` for a list of player ids. To send every morning, follow the steps at the top of `backend/com.hockeystats.digest.plist.example` (a launchd template with
+  the SMTP settings and an 8:00 AM schedule; logs in `backend/logs/digest.log`).
 - **Playoff odds** (Standings → Playoff odds): Monte Carlo over the remaining schedule (`backend/playoff_odds.py`; the model and its
   knobs are described at the top of that file). **Schedule grid** (`/schedule`, under More): games per team per week, with light
   weeks, heavy weeks and back-to-backs marked. Both need the full-season schedule, which the nightly ingest now loads.
