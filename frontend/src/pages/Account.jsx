@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import DigestToggle from '../components/DigestToggle.jsx'
 import { resolveConflict, signIn, signOut, useAuth } from '../auth.js'
 
 const names = (players) => players.map((p) => p.name).join(', ')
@@ -66,6 +67,7 @@ export default function Account() {
         {sync === 'synced' && <p className="status">Your fantasy roster and scoring are synced to this account. Changes save automatically and show up on your other devices.</p>}
         {sync === 'checking' && <p className="status">Syncing…</p>}
         {sync === 'error' && <p className="notice">Couldn't sync: {syncError}. Your data is still safe in this browser.</p>}
+        <DigestToggle />
         <p><Link to="/fantasy">Go to your fantasy team →</Link></p>
         <p><button onClick={signOut}>Log out</button></p>
       </main>

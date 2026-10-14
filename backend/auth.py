@@ -8,9 +8,7 @@ import hmac
 import logging
 import re
 import secrets
-import smtplib
 import time
-from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 
 import psycopg
@@ -20,6 +18,7 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
 import config
+import mail
 
 router = APIRouter(prefix="/api")
 log = logging.getLogger("uvicorn.error")
@@ -47,6 +46,11 @@ CREATE TABLE IF NOT EXISTS password_reset (
     token_hash TEXT PRIMARY KEY,
     user_id    BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS digest_pref (
+    user_id      BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
+    enabled      BOOLEAN NOT NULL DEFAULT false,
+    last_sent_on DATE
 );
 CREATE TABLE IF NOT EXISTS fantasy_state (
     user_id    BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
@@ -220,6 +224,33 @@ def put_fantasy_state(state: FantasyState, request: Request):
     return {"players": players, "scoring": scoring}
 
 
+# --- Daily roster digest (the email itself is built and sent by digest.py) ---------------------------
+class DigestPref(BaseModel):
+    enabled: bool
+
+
+@router.get("/digest")
+def get_digest(request: Request):
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        row = conn.execute("SELECT enabled FROM digest_pref WHERE user_id = %s", (user["id"],)).fetchone()
+    return {"enabled": bool(row and row["enabled"]), "email_configured": bool(config.SMTP_HOST)}
+
+
+@router.put("/digest")
+def put_digest(pref: DigestPref, request: Request):
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        conn.execute(
+            """INSERT INTO digest_pref (user_id, enabled) VALUES (%s, %s)
+               ON CONFLICT (user_id) DO UPDATE SET enabled = EXCLUDED.enabled""", (user["id"], pref.enabled))
+    return {"enabled": pref.enabled, "email_configured": bool(config.SMTP_HOST)}
+
+
 # --- Password reset ---------------------------------------------------------------------------
 RESET_MINUTES = 60
 RESET_LIMIT = 5  # reset emails per address / client per hour
@@ -248,17 +279,7 @@ def _send_reset_email(email: str, link: str):
     if not config.SMTP_HOST:
         log.warning("SMTP_HOST is not set, so no email was sent. Reset link for %s: %s", email, link)
         return
-    msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = config.SMTP_FROM, email, "Reset your NHL Stats password"
-    msg.set_content(body)
-    try:
-        with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as smtp:
-            smtp.starttls()
-            if config.SMTP_USER:
-                smtp.login(config.SMTP_USER, config.SMTP_PASSWORD or "")
-            smtp.send_message(msg)
-    except (OSError, smtplib.SMTPException):
-        log.exception("Couldn't send the password reset email to %s", email)
+    mail.send(email, "Reset your NHL Stats password", body)
 
 
 class ForgotRequest(BaseModel):

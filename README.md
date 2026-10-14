@@ -46,6 +46,12 @@ Things worth knowing:
   `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `PUBLIC_URL` (the site's address, used in the link) for the API; any provider's
   SMTP works (Resend, SES, Gmail...). With `SMTP_HOST` unset, the link is printed to the API log instead, which is for local
   development only. Over HTTPS the session cookie is marked Secure; put the API behind HTTPS before exposing it publicly.
+- **Daily roster email**: signed-in users can turn it on from the Account page. `backend/digest.py` emails today's games for
+  each rostered player (with a likely-starter guess for goalies), who's hot and who's missing games, at most once per Eastern
+  day, using the same SMTP settings as password reset. Preview without sending: `.venv/bin/python digest.py --dry`, or
+  `--preview 8478402,8480069` for a list of player ids. To send every morning, copy `~/Library/LaunchAgents/com.hockeystats.ingest.plist`
+  to `com.hockeystats.digest.plist`, point it at `backend/run_digest.sh`, set `Hour` to 8, change the `Label`, and run
+  `launchctl load` on it (logs in `backend/logs/digest.log`).
 - **Playoff odds** (Standings → Playoff odds): Monte Carlo over the remaining schedule (`backend/playoff_odds.py`; the model and its
   knobs are described at the top of that file). **Schedule grid** (`/schedule`, under More): games per team per week, with light
   weeks, heavy weeks and back-to-backs marked. Both need the full-season schedule, which the nightly ingest now loads.
