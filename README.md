@@ -46,6 +46,9 @@ Things worth knowing:
   `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `PUBLIC_URL` (the site's address, used in the link) for the API; any provider's
   SMTP works (Resend, SES, Gmail...). With `SMTP_HOST` unset, the link is printed to the API log instead, which is for local
   development only. Over HTTPS the session cookie is marked Secure; put the API behind HTTPS before exposing it publicly.
+- **Era-adjusted scoring**: the All-Time page's "Era-adjusted" view and the Compare page's adjusted charts rescale each season's
+  goals and assists to today's scoring level (the last five completed seasons), separately for forwards and defensemen
+  (`backend/era.py` explains the method and what it leaves out). The nightly ingest recomputes the stored career figures.
 - **On-ice defense for past seasons**: `python ingest.py backfill-onice` (from `backend/`, optionally with seasons like `20222023,20232024` and
   `--limit N`) computes 5v5 shot attempts, expected goals and ice time per skater for every game of the previous four seasons
   from the NHL play-by-play and shift charts. It's resumable (finished games are skipped) and takes about an hour at the NHL's rate

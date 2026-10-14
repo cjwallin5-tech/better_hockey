@@ -35,7 +35,7 @@ for path in (
     f"/api/players/{sk}/career", f"/api/players/{sk}/comparables", f"/api/players/{sk}/defense", f"/api/players/{sk}/profile", f"/api/players/{go}/profile",
     f"/api/teams/{tm}", f"/api/teams/{tm}/lines", f"/api/teams/{tm}/shots", f"/api/teams/{tm}/schedule",
     f"/api/teams/{tm}/pace-history", "/api/milestones", "/api/records",
-    "/api/playoff-odds", "/api/schedule-grid", "/api/probable-goalies", "/api/trophies", "/api/trophy-races", "/api/live",
+    "/api/era-factors", "/api/alltime/skater?sort=adj_points&limit=3", "/api/playoff-odds", "/api/schedule-grid", "/api/probable-goalies", "/api/trophies", "/api/trophy-races", "/api/live",
     f"/api/fantasy/week?ids={sk},{go}", f"/api/players/{sk}/rankings",
     "/api/alltime/skater?limit=5", "/api/alltime/goalie?limit=5&game_type=3", "/api/alltime/skater/countries",
     "/api/alltime/skater?sort=points_per_game&min_gp=300&position=D&active=true&limit=3",

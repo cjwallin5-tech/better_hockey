@@ -55,10 +55,12 @@ export default function Compare() {
   const [poolKind, setPoolKind] = useState('skater') // which list to search while nothing is selected
   const [metricId, setMetricId] = useState(params.get('metric')) // also lets a link open on a given chart
   const [xMode, setXMode] = useState('season') // 'season' | 'age'
+  const [eraFactors, setEraFactors] = useState(null)
 
   useEffect(() => {
     fetch('/api/skaters').then((r) => r.json()).then(setSkaters).catch(() => setSkaters([]))
     fetch('/api/goalies').then((r) => r.json()).then((d) => setGoalies(d.goalies)).catch(() => setGoalies([]))
+    fetch('/api/era-factors').then((r) => (r.ok ? r.json() : null)).then(setEraFactors).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -81,7 +83,20 @@ export default function Compare() {
   const firstBio = careers[ids[0]]?.data?.bio // retired players aren't in the current-season lists
   const kind = ids.length ? (firstBio ? (firstBio.is_goalie ? 'goalie' : 'skater') : goalieById.has(ids[0]) ? 'goalie' : 'skater') : poolKind
   const isGoalie = kind === 'goalie'
-  const metrics = METRICS[kind]
+  // Era-adjusted scoring: each season's goals and assists scaled to today's scoring level, by role.
+  const adjusted = (s, p, stats) => {
+    const f = eraFactors?.seasons[String(s.season)]?.[p?.career?.bio?.position === 'D' ? 'D' : 'F']
+    if (!f) return null
+    return (stats.includes('g') ? s.g * f.goals : 0) + (stats.includes('a') ? s.a * f.assists : 0)
+  }
+  const eraMetrics = eraFactors && kind === 'skater'
+    ? [
+        { id: 'ap', label: 'Points (era-adjusted)', era: true, cumulative: true, fmt: (v) => Math.round(v), value: (s, p) => adjusted(s, p, 'ga') },
+        { id: 'ag', label: 'Goals (era-adjusted)', era: true, cumulative: true, fmt: (v) => Math.round(v), value: (s, p) => adjusted(s, p, 'g') },
+        { id: 'aa', label: 'Assists (era-adjusted)', era: true, cumulative: true, fmt: (v) => Math.round(v), value: (s, p) => adjusted(s, p, 'a') },
+      ]
+    : []
+  const metrics = [...METRICS[kind], ...eraMetrics]
   const metric = metrics.find((m) => m.id === metricId) ?? metrics[0]
 
   // Search every player in NHL history (the all-time tables), not just this season's rosters.
@@ -114,7 +129,7 @@ export default function Compare() {
       let total = 0
       const points = nhlSeasons(p.career.seasons)
         .map((s, i) => {
-          const v = metric.value(s)
+          const v = metric.value(s, p)
           if (v == null) return null
           total += metric.cumulative ? v : 0
           const x = xMode === 'age' ? ageInSeason(p.career.bio.birth_date, s.season) : i + 1
@@ -129,6 +144,10 @@ export default function Compare() {
   const metricLabel = metric.label.toLowerCase()
 
   const reg = (p) => p.career.career.regularSeason
+  const adjustedTotal = (p) => {
+    const parts = nhlSeasons(p.career.seasons).map((s) => adjusted(s, p, 'ga')).filter((v) => v != null)
+    return parts.length ? parts.reduce((t, v) => t + v, 0) : null
+  }
   const poff = (p) => p.career.career.playoffs
   const bestSeason = (p, key) => Math.max(0, ...nhlSeasons(p.career.seasons).map((s) => s[key]))
 
@@ -156,6 +175,7 @@ export default function Compare() {
         ['Assists', (p) => reg(p)?.assists, 'max'],
         ['Points', (p) => reg(p)?.points, 'max'],
         ['Points / game', (p) => (reg(p) ? reg(p).points / reg(p).gamesPlayed : null), 'max', (v) => v.toFixed(2)],
+        ...(eraFactors ? [['Points, era-adjusted', (p) => adjustedTotal(p), 'max', (v) => Math.round(v).toLocaleString()]] : []),
         ['Plus/minus', (p) => reg(p)?.plusMinus, 'max'],
         ['Power-play points', (p) => reg(p)?.powerPlayPoints, 'max'],
         ['Game-winning goals', (p) => reg(p)?.gameWinningGoals, 'max'],
@@ -289,6 +309,13 @@ export default function Compare() {
             yDomain={yDomain}
             yFmt={metric.fmt}
           />
+          {metric.era && (
+            <p className="sub">
+              Era-adjusted: each season's goals and assists are scaled to today's scoring level for the player's role
+              (forward or defenseman), so a 1980s season and a 2020s one are on the same footing. Games, ice time and
+              power-play share are not adjusted. <Link to="/alltime?v=adjusted">See the all-time era-adjusted leaders →</Link>
+            </p>
+          )}
         </>
       )}
 

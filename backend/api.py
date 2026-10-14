@@ -14,6 +14,7 @@ from psycopg.types.json import Jsonb
 import auth
 import config
 import defense
+import era
 import playoff_odds
 import probable_goalies
 import trajectory
@@ -1040,10 +1041,34 @@ ALLTIME_SORTS = {
     "skater": {"name", "first_season", "games_played", "goals", "assists", "points", "points_per_game",
                "plus_minus", "pim", "ev_goals", "pp_goals", "pp_points", "sh_goals", "sh_points",
                "game_winning_goals", "ot_goals", "shots", "shooting_pct", "fo_win_pct", "hits", "blocked_shots",
-               "takeaways", "giveaways", "missed_shots", "shot_attempts", "empty_net_goals", "first_goals"},
+               "takeaways", "giveaways", "missed_shots", "shot_attempts", "empty_net_goals", "first_goals",
+               "adj_goals", "adj_assists", "adj_points", "adj_points_per_game"},
     "goalie": {"name", "first_season", "games_played", "games_started", "wins", "losses", "ot_losses",
                "ties", "saves", "shots_against", "goals_against", "save_pct", "gaa", "shutouts", "toi_sec"},
 }
+
+
+# --- Era adjustment ---------------------------------------------------------------------------
+_era_cache = {"sig": None, "data": None}
+
+
+@app.get("/api/era-factors")
+def era_factors():
+    """Per-season, per-role multipliers that turn goals and assists into today's scoring terms (see era.py)."""
+    with psycopg.connect(config.DATABASE_URL) as conn:
+        sig = conn.execute("SELECT count(*), coalesce(sum(points), 0) FROM career_season").fetchone()
+        if _era_cache["sig"] != sig:
+            rows = era.load_rows(conn)
+            rates = era.league_rates(rows)
+            ref = era.reference_rates(rates, config.SEASON_ID - 10001)
+            fac = era.factors(rates, ref)
+            seasons = {}
+            for (season, rl), f in fac.items():
+                seasons.setdefault(str(season), {})[rl] = {k: round(v, 4) for k, v in f.items()}
+            _era_cache.update(sig=sig, data={
+                "reference_seasons": [config.SEASON_ID - 10001 * i for i in range(1, era.REFERENCE_SEASONS + 1)],
+                "today": {rl: {k: round(v, 4) for k, v in r.items()} for rl, r in ref.items()}, "seasons": seasons})
+    return _era_cache["data"]
 
 
 @app.get("/api/alltime/{kind}")

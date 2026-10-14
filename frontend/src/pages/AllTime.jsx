@@ -7,6 +7,7 @@ import { useUrlSync } from '../urlState.js'
 const PAGE_SIZE = 50
 
 const int = (v) => (v == null ? '–' : v.toLocaleString())
+const round = (v) => (v == null ? '–' : Math.round(v).toLocaleString())
 const dec = (v, d = 2) => (v == null ? '–' : v.toFixed(d))
 const pct = (v) => (v == null || v === 0 ? '–' : (v * 100).toFixed(1))
 const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
@@ -37,6 +38,10 @@ const COLUMNS = {
     { key: 'shot_attempts', label: 'Shot attempts', fmt: int, tracked: true },
     { key: 'empty_net_goals', label: 'ENG', fmt: int },
     { key: 'first_goals', label: 'First goals', fmt: int },
+    { key: 'adj_goals', label: 'Adj G', fmt: round },
+    { key: 'adj_assists', label: 'Adj A', fmt: round },
+    { key: 'adj_points', label: 'Adj P', fmt: round, accent: true },
+    { key: 'adj_points_per_game', label: 'Adj P/GP', fmt: dec, rate: true },
   ],
   goalie: [
     { key: 'first_season', label: 'Debut', fmt: seasonLabel, asc: true },
@@ -63,6 +68,8 @@ const VIEWS = {
     { id: 'special', label: 'Special teams & goals', sort: 'pp_points', keys: ['games_played', 'pp_goals', 'pp_points', 'sh_goals', 'game_winning_goals', 'ot_goals', 'empty_net_goals', 'first_goals'] },
     { id: 'shooting', label: 'Shooting', sort: 'shots', keys: ['games_played', 'shots', 'shooting_pct', 'shot_attempts', 'missed_shots', 'fo_win_pct'] },
     { id: 'defense', label: 'Hits & giveaways', sort: 'hits', keys: ['games_played', 'hits', 'blocked_shots', 'takeaways', 'giveaways'] },
+    { id: 'adjusted', label: 'Era-adjusted', sort: 'adj_points', regularOnly: true,
+      keys: ['first_season', 'games_played', 'goals', 'points', 'adj_goals', 'adj_assists', 'adj_points', 'adj_points_per_game'] },
   ],
   goalie: [
     { id: 'record', label: 'Record', sort: 'wins', keys: ['first_season', 'games_played', 'games_started', 'wins', 'losses', 'ties', 'ot_losses', 'shutouts'] },
@@ -113,7 +120,8 @@ export default function AllTime() {
   }, [search])
 
   const allColumns = COLUMNS[kind]
-  const view = VIEWS[kind].find((v) => v.id === viewId) ?? VIEWS[kind][0]
+  const visibleViews = VIEWS[kind].filter((v) => !(v.regularOnly && gameType === 3)) // adjusted totals are regular season only
+  const view = visibleViews.find((v) => v.id === viewId) ?? visibleViews[0]
   const columns = view.keys.map((k) => allColumns.find((c) => c.key === k))
   const sortCol = allColumns.find((c) => c.key === sort.key)
   const autoMin = sortCol?.rate ? AUTO_MIN_GP[kind] : 0
@@ -221,11 +229,11 @@ export default function AllTime() {
         </div>
         <div className="tabs" role="tablist">
           <button role="tab" aria-selected={gameType === 2} className={gameType === 2 ? 'on' : ''} onClick={() => reset(setGameType)(2)}>Regular season</button>
-          <button role="tab" aria-selected={gameType === 3} className={gameType === 3 ? 'on' : ''} onClick={() => reset(setGameType)(3)}>Playoffs</button>
+          <button role="tab" aria-selected={gameType === 3} className={gameType === 3 ? 'on' : ''} onClick={() => { reset(setGameType)(3); if (view.regularOnly) switchView(VIEWS[kind][0]) }}>Playoffs</button>
         </div>
       </div>
       <div className="tabs view-tabs" role="tablist" aria-label="Stat groups">
-        {VIEWS[kind].map((v) => (
+        {visibleViews.map((v) => (
           <button key={v.id} role="tab" aria-selected={v.id === view.id} className={v.id === view.id ? 'on' : ''} onClick={() => switchView(v)}>{v.label}</button>
         ))}
       </div>
@@ -305,6 +313,16 @@ export default function AllTime() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {kind === 'skater' && view.id === 'adjusted' && (
+        <p className="sub">
+          Adjusted totals rescale each season's goals and assists to today's scoring level (the last five completed
+          seasons), separately for forwards and defensemen, because the league averaged about 4 goals per team game in
+          the early 1980s and under 3 in the mid-2000s. Games played are unchanged. It does not correct for ice time,
+          power-play share, expansion or schedule length, so treat it as a fairer comparison, not a ruling. Rate
+          sorting (Adj P/GP) shows players with at least {AUTO_MIN_GP.skater} games.
+        </p>
       )}
 
       {kind === 'skater' && ['defense', 'shooting'].includes(view.id) && (

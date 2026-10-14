@@ -11,6 +11,7 @@ import requests
 
 import config
 import corsi
+import era
 import html_shifts
 import shots as shotlib
 
@@ -940,6 +941,21 @@ def ingest_defense_seasons(conn):
     print(f"defense seasons: fetched {len(todo)} season(s)")
 
 
+def ingest_era_adjusted(conn):
+    """Era-adjusted career goals, assists and points for every skater (regular season), from career_season."""
+    rows = era.load_rows(conn)
+    rates = era.league_rates(rows)
+    fac = era.factors(rates, era.reference_rates(rates, config.SEASON_ID - 10001))
+    adj = era.adjust_careers(rows, fac)
+    with conn.cursor() as cur:
+        cur.executemany(
+            """UPDATE career_skater SET adj_goals = %s, adj_assists = %s, adj_points = %s, adj_points_per_game = %s
+               WHERE player_id = %s AND game_type = 2""",
+            [(a["adj_goals"], a["adj_assists"], a["adj_points"], a["adj_points_per_game"], pid) for pid, a in adj.items()])
+    conn.commit()
+    print(f"era-adjusted: {len(adj)} skaters")
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -953,6 +969,7 @@ def main():
         ingest_alltime(conn)
         ingest_career_seasons(conn)
         ingest_defense_seasons(conn)
+        ingest_era_adjusted(conn)
         ingest_history(conn)
 
 

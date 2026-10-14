@@ -303,3 +303,9 @@ CREATE TABLE IF NOT EXISTS defense_season (
     PRIMARY KEY (player_id, season_id)
 );
 ALTER TABLE skater_game_onice ADD COLUMN IF NOT EXISTS team TEXT;
+
+-- Era-adjusted career scoring (see era.py), filled by the ingest after the career seasons are loaded.
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS adj_goals REAL;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS adj_assists REAL;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS adj_points REAL;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS adj_points_per_game REAL;
