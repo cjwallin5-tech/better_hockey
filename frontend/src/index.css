@@ -368,3 +368,5 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .pg-side { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .pg-team { font-weight: 600; min-width: 36px; }
 .pg-side small, .pg-game em { color: var(--muted); font-size: 12px; font-style: normal; }
+.goal-for { stroke: var(--text); stroke-width: 1.5; }
+.goal-against { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }

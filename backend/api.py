@@ -1645,6 +1645,67 @@ def game_detail(game_id: int):
             "shots": shots, "lines": [{**l, "names": [names.get(l[k], str(l[k])) for k in ("p1", "p2", "p3")]} for l in lines]}
 
 
+# Shift charts come straight from the NHL (we only store the on-ice totals derived from them) and are
+# cached in memory: a finished game never changes, a live one is refreshed every half minute.
+_shift_cache = {}
+SHIFT_TTL_LIVE = 30
+SHIFT_CACHE_MAX = 200
+
+
+def _clock_seconds(period, mmss):
+    minutes, seconds = mmss.split(":")
+    return (period - 1) * 1200 + int(minutes) * 60 + int(seconds)
+
+
+@app.get("/api/games/{game_id}/shifts")
+def game_shifts(game_id: int):
+    """Every skater's shifts in absolute game seconds, forwards then defensemen, busiest first."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        game = conn.execute("SELECT season_id, state FROM game WHERE game_id = %s", (game_id,)).fetchone()
+        if game is None:
+            raise HTTPException(404, "Game not found")
+        positions = {r["player_id"]: r["position"] for r in conn.execute(
+            "SELECT player_id, position FROM skater_season WHERE season_id = %s", (game["season_id"],))}
+        goalie_ids = {r["player_id"] for r in conn.execute(
+            "SELECT player_id FROM goalie_game WHERE game_id = %s", (game_id,))}
+    final = game["state"] in ("OFF", "FINAL")
+    hit = _shift_cache.get(game_id)
+    if hit and (final or time.time() - hit[0] < SHIFT_TTL_LIVE):
+        return hit[1]
+    if game["state"] == "FUT":
+        return {"players": [], "length_sec": 3600}
+    try:
+        rows = requests.get(f"{config.STATS_API}/shiftcharts", params={"limit": -1, "cayenneExp": f"gameId={game_id}"},
+                            timeout=20).json()["data"]
+    except (requests.RequestException, ValueError, KeyError):
+        if hit:
+            return hit[1]
+        raise HTTPException(502, "NHL shift data unavailable")
+    players = {}
+    for s in rows:
+        if s.get("typeCode") != 517 or not s.get("startTime") or not s.get("endTime") or s["period"] > 4:
+            continue
+        if s["playerId"] in goalie_ids:
+            continue
+        start, end = _clock_seconds(s["period"], s["startTime"]), _clock_seconds(s["period"], s["endTime"])
+        if end < start:
+            continue
+        p = players.setdefault(s["playerId"], {
+            "player_id": s["playerId"], "name": f"{s.get('firstName', '')} {s.get('lastName', '')}".strip(),
+            "team": s["teamAbbrev"], "position": positions.get(s["playerId"]), "shifts": [], "toi_sec": 0})
+        p["shifts"].append([start, end])
+        p["toi_sec"] += end - start
+    ordered = sorted(players.values(), key=lambda p: (p["team"], p["position"] == "D", -p["toi_sec"]))
+    for p in ordered:
+        p["shifts"].sort()
+    length = max([e for p in ordered for _, e in p["shifts"]], default=3600)
+    data = {"players": ordered, "length_sec": 3600 if length <= 3600 else math.ceil(length / 60) * 60}  # overtime runs short
+    if len(_shift_cache) >= SHIFT_CACHE_MAX:
+        _shift_cache.pop(next(iter(_shift_cache)))
+    _shift_cache[game_id] = (time.time(), data)
+    return data
+
+
 @app.get("/api/teams/{abbrev}/schedule")
 def team_schedule(abbrev: str):
     """Results so far (newest first) and the upcoming schedule for one team."""

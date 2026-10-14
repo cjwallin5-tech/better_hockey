@@ -43,9 +43,11 @@ for path in (
     get(path)
 if game:
     get(f"/api/games/{game}")
+    get(f"/api/games/{game}/shifts")
 # error handling: unknown ids are 404/400, never 500
 get("/api/skaters/1", expect=404)
 get("/api/teams/ZZZ", expect=404)
+get("/api/games/1/shifts", expect=404)
 get(f"/api/players/{go}/comparables", expect=404)
 get(f"/api/players/{go}/defense", expect=404)
 get("/api/probable-goalies?date=nope", expect=400)
