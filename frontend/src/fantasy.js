@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from 'react'
 // blocked site data), so every access is guarded and the app works without it. The key predates
 // the fantasy page (it was a watchlist), so players starred earlier carry over.
 const KEY = 'nhl-stats.watchlist'
-const EVENT = 'fantasy-changed'
+export const FANTASY_EVENT = 'fantasy-changed'
+const EVENT = FANTASY_EVENT
 const EMPTY = { players: [] }
 
-function read() {
+export function read() {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null')
     return { players: Array.isArray(raw?.players) ? raw.players : [] }
@@ -16,7 +17,7 @@ function read() {
   }
 }
 
-function write(next) {
+export function write(next) {
   try {
     localStorage.setItem(KEY, JSON.stringify(next))
   } catch {
@@ -107,9 +108,9 @@ export const SCORING_PRESETS = {
 }
 
 const SCORING_KEY = 'nhl-stats.fantasy-scoring'
-const SCORING_EVENT = 'fantasy-scoring-changed'
+export const SCORING_EVENT = 'fantasy-scoring-changed'
 
-function readScoring() {
+export function readScoring() {
   try {
     const raw = JSON.parse(localStorage.getItem(SCORING_KEY) ?? 'null')
     return raw && typeof raw === 'object' ? raw : SCORING_PRESETS['Points only']
@@ -143,3 +144,14 @@ export function useScoring() {
 /** Fantasy points for a season row under the given scoring; stats the row lacks count as 0. */
 export const fantasyPoints = (row, cats, scoring) =>
   cats.reduce((t, [key]) => t + (row[key] ?? 0) * (Number(scoring[key]) || 0), 0)
+
+/** Replace the whole local state (roster and scoring), e.g. with what's stored on the account. */
+export function applyState({ players, scoring }) {
+  write({ players: clean(players) })
+  try {
+    localStorage.setItem(SCORING_KEY, JSON.stringify(scoring ?? {}))
+  } catch {
+    // storage unavailable: the change simply won't persist
+  }
+  window.dispatchEvent(new Event(SCORING_EVENT))
+}

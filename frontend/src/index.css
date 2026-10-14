@@ -335,3 +335,9 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .live-card span { display: flex; justify-content: space-between; gap: 16px; }
 .live-card em { color: var(--accent); font-style: normal; font-size: 12px; }
 .live-card small { color: var(--muted); font-size: 11px; }
+
+.auth-form { display: grid; gap: 12px; max-width: 340px; margin: 16px 0; }
+.auth-form label { display: grid; gap: 4px; font-weight: 500; }
+.auth-form input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
+
+/* Nav "More" menu */

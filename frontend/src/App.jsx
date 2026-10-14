@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import Leaderboard from './pages/Leaderboard.jsx'
 import AllTime from './pages/AllTime.jsx'
@@ -9,6 +10,9 @@ import Goalie from './pages/Goalie.jsx'
 import Goalies from './pages/Goalies.jsx'
 import Milestones from './pages/Milestones.jsx'
 import Player from './pages/Player.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
+import Account from './pages/Account.jsx'
+import { initAuth, useAuth } from './auth.js'
 import Fantasy from './pages/Fantasy.jsx'
 import Standings from './pages/Standings.jsx'
 import TrophyRaces from './pages/TrophyRaces.jsx'
@@ -17,6 +21,8 @@ import Freshness from './components/Freshness.jsx'
 
 export default function App() {
   const { dark, toggle } = useTheme()
+  const { user } = useAuth()
+  useEffect(initAuth, [])
   return (
     <BrowserRouter>
       <nav className="topnav">
@@ -29,6 +35,7 @@ export default function App() {
         <NavLink to="/trophies">Trophies</NavLink>
         <NavLink to="/compare">Compare</NavLink>
         <NavLink to="/fantasy">★ Fantasy team</NavLink>
+        <NavLink to="/account">{user ? user.email : 'Log in'}</NavLink>
         <button className="theme-toggle" onClick={toggle} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
           {dark ? '☀ Light' : '☾ Dark'}
         </button>
@@ -42,6 +49,8 @@ export default function App() {
         <Route path="/milestones" element={<Milestones />} />
         <Route path="/alltime" element={<AllTime />} />
         <Route path="/game/:id" element={<Game />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/account" element={<Account />} />
         <Route path="/fantasy" element={<Fantasy />} />
         <Route path="/watchlist" element={<Navigate to="/fantasy" replace />} />
         <Route path="/trophies" element={<TrophyRaces />} />

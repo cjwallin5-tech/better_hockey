@@ -11,9 +11,16 @@ from fastapi import FastAPI, HTTPException
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+import auth
 import config
 
 app = FastAPI(title="Hockey Stats")
+app.include_router(auth.router)
+
+
+@app.on_event("startup")
+def _init_accounts():
+    auth.init_db()
 
 SKATERS_SQL = """
 WITH ranked AS (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import FantasyWeek from '../components/FantasyWeek.jsx'
 import Pickups from '../components/Pickups.jsx'
+import { useAuth } from '../auth.js'
 import RosterTools from '../components/RosterTools.jsx'
 import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints, useFantasy, useScoring } from '../fantasy.js'
 import { fmt1 } from '../format.js'
@@ -45,6 +46,7 @@ function ScoringSettings({ scoring, setScoring }) {
 export default function Fantasy() {
   const { list, togglePlayer, replacePlayers } = useFantasy()
   const [params, setParams] = useSearchParams()
+  const { user, sync } = useAuth()
   const { scoring, setScoring } = useScoring()
   const [data, setData] = useState(null)
   const [kind, setKind] = useState('skater')
