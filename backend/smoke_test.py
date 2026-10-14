@@ -32,7 +32,7 @@ for path in (
     f"/api/skaters/{sk}", f"/api/skaters/{sk}/similar", f"/api/skaters/{sk}/context", f"/api/skaters/{sk}/shots",
     f"/api/skaters/{sk}/linemates", f"/api/skaters/{sk}/pace-history", f"/api/skaters/{sk}/pace-history?stat=goals",
     f"/api/goalies/{go}", f"/api/goalies/{go}/context", f"/api/goalies/{go}/shots",
-    f"/api/players/{sk}/career", f"/api/players/{sk}/profile", f"/api/players/{go}/profile",
+    f"/api/players/{sk}/career", f"/api/players/{sk}/comparables", f"/api/players/{sk}/profile", f"/api/players/{go}/profile",
     f"/api/teams/{tm}", f"/api/teams/{tm}/lines", f"/api/teams/{tm}/shots", f"/api/teams/{tm}/schedule",
     f"/api/teams/{tm}/pace-history", "/api/milestones", "/api/records",
     "/api/playoff-odds", "/api/schedule-grid", "/api/probable-goalies", "/api/trophies", "/api/trophy-races", "/api/live",
@@ -46,6 +46,7 @@ if game:
 # error handling: unknown ids are 404/400, never 500
 get("/api/skaters/1", expect=404)
 get("/api/teams/ZZZ", expect=404)
+get(f"/api/players/{go}/comparables", expect=404)
 get("/api/probable-goalies?date=nope", expect=400)
 get("/api/alltime/skater?sort=name;drop", expect=400)
 

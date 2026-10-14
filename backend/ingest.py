@@ -809,6 +809,35 @@ def ingest_games(conn):
                 print(f"  {i}/{len(todo)}", flush=True)
 
 
+FIRST_NHL_SEASON = 1917
+NO_SEASON = {20042005}  # the lockout year: nothing to fetch
+SEASON_HISTORY_REFRESH = 2  # finished seasons never change; only the latest few are fetched again
+
+
+def ingest_career_seasons(conn):
+    """Every skater's regular-season line for every NHL season: one request per season."""
+    have = {r[0] for r in conn.execute("SELECT DISTINCT season_id FROM career_season")}
+    recent = {config.SEASON_ID - 10001 * i for i in range(SEASON_HISTORY_REFRESH)}
+    todo = [s for s in (y * 10000 + y + 1 for y in range(FIRST_NHL_SEASON, config.SEASON_ID // 10000 + 1))
+            if s not in NO_SEASON and (s not in have or s in recent)]
+    for season in todo:
+        data = get_json(f"{config.STATS_API}/skater/summary", limit=-1,
+                        cayenneExp=f"seasonId={season} and gameTypeId={config.GAME_TYPE}")
+        rows = [(r["playerId"], season, r.get("teamAbbrevs"), r["gamesPlayed"] or 0,
+                 r["goals"] or 0, r["assists"] or 0, r["points"] or 0) for r in data["data"]]
+        with conn.cursor() as cur:
+            cur.executemany(
+                """INSERT INTO career_season (player_id, season_id, team, games_played, goals, assists, points)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (player_id, season_id) DO UPDATE SET team=EXCLUDED.team,
+                       games_played=EXCLUDED.games_played, goals=EXCLUDED.goals,
+                       assists=EXCLUDED.assists, points=EXCLUDED.points""",
+                rows)
+        conn.commit()
+        time.sleep(0.5)
+    print(f"career seasons: fetched {len(todo)} season(s)")
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -820,6 +849,7 @@ def main():
         ingest_games(conn)
         ingest_onice(conn)
         ingest_alltime(conn)
+        ingest_career_seasons(conn)
         ingest_history(conn)
 
 

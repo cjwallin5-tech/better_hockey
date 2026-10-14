@@ -15,6 +15,7 @@ import auth
 import config
 import playoff_odds
 import probable_goalies
+import trajectory
 
 app = FastAPI(title="Hockey Stats")
 app.include_router(auth.router)
@@ -472,6 +473,80 @@ def _similar_players(everyone, player, limit=8):
             "similarity": round(100 / (1 + rms)), "shared": shared[:3],
         })
     return {"matches": matches, "peer_count": len(complete), "min_gp": min_gp, "features": names}
+
+
+# --- Career-trajectory comparables --------------------------------------------------------------
+_traj_cache = {"sig": None, "data": None}
+
+
+def _trajectory_data(conn):
+    """Every skater's age curve, rebuilt only when the stored seasons change."""
+    sig = tuple(conn.execute("SELECT count(*) AS n, sum(points) AS p FROM career_season").fetchone().values())
+    if _traj_cache["sig"] != sig:
+        people = {r["player_id"]: r for r in conn.execute(
+            "SELECT player_id, name, position, birth_date, active_season, hall_of_fame FROM career_skater "
+            "WHERE game_type = 2 AND birth_date IS NOT NULL")}
+        seasons = {}
+        for r in conn.execute("SELECT player_id, season_id, games_played, points FROM career_season ORDER BY season_id"):
+            seasons.setdefault(r["player_id"], []).append((r["season_id"], r["games_played"], r["points"]))
+        base = trajectory.baselines(
+            (sid, trajectory.role(people[pid]["position"]), g, p)
+            for pid, rows in seasons.items() if pid in people for sid, g, p in rows)
+        curves = {pid: trajectory.curve(seasons.get(pid, []), p["birth_date"], trajectory.role(p["position"]), base)
+                  for pid, p in people.items()}
+        _traj_cache.update(sig=sig, data={"people": people, "seasons": seasons, "base": base, "curves": curves})
+    return _traj_cache["data"]
+
+
+@app.get("/api/players/{player_id}/comparables")
+def comparables(player_id: int, limit: int = 8):
+    """Retired skaters whose scoring-by-age curve best matches this player's (see trajectory.py)."""
+    limit = max(1, min(limit, 20))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        d = _trajectory_data(conn)
+    me = d["people"].get(player_id)
+    if not me:
+        raise HTTPException(404, "No skater career data for this player")
+    role = trajectory.role(me["position"])
+    mine = d["curves"][player_id]
+    active = me["active_season"] is not None
+    out = {"player": {"player_id": player_id, "name": me["name"], "position": me["position"], "active": active},
+           "min_gp": trajectory.MIN_GP, "seasons": len(mine), "matches": [], "projection": None,
+           "curve": [{"age": a, "value": round(v, 2)} for a, (_, v) in sorted(mine.items())]}
+    if len(mine) < trajectory.MIN_SEASONS:
+        return out
+
+    scored = []
+    for pid, p in d["people"].items():
+        if pid == player_id or p["active_season"] is not None or trajectory.role(p["position"]) != role:
+            continue
+        hit = trajectory.distance(mine, d["curves"][pid])
+        if hit:
+            scored.append((hit[0], hit[1], pid))
+    scored.sort()
+
+    now = d["base"].get((config.SEASON_ID - 10001, role))  # last full season's scoring level
+    last_age = max(mine)
+    matches, afters = [], []
+    for rms, compared, pid in scored[:limit]:
+        p, rows, cv = d["people"][pid], d["seasons"][pid], d["curves"][pid]
+        after = None
+        if active and now:  # points after the target's current age, scaled to today's scoring level
+            after = round(sum(pts * now / d["base"][sid, role] for sid, g, pts in rows
+                              if trajectory.age_in(sid, p["birth_date"]) > last_age and (sid, role) in d["base"]))
+            afters.append(after)
+        peak = max(cv, key=lambda a: cv[a][1])
+        matches.append({
+            "player_id": pid, "name": p["name"], "position": p["position"], "hall_of_fame": p["hall_of_fame"],
+            "similarity": trajectory.similarity(rms), "seasons_compared": compared,
+            "first_season": rows[0][0], "last_season": rows[-1][0],
+            "games_played": sum(g for _, g, _ in rows), "points": sum(pts for _, _, pts in rows),
+            "peak_age": peak, "after_points": after,
+            "curve": [{"age": a, "value": round(v, 2)} for a, (_, v) in sorted(cv.items())],
+        })
+    out["matches"] = matches
+    out["projection"] = trajectory.projection(afters) if active else None
+    return out
 
 
 @app.get("/api/skaters/{player_id}/similar")

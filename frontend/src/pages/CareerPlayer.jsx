@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import Career from '../components/Career.jsx'
 import { RankCards } from '../components/Rankings.jsx'
+import Comparables from '../components/Comparables.jsx'
 
 /**
  * Page for a player with no games in the current season (retired, or between seasons): bio and
@@ -61,6 +62,7 @@ export default function CareerPlayer({ id, goalie }) {
         )}
       </div>
       <RankCards ranks={ranks} scope="alltime" />
+      {data.kind !== 'goalie' && <Comparables playerId={id} />}
     </main>
   )
 }

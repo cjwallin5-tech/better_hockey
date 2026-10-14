@@ -275,3 +275,16 @@ CREATE TABLE IF NOT EXISTS season_record (
     PRIMARY KEY (stat, rank)
 );
 
+-- One row per skater per regular season, back to 1917-18: the age curves behind career comparables.
+CREATE TABLE IF NOT EXISTS career_season (
+    player_id    INTEGER NOT NULL,
+    season_id    INTEGER NOT NULL,
+    team         TEXT,
+    games_played INTEGER NOT NULL,
+    goals        INTEGER NOT NULL,
+    assists      INTEGER NOT NULL,
+    points       INTEGER NOT NULL,
+    PRIMARY KEY (player_id, season_id)
+);
+CREATE INDEX IF NOT EXISTS career_season_season ON career_season (season_id);
+

@@ -11,6 +11,7 @@ import { Linemates } from '../components/Lines.jsx'
 import { SkaterShots } from '../components/Shots.jsx'
 import PaceHistory from '../components/PaceHistory.jsx'
 import Similar from '../components/Similar.jsx'
+import Comparables from '../components/Comparables.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
@@ -116,7 +117,41 @@ export default function Player() {
               <>
               <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
 
-      <Rankings playerId={p.player_id} kind="skater" />
+              <div className="charts">
+                <PaceChart
+                  games={[...games].reverse()}
+                  seasonGames={games_per_season}
+                  pace={p.point_pace}
+                />
+                <GameBars games={[...games].reverse()} />
+                <DefenseBars games={[...games].reverse()} />
+                <CorsiChart games={[...games].reverse()} />
+              </div>
+              </>
+            ),
+          },
+          {
+            id: 'career',
+            label: 'Career & rankings',
+            content: (
+              <>
+                <Career playerId={p.player_id} />
+                <Rankings playerId={p.player_id} kind="skater" />
+                <Comparables playerId={p.player_id} />
+              </>
+            ),
+          },
+          {
+            id: 'defense',
+            label: 'Defense & possession',
+            content: (
+              <>
+              <h2>Defensive game</h2>
+              <p className="sub">
+                Percentile among {peer_count} {peer_group} with at least {peer_min_gp} GP. Higher bar is
+                better for every stat, including giveaways.
+              </p>
+              <StatCards stats={DEFENSIVE} p={p} percentiles={percentiles} />
 
               <h2>Possession &amp; special teams</h2>
               <p className="sub">
