@@ -548,6 +548,79 @@ def defense_profile(player_id: int):
             "onice_career": defense.onice_career(onice["rows"].get(player_id, []))}
 
 
+@app.get("/api/probable-goalies/week")
+def probable_goalies_week(ids: str = "", days: int = 7):
+    """For rostered goalies: the chance of starting each of their team's games in the next `days` days.
+    Games already played or under way anchor the chain (their starter is known); later games are chained
+    from them, so a back-to-back after an uncertain starter is a mix of both cases (see probable_goalies.py)."""
+    try:
+        wanted = [int(i) for i in ids.split(",") if i.strip()][:20]
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    days = max(1, min(days, 14))
+    if not wanted:
+        return {"from": None, "to": None, "goalies": []}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        end = today + timedelta(days=days - 1)
+        roster = conn.execute(
+            "SELECT player_id, name, team FROM goalie_season WHERE season_id = %s AND player_id = ANY(%s)",
+            (config.SEASON_ID, wanted)).fetchall()
+        teams = {(r["team"] or "").split(",")[-1] for r in roster}
+        starts = conn.execute(
+            """SELECT g.team, g.player_id, g.game_date, s.name FROM goalie_game g
+               LEFT JOIN goalie_season s ON s.season_id = g.season_id AND s.player_id = g.player_id
+               WHERE g.season_id = %s AND g.started AND g.team = ANY(%s) ORDER BY g.game_date DESC, g.game_id DESC""",
+            (config.SEASON_ID, list(teams))).fetchall()
+        games = conn.execute(
+            """SELECT game_id, game_date, start_time, state, home, away FROM game
+               WHERE season_id = %s AND game_date <= %s AND (home = ANY(%s) OR away = ANY(%s)) ORDER BY game_date, game_id""",
+            (config.SEASON_ID, end, list(teams), list(teams))).fetchall()
+    by_team = {}
+    for r in starts:
+        by_team.setdefault(r["team"], []).append(r)
+    b2b = repeats = 0  # league-wide repeat rate, as in the daily endpoint
+    for rows in by_team.values():
+        for newer, older in zip(rows, rows[1:]):
+            if (newer["game_date"] - older["game_date"]).days == 1:
+                b2b += 1
+                repeats += newer["player_id"] == older["player_id"]
+    p_repeat = probable_goalies.repeat_rate(b2b, repeats)
+
+    plans = {}
+    for team in teams:
+        rows = by_team.get(team, [])
+        recent = [(r["player_id"], r["name"] or "Unknown") for r in rows]
+        prev_date = rows[0]["game_date"] if rows else None
+        dist, prepend, plan = ({recent[0][0]: 1.0} if recent else {}), False, []
+        for g in (g for g in games if team in (g["home"], g["away"]) and (prev_date is None or g["game_date"] > prev_date)):
+            tired = prev_date is not None and (g["game_date"] - prev_date).days == 1
+            known = _confirmed_starters(g).get(team)
+            if known:
+                dist, confirmed = {known[0]: 1.0}, True
+            elif recent:
+                dist, confirmed = probable_goalies.next_distribution(recent, dist, tired, p_repeat, prepend), False
+            else:
+                dist, confirmed = {}, False
+            prepend, prev_date = True, g["game_date"]
+            if g["game_date"] >= today and g["state"] not in ("OFF", "FINAL"):
+                plan.append({"game_id": g["game_id"], "date": g["game_date"], "opponent": g["away"] if g["home"] == team else g["home"],
+                             "home_game": g["home"] == team, "back_to_back": tired, "confirmed": confirmed, "dist": dict(dist)})
+        plans[team] = plan
+
+    out = []
+    for r in roster:
+        team = (r["team"] or "").split(",")[-1]
+        has_history = bool(by_team.get(team))
+        entries = [{"game_id": p["game_id"], "date": p["date"], "opponent": p["opponent"], "home_game": p["home_game"],
+                    "back_to_back": p["back_to_back"], "confirmed": p["confirmed"],
+                    "probability": round(p["dist"].get(r["player_id"], 0.0), 3) if has_history else None}
+                   for p in plans.get(team, [])]
+        out.append({"player_id": r["player_id"], "name": r["name"], "team": team, "games": entries,
+                    "expected_starts": round(sum(e["probability"] or 0 for e in entries), 1) if has_history else None})
+    return {"from": today, "to": end, "goalies": out}
+
+
 # --- Career-trajectory comparables --------------------------------------------------------------
 _traj_cache = {"sig": None, "data": None}
 

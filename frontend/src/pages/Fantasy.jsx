@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import FantasyWeek from '../components/FantasyWeek.jsx'
+import GoalieStarts from '../components/GoalieStarts.jsx'
 import Pickups from '../components/Pickups.jsx'
 import { useAuth } from '../auth.js'
 import RosterTools from '../components/RosterTools.jsx'
@@ -229,7 +230,7 @@ export default function Fantasy() {
           {
             id: 'week',
             label: 'This week',
-            content: list.players.length > 0 ? <FantasyWeek players={list.players} /> : <p className="status">Add players to see their games this week.</p>,
+            content: list.players.length > 0 ? <><GoalieStarts players={list.players} /><FantasyWeek players={list.players} /></> : <p className="status">Add players to see their games this week.</p>,
           },
           {
             id: 'pickups',

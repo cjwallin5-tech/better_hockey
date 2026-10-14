@@ -68,3 +68,20 @@ def apply_confirmed(candidates, confirmed):
     known = next((c for c in candidates if c["player_id"] == pid), None)
     return [{"player_id": pid, "name": known["name"] if known else name, "probability": 1.0,
              "starts": known["starts"] if known else 0}]
+
+
+def next_distribution(recent_starters, previous, back_to_back, p_repeat=REPEAT_PRIOR, prepend=True):
+    """Who starts the next game, given a distribution over who started the previous one.
+
+    previous: {player_id: probability} (or {player_id: 1.0} when it is known). Each possible previous
+    starter is tried in turn through predict(), and the answers are mixed by how likely he was.
+    prepend: whether that previous start is missing from recent_starters (True once a game is more recent
+    than our stored starts; False when recent_starters already ends with it).
+    Returns {player_id: probability}."""
+    names = {pid: name for pid, name in recent_starters}
+    out = {}
+    for h, weight in previous.items():
+        history = ([(h, names.get(h, "Unknown"))] + list(recent_starters)) if prepend else list(recent_starters)
+        for c in predict(history, back_to_back, p_repeat):
+            out[c["player_id"]] = out.get(c["player_id"], 0.0) + weight * c["probability"]
+    return out
