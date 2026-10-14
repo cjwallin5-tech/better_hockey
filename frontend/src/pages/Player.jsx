@@ -12,6 +12,7 @@ import { SkaterShots } from '../components/Shots.jsx'
 import PaceHistory from '../components/PaceHistory.jsx'
 import Similar from '../components/Similar.jsx'
 import Comparables from '../components/Comparables.jsx'
+import DefenseProfile from '../components/DefenseProfile.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
@@ -169,39 +170,18 @@ export default function Player() {
                 <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
               </section>
 
-      <div className="charts">
-        <PaceChart
-          games={[...games].reverse()}
-          seasonGames={games_per_season}
-          pace={p.point_pace}
-        />
-        <GameBars games={[...games].reverse()} />
-        <DefenseBars games={[...games].reverse()} />
-        <CorsiChart games={[...games].reverse()} />
-      </div>
+              <DefenseProfile playerId={p.player_id} />
+              </>
+            ),
+          },
+          {
+            id: 'shots',
+            label: 'Shots & lines',
+            content: (
+              <>
+              <SkaterShots playerId={p.player_id} />
 
-      <h2>Defensive game</h2>
-      <p className="sub">
-        Percentile among {peer_count} {peer_group} with at least {peer_min_gp} GP. Higher bar is
-        better for every stat, including giveaways.
-      </p>
-      <StatCards stats={DEFENSIVE} p={p} percentiles={percentiles} />
-
-      <h2>Possession &amp; special teams</h2>
-      <p className="sub">
-        5v5 shot attempts: {p.sat_for ?? '–'} for, {p.sat_against ?? '–'} against
-        ({p.usat_for ?? '–'} / {p.usat_against ?? '–'} excluding blocked shots). Same peer
-        group as above.
-      </p>
-      <StatCards stats={POSSESSION} p={p} percentiles={percentiles} />
-      <section className="tiles usage">
-        <Tile label="EV TOI" value={fmtToi(p.ev_toi_per_game)} />
-        <Tile label="PP TOI" value={fmtToi(p.pp_toi_per_game)} />
-        <Tile label="SH TOI" value={fmtToi(p.sh_toi_per_game)} />
-        <Tile label="PP points" value={p.pp_points} />
-        <Tile label="SH points" value={p.sh_points} />
-        <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
-      </section>
+              <Linemates playerId={p.player_id} />
 
               <Similar playerId={p.player_id} />
               </>

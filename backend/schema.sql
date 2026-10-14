@@ -288,3 +288,17 @@ CREATE TABLE IF NOT EXISTS career_season (
 );
 CREATE INDEX IF NOT EXISTS career_season_season ON career_season (season_id);
 
+-- Hits, blocks, takeaways, giveaways per skater per season. The NHL only tracks these from 2005-06.
+CREATE TABLE IF NOT EXISTS defense_season (
+    player_id        INTEGER NOT NULL,
+    season_id        INTEGER NOT NULL,
+    team             TEXT,
+    position         TEXT,
+    games_played     INTEGER NOT NULL,
+    toi_per_game_sec REAL,
+    hits             INTEGER NOT NULL,
+    blocked_shots    INTEGER NOT NULL,
+    takeaways        INTEGER NOT NULL,
+    giveaways        INTEGER NOT NULL,
+    PRIMARY KEY (player_id, season_id)
+);

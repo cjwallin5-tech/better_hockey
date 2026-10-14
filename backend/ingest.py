@@ -838,6 +838,37 @@ def ingest_career_seasons(conn):
     print(f"career seasons: fetched {len(todo)} season(s)")
 
 
+FIRST_TRACKED_SEASON = 2005  # hits, blocks, takeaways and giveaways were not counted before 2005-06
+
+
+def ingest_defense_seasons(conn):
+    """Hits, blocks, takeaways and giveaways for every skater-season since tracking began."""
+    have = {r[0] for r in conn.execute("SELECT DISTINCT season_id FROM defense_season")}
+    recent = {config.SEASON_ID - 10001 * i for i in range(SEASON_HISTORY_REFRESH)}
+    todo = [s for s in (y * 10000 + y + 1 for y in range(FIRST_TRACKED_SEASON, config.SEASON_ID // 10000 + 1))
+            if s not in have or s in recent]
+    for season in todo:
+        data = get_json(f"{config.STATS_API}/skater/realtime", limit=-1,
+                        cayenneExp=f"seasonId={season} and gameTypeId={config.GAME_TYPE}")
+        rows = [(r["playerId"], season, r.get("teamAbbrevs"), r.get("positionCode"), r["gamesPlayed"] or 0,
+                 r.get("timeOnIcePerGame"), r["hits"] or 0, r["blockedShots"] or 0,
+                 r["takeaways"] or 0, r["giveaways"] or 0) for r in data["data"]]
+        with conn.cursor() as cur:
+            cur.executemany(
+                """INSERT INTO defense_season (player_id, season_id, team, position, games_played,
+                       toi_per_game_sec, hits, blocked_shots, takeaways, giveaways)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (player_id, season_id) DO UPDATE SET team=EXCLUDED.team,
+                       position=EXCLUDED.position, games_played=EXCLUDED.games_played,
+                       toi_per_game_sec=EXCLUDED.toi_per_game_sec, hits=EXCLUDED.hits,
+                       blocked_shots=EXCLUDED.blocked_shots, takeaways=EXCLUDED.takeaways,
+                       giveaways=EXCLUDED.giveaways""",
+                rows)
+        conn.commit()
+        time.sleep(0.5)
+    print(f"defense seasons: fetched {len(todo)} season(s)")
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -850,6 +881,7 @@ def main():
         ingest_onice(conn)
         ingest_alltime(conn)
         ingest_career_seasons(conn)
+        ingest_defense_seasons(conn)
         ingest_history(conn)
 
 
