@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
+import SavedViews from '../components/SavedViews.jsx'
 
 // Pace from fewer games than this is mostly noise, so it's dimmed and flagged.
 const STABLE_GP = 20
@@ -231,6 +232,7 @@ export default function Leaderboard() {
           uses only each player's last {meta.recent_window} games.
         </p>
       </header>
+      <SavedViews path="/skaters" />
 
       {maxGp < STABLE_GP && (
         <p className="notice">

@@ -9,6 +9,7 @@ import logging
 import re
 import secrets
 import time
+from urllib.parse import parse_qsl, urlencode
 from datetime import datetime, timedelta, timezone
 
 import psycopg
@@ -51,6 +52,15 @@ CREATE TABLE IF NOT EXISTS digest_pref (
     user_id      BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
     enabled      BOOLEAN NOT NULL DEFAULT false,
     last_sent_on DATE
+);
+CREATE TABLE IF NOT EXISTS saved_view (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    path       TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    query      TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, path, name)
 );
 CREATE TABLE IF NOT EXISTS fantasy_state (
     user_id    BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
@@ -222,6 +232,79 @@ def put_fantasy_state(state: FantasyState, request: Request):
             (user["id"], Jsonb(players), Jsonb(scoring)),
         )
     return {"players": players, "scoring": scoring}
+
+
+# --- Saved leaderboard views --------------------------------------------------------------------
+# A view is a page plus the filter/sort query string that page keeps in its URL. Only these pages can
+# be saved, and the query is re-encoded from parsed pairs so nothing but simple filter values is kept.
+VIEW_PATHS = {"/skaters", "/goalies", "/alltime"}
+MAX_VIEWS = 30
+MAX_QUERY_PAIRS, MAX_KEY, MAX_VALUE = 20, 30, 100
+
+
+class ViewIn(BaseModel):
+    name: str
+    path: str
+    query: str = ""
+
+
+def _clean_query(query: str) -> str:
+    pairs = [(k, v) for k, v in parse_qsl(query.lstrip("?"), keep_blank_values=False)
+             if 0 < len(k) <= MAX_KEY and len(v) <= MAX_VALUE and k != "page"][:MAX_QUERY_PAIRS]
+    return urlencode(sorted(pairs))
+
+
+def _view_row(r):
+    return {"id": r["id"], "name": r["name"], "path": r["path"], "query": r["query"]}
+
+
+@router.get("/views")
+def list_views(request: Request, path: str | None = None):
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        rows = conn.execute(
+            "SELECT id, name, path, query FROM saved_view WHERE user_id = %s AND (%s::text IS NULL OR path = %s) "
+            "ORDER BY created_at", (user["id"], path, path)).fetchall()
+    return {"views": [_view_row(r) for r in rows], "limit": MAX_VIEWS}
+
+
+@router.post("/views")
+def save_view(view: ViewIn, request: Request):
+    name = " ".join(view.name.split())[:60]
+    if not name:
+        raise HTTPException(400, "Give the view a name")
+    if view.path not in VIEW_PATHS:
+        raise HTTPException(400, "That page can't be saved")
+    query = _clean_query(view.query)
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        exists = conn.execute("SELECT 1 FROM saved_view WHERE user_id = %s AND path = %s AND name = %s",
+                              (user["id"], view.path, name)).fetchone()
+        count = conn.execute("SELECT count(*) AS n FROM saved_view WHERE user_id = %s", (user["id"],)).fetchone()["n"]
+        if not exists and count >= MAX_VIEWS:
+            raise HTTPException(400, f"You can save up to {MAX_VIEWS} views; delete one first")
+        row = conn.execute(
+            """INSERT INTO saved_view (user_id, path, name, query) VALUES (%s, %s, %s, %s)
+               ON CONFLICT (user_id, path, name) DO UPDATE SET query = EXCLUDED.query
+               RETURNING id, name, path, query""", (user["id"], view.path, name, query)).fetchone()
+    return _view_row(row)
+
+
+@router.delete("/views/{view_id}")
+def delete_view(view_id: int, request: Request):
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        gone = conn.execute("DELETE FROM saved_view WHERE id = %s AND user_id = %s RETURNING id",
+                            (view_id, user["id"])).fetchone()
+    if not gone:
+        raise HTTPException(404, "View not found")
+    return {"ok": True}
 
 
 # --- Daily roster digest (the email itself is built and sent by digest.py) ---------------------------

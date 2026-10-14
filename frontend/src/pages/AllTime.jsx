@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
+import SavedViews from '../components/SavedViews.jsx'
 
 const PAGE_SIZE = 50
 
@@ -221,6 +222,7 @@ export default function AllTime() {
           name for their career page.
         </p>
       </header>
+      <SavedViews path="/alltime" />
 
       <div className="controls">
         <div className="tabs" role="tablist">

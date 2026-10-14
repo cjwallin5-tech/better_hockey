@@ -370,3 +370,12 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .pg-side small, .pg-game em { color: var(--muted); font-size: 12px; font-style: normal; }
 .goal-for { stroke: var(--text); stroke-width: 1.5; }
 .goal-against { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+.saved-views { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0 12px; font-size: 13px; }
+.view-chip { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--card); overflow: hidden; }
+.view-chip button { padding: 3px 10px; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.view-chip button.x { padding: 3px 8px 3px 4px; color: var(--muted); }
+.view-chip button:hover { color: var(--accent); }
+.view-chip.on { border-color: var(--accent); background: var(--accent-bg); }
+.view-name { display: inline-flex; gap: 6px; align-items: center; }
+.view-name input { padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }

@@ -46,6 +46,8 @@ Things worth knowing:
   `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `PUBLIC_URL` (the site's address, used in the link) for the API; any provider's
   SMTP works (Resend, SES, Gmail...). With `SMTP_HOST` unset, the link is printed to the API log instead, which is for local
   development only. Over HTTPS the session cookie is marked Secure; put the API behind HTTPS before exposing it publicly.
+- **Saved views**: signed-in users can save the current filters and sort on the skater, goalie and all-time leaderboards under
+  a name (up to 30) and reopen them with one click. A view is just the page's URL query string, kept per account.
 - **Era-adjusted scoring**: the All-Time page's "Era-adjusted" view and the Compare page's adjusted charts rescale each season's
   goals and assists to today's scoring level (the last five completed seasons), separately for forwards and defensemen
   (`backend/era.py` explains the method and what it leaves out). The nightly ingest recomputes the stored career figures.

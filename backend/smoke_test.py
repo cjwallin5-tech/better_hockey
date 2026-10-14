@@ -48,6 +48,7 @@ if game:
 get("/api/skaters/1", expect=404)
 get("/api/teams/ZZZ", expect=404)
 get("/api/digest", expect=401)  # needs a signed-in account
+get("/api/views", expect=401)
 get("/api/games/1/shifts", expect=404)
 get(f"/api/players/{go}/comparables", expect=404)
 get(f"/api/players/{go}/defense", expect=404)

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
+import SavedViews from '../components/SavedViews.jsx'
 import { fmt1, STABLE_GP } from '../format.js'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
@@ -127,6 +128,7 @@ export default function Goalies() {
         <h1>Goalie Stats</h1>
         <p>League-average save percentage this season: {fmtSv(rows[0]?.league_sv_pct)}. L{recentWindow} columns use each goalie's last {recentWindow} appearances.</p>
       </header>
+      <SavedViews path="/goalies" />
       {maxGp < STABLE_GP && (
         <p className="notice">
           Early season: goalies have played at most {maxGp} games, so save percentage and GSAA
