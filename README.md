@@ -20,6 +20,12 @@ cd ../frontend && npm install && npm run dev    # http://localhost:5173
 
 Check the API with `backend/.venv/bin/python backend/smoke_test.py` (hits every endpoint).
 
+Unit tests (no database or network needed, no extra packages):
+- Backend: `cd backend && .venv/bin/python -m unittest discover -s tests -t .` covers the pure logic: the starter model, age-curve
+  comparables, the defensive and on-ice metrics, era adjustment, head-to-head summaries, the playoff simulation, shift and
+  shot-attempt maths, the email digest text and saved-view query cleaning.
+- Frontend: `cd frontend && npm test` covers the game-page chart data (xG and Corsi flow) in `src/gameFlow.js`.
+
 ## Data and the nightly job
 
 `backend/run_ingest.sh` is what the nightly job runs (a macOS launchd agent, 4:00 AM, logs in
