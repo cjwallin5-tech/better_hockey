@@ -11,12 +11,14 @@ import Goalies from './pages/Goalies.jsx'
 import Milestones from './pages/Milestones.jsx'
 import Player from './pages/Player.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
+import ScheduleGrid from './pages/ScheduleGrid.jsx'
 import Account from './pages/Account.jsx'
 import { initAuth, useAuth } from './auth.js'
 import Fantasy from './pages/Fantasy.jsx'
 import Standings from './pages/Standings.jsx'
 import TrophyRaces from './pages/TrophyRaces.jsx'
 import Team from './pages/Team.jsx'
+import NavMore from './components/NavMore.jsx'
 import Freshness from './components/Freshness.jsx'
 
 export default function App() {
@@ -34,6 +36,7 @@ export default function App() {
         <NavLink to="/milestones">Milestones</NavLink>
         <NavLink to="/trophies">Trophies</NavLink>
         <NavLink to="/compare">Compare</NavLink>
+        <NavMore items={[['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/schedule', 'Schedule grid']]} />
         <NavLink to="/fantasy">★ Fantasy team</NavLink>
         <NavLink to="/account">{user ? user.email : 'Log in'}</NavLink>
         <button className="theme-toggle" onClick={toggle} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
@@ -50,6 +53,7 @@ export default function App() {
         <Route path="/alltime" element={<AllTime />} />
         <Route path="/game/:id" element={<Game />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/schedule" element={<ScheduleGrid />} />
         <Route path="/account" element={<Account />} />
         <Route path="/fantasy" element={<Fantasy />} />
         <Route path="/watchlist" element={<Navigate to="/fantasy" replace />} />

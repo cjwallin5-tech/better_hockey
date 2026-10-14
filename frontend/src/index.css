@@ -341,3 +341,23 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .auth-form input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
 
 /* Nav "More" menu */
+.nav-more { position: relative; flex: none; }
+.nav-more-btn { padding: 6px 12px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-weight: 500; cursor: pointer; }
+.nav-more-btn:hover, .nav-more-btn.active { color: var(--text); }
+.nav-more-menu { position: fixed; z-index: 20; display: grid; min-width: 150px; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 18px rgb(0 0 0 / .25); }
+.nav-more-menu a { padding: 6px 10px; border-radius: 6px; color: var(--muted); }
+.nav-more-menu a:hover { color: var(--text); background: var(--accent-bg); }
+.nav-more-menu a.active { color: var(--accent); }
+.odds-cell { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.odds-cell .bar { flex: 1; }
+.odds-cell strong { min-width: 38px; text-align: right; }
+
+.schedule-grid td, .schedule-grid th { text-align: center; white-space: nowrap; }
+.schedule-grid td.left, .schedule-grid th.left { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; }
+.sg-cell { min-width: 52px; }
+.sg-cell.low { background: rgb(217 130 43 / .22); }
+.sg-cell.high { background: rgb(25 158 112 / .25); font-weight: 600; }
+.sg-cell.none { color: var(--muted); }
+.sg-cell sup { color: var(--accent); margin-left: 1px; }
+.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+

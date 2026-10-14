@@ -488,7 +488,7 @@ def ingest_teams(conn):
     print(f"teams: {len(rows)} teams")
 
 
-SCHEDULE_LOOKAHEAD_DAYS = 14
+SCHEDULE_LOOKAHEAD_DAYS = 200  # the whole regular season: playoff odds and the schedule grid need every remaining game
 SCHEDULE_REWIND_DAYS = 21  # re-read recent weeks: postponements and score corrections
 
 

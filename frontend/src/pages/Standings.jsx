@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PlayoffOdds from '../components/PlayoffOdds.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { fmt1, fmtPct, STABLE_GP } from '../format.js'
 
@@ -77,9 +78,14 @@ export default function Standings() {
             {v.label}
           </button>
         ))}
+        <button role="tab" aria-selected={viewId === 'odds'} className={viewId === 'odds' ? 'on' : ''} onClick={() => setViewId('odds')}>
+          Playoff odds
+        </button>
       </div>
 
-      {groups.map(([name, rows]) => (
+      {viewId === 'odds' && <PlayoffOdds teams={teams} />}
+
+      {viewId !== 'odds' && groups.map(([name, rows]) => (
         <section key={name} className="standings-group">
           {view.id !== 'league' && <h2>{name}</h2>}
           <div className="table-wrap">

@@ -13,6 +13,7 @@ from psycopg.types.json import Jsonb
 
 import auth
 import config
+import playoff_odds
 
 app = FastAPI(title="Hockey Stats")
 app.include_router(auth.router)
@@ -599,6 +600,70 @@ def skater_context(player_id: int):
 @app.get("/api/goalies/{player_id}/context")
 def goalie_context(player_id: int):
     return _context(player_id, goalie=True)
+
+
+# --- Playoff odds -------------------------------------------------------------------------------
+_odds_cache = {"sig": None, "data": None}
+
+
+@app.get("/api/playoff-odds")
+def playoff_odds_endpoint():
+    """Chance each team makes the playoffs, from simulating the rest of the season (see playoff_odds.py)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        teams = conn.execute(
+            """SELECT abbrev, name, conference, division, games_played, points, reg_wins, goal_diff
+               FROM team_season WHERE season_id = %s""", (config.SEASON_ID,)).fetchall()
+        remaining = conn.execute(
+            "SELECT home, away FROM game WHERE season_id = %s AND state NOT IN ('OFF', 'FINAL')",
+            (config.SEASON_ID,)).fetchall()
+    if not teams:
+        raise HTTPException(404, "No standings yet")
+    sig = (sum(t["games_played"] for t in teams), sum(t["points"] or 0 for t in teams), len(remaining))
+    if _odds_cache["sig"] != sig:  # results only change when a game finishes, so reuse the run until then
+        odds = playoff_odds.simulate(teams, [(g["home"], g["away"]) for g in remaining], seed=sig[0])
+        _odds_cache.update(sig=sig, data={
+            "sims": playoff_odds.SIMS, "games_remaining": len(remaining),
+            "teams": [{**t, **odds[t["abbrev"]]} for t in teams],
+        })
+    return _odds_cache["data"]
+
+
+# --- Schedule grid ------------------------------------------------------------------------------
+@app.get("/api/schedule-grid")
+def schedule_grid():
+    """Games per team for every Monday-Sunday week from this week to the end of the regular season."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        first = today - timedelta(days=today.weekday())
+        games = conn.execute(
+            "SELECT game_date, home, away FROM game WHERE season_id = %s AND game_date >= %s ORDER BY game_date",
+            (config.SEASON_ID, first)).fetchall()
+        teams = conn.execute(
+            "SELECT abbrev, name, conference, division FROM team_season WHERE season_id = %s ORDER BY name",
+            (config.SEASON_ID,)).fetchall()
+    if not games:
+        return {"weeks": [], "teams": []}
+    n_weeks = (games[-1]["game_date"] - first).days // 7 + 1
+    weeks = [{"start": first + timedelta(days=7 * i), "end": first + timedelta(days=7 * i + 6)} for i in range(n_weeks)]
+    by_team = {t["abbrev"]: [[] for _ in weeks] for t in teams}
+    for g in games:
+        w = (g["game_date"] - first).days // 7
+        for team, opp, home in ((g["home"], g["away"], True), (g["away"], g["home"], False)):
+            if team in by_team:
+                by_team[team][w].append({"date": g["game_date"], "opp": opp, "home": home})
+    out = []
+    for t in teams:
+        cells = []
+        prev_last = None  # date of the previous game, to catch back-to-backs across a week boundary
+        for wk in by_team[t["abbrev"]]:
+            b2b = 0
+            for g in wk:
+                if prev_last and (g["date"] - prev_last).days == 1:
+                    b2b += 1
+                prev_last = g["date"]
+            cells.append({"games": len(wk), "back_to_backs": b2b, "days": wk})
+        out.append({**t, "weeks": cells, "total": sum(c["games"] for c in cells)})
+    return {"weeks": weeks, "teams": out}
 
 
 # --- Live scores --------------------------------------------------------------------------------

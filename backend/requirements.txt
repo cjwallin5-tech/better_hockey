@@ -3,5 +3,5 @@ uvicorn[standard]
 psycopg[binary]
 requests
 # only needed to retrain the xG model (train_xg.py), not to run the site:
-numpy
+numpy  # also used by the playoff-odds simulation
 scikit-learn

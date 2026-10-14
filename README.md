@@ -46,6 +46,9 @@ Things worth knowing:
   `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `PUBLIC_URL` (the site's address, used in the link) for the API; any provider's
   SMTP works (Resend, SES, Gmail...). With `SMTP_HOST` unset, the link is printed to the API log instead, which is for local
   development only. Over HTTPS the session cookie is marked Secure; put the API behind HTTPS before exposing it publicly.
+- **Playoff odds** (Standings → Playoff odds): Monte Carlo over the remaining schedule (`backend/playoff_odds.py`; the model and its
+  knobs are described at the top of that file). **Schedule grid** (`/schedule`, under More): games per team per week, with light
+  weeks, heavy weeks and back-to-backs marked. Both need the full-season schedule, which the nightly ingest now loads.
 - **Trophy races** (`/trophies`): top-5 contenders for the stat-driven awards (Art Ross, Richard, Norris, Calder, Vezina).
 - **Live scores** on the home page come straight from the NHL scoreboard (cached 20s); everything else is from the nightly ingest.
 - The footer shows when stats were last refreshed and warns if the nightly job looks like it missed a run.
