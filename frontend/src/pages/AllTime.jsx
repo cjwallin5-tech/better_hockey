@@ -55,6 +55,20 @@ const COLUMNS = {
     { key: 'toi_sec', label: 'Minutes', fmt: (v) => (v == null ? '–' : Math.round(v / 60).toLocaleString()) },
   ],
 }
+// Column groups, so the table shows a few related stats at a time instead of all 25 at once.
+// Each view lists its columns and the stat it sorts by when selected.
+const VIEWS = {
+  skater: [
+    { id: 'scoring', label: 'Scoring', sort: 'points', keys: ['first_season', 'games_played', 'goals', 'assists', 'points', 'points_per_game', 'plus_minus', 'pim'] },
+    { id: 'special', label: 'Special teams & goals', sort: 'pp_points', keys: ['games_played', 'pp_goals', 'pp_points', 'sh_goals', 'game_winning_goals', 'ot_goals', 'empty_net_goals', 'first_goals'] },
+    { id: 'shooting', label: 'Shooting', sort: 'shots', keys: ['games_played', 'shots', 'shooting_pct', 'shot_attempts', 'missed_shots', 'fo_win_pct'] },
+    { id: 'defense', label: 'Hits & giveaways', sort: 'hits', keys: ['games_played', 'hits', 'blocked_shots', 'takeaways', 'giveaways'] },
+  ],
+  goalie: [
+    { id: 'record', label: 'Record', sort: 'wins', keys: ['first_season', 'games_played', 'games_started', 'wins', 'losses', 'ties', 'ot_losses', 'shutouts'] },
+    { id: 'saves', label: 'Saves', sort: 'save_pct', keys: ['games_played', 'save_pct', 'gaa', 'saves', 'shots_against', 'goals_against', 'toi_sec'] },
+  ],
+}
 // Rate stats are meaningless over a handful of games, so sorting by them applies a minimum.
 const AUTO_MIN_GP = { skater: 300, goalie: 150 }
 
@@ -76,6 +90,10 @@ export default function AllTime() {
     key: initial.get('sort') ?? (initialKind === 'skater' ? 'points' : 'wins'),
     dir: initial.get('dir') ?? 'desc',
   }))
+  const [viewId, setViewId] = useState(() => {
+    const views = VIEWS[initialKind]
+    return (views.find((v) => v.id === initial.get('v')) ?? views.find((v) => v.keys.includes(initial.get('sort'))) ?? views[0]).id
+  })
   const [page, setPage] = useState(() => Math.max(0, Number(initial.get('page') ?? 1) - 1))
   const [countries, setCountries] = useState([])
   const [result, setResult] = useState({ key: '', data: null, error: null })
@@ -83,7 +101,7 @@ export default function AllTime() {
   useUrlSync([
     ['kind', kind, 'skater'], ['gt', gameType, 2], ['sort', sort.key, kind === 'skater' ? 'points' : 'wins'], ['dir', sort.dir, 'desc'],
     ['q', search, ''], ['pos', position, ''], ['country', country, ''], ['active', activeOnly, false], ['hof', hofOnly, false],
-    ['from', debutFrom, ''], ['to', debutTo, ''], ['min_gp', minGpInput, ''], ['page', page + 1, 1],
+    ['from', debutFrom, ''], ['to', debutTo, ''], ['min_gp', minGpInput, ''], ['page', page + 1, 1], ['v', viewId, VIEWS[kind][0].id],
   ])
 
   useEffect(() => {
@@ -94,8 +112,10 @@ export default function AllTime() {
     return () => clearTimeout(t)
   }, [search])
 
-  const columns = COLUMNS[kind]
-  const sortCol = columns.find((c) => c.key === sort.key)
+  const allColumns = COLUMNS[kind]
+  const view = VIEWS[kind].find((v) => v.id === viewId) ?? VIEWS[kind][0]
+  const columns = view.keys.map((k) => allColumns.find((c) => c.key === k))
+  const sortCol = allColumns.find((c) => c.key === sort.key)
   const autoMin = sortCol?.rate ? AUTO_MIN_GP[kind] : 0
   const minGp = minGpInput === '' ? autoMin : Number(minGpInput)
 
@@ -123,7 +143,7 @@ export default function AllTime() {
     const cols = [
       { key: 'name', label: 'Player' }, ...(kind === 'skater' ? [{ key: 'position', label: 'Pos' }] : []),
       { key: 'birth_country', label: 'Country' }, { key: 'first_season', label: 'Debut season' },
-      ...columns.filter((c) => c.key !== 'first_season'),
+      ...allColumns.filter((c) => c.key !== 'first_season'),
     ]
     downloadText(`all-time-${kind}s-${gameType === 3 ? 'playoffs' : 'regular-season'}.csv`, toCsv(cols, rows))
   }
@@ -146,10 +166,17 @@ export default function AllTime() {
 
   const switchKind = (k) => {
     setKind(k)
-    setSort({ key: k === 'skater' ? 'points' : 'wins', dir: 'desc' })
+    setViewId(VIEWS[k][0].id)
+    setSort({ key: VIEWS[k][0].sort, dir: 'desc' })
     setPosition('')
     setCountry('')
     setMinGpInput('')
+    setPage(0)
+  }
+
+  const switchView = (v) => {
+    setViewId(v.id)
+    setSort({ key: v.sort, dir: 'desc' })
     setPage(0)
   }
 
@@ -196,6 +223,11 @@ export default function AllTime() {
           <button role="tab" aria-selected={gameType === 2} className={gameType === 2 ? 'on' : ''} onClick={() => reset(setGameType)(2)}>Regular season</button>
           <button role="tab" aria-selected={gameType === 3} className={gameType === 3 ? 'on' : ''} onClick={() => reset(setGameType)(3)}>Playoffs</button>
         </div>
+      </div>
+      <div className="tabs view-tabs" role="tablist" aria-label="Stat groups">
+        {VIEWS[kind].map((v) => (
+          <button key={v.id} role="tab" aria-selected={v.id === view.id} className={v.id === view.id ? 'on' : ''} onClick={() => switchView(v)}>{v.label}</button>
+        ))}
       </div>
 
       <div className="controls">
@@ -275,7 +307,7 @@ export default function AllTime() {
         </div>
       )}
 
-      {kind === 'skater' && (
+      {kind === 'skater' && ['defense', 'shooting'].includes(view.id) && (
         <p className="sub">
           Hits, blocks, takeaways, giveaways, missed shots and shot attempts have only been recorded since
           2005-06. Players who finished before then show – , and careers that straddle it only count the

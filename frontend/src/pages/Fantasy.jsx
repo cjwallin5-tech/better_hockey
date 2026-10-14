@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import PageTabs from '../components/PageTabs.jsx'
 import FantasyWeek from '../components/FantasyWeek.jsx'
 import Pickups from '../components/Pickups.jsx'
 import { useAuth } from '../auth.js'
@@ -86,7 +87,7 @@ export default function Fantasy() {
     <main>
       <header>
         <h1>Your fantasy team</h1>
-        <p>Add the players on your fantasy roster, set your league's scoring below, and follow their fantasy points in one place. The roster is saved in this browser only.</p>
+        <p>Track your fantasy players under your league's scoring. {user ? <>Synced to your account ({user.email}).</> : <>The roster is saved in this browser only. <Link to="/account">Log in</Link> to sync it across devices.</>}</p>
       </header>
 
       <div className="tabs" role="tablist">
@@ -115,111 +116,146 @@ export default function Fantasy() {
         </div>
       </div>
 
-      <RosterTools players={list.players} scoring={scoring} onLoad={loadRoster} shared={params.get('roster')} />
+      {sync === 'conflict' && <p className="notice">Your account has a different roster than this browser. <Link to="/account">Choose which to keep →</Link></p>}
 
-      <ScoringSettings scoring={scoring} setScoring={setScoring} />
+      <RosterTools only="banner" shared={params.get('roster')} onLoad={loadRoster} />
 
-      {list.players.length === 0 && (
-        <p className="status">No players yet. Search above, or press ☆ Add to team on a <Link to="/skaters">player</Link> or <Link to="/goalies">goalie</Link> page.</p>
-      )}
-      {list.players.length > 0 && !data && <p className="status">Loading…</p>}
-
-      {data && skaterRows.length > 0 && (
-        <>
-          <h2>Skaters</h2>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th className="left">Player</th><th className="left">Team</th><th>GP</th><th>G</th><th>A</th><th>P</th><th>Fantasy pts</th><th>Per GP</th><th>Pace</th><th>L10 P</th><th>L10 pace</th><th /></tr>
-              </thead>
-              <tbody>
-                {skaterRows.map(({ p, row }) => (
-                  <tr key={p.id}>
-                    <td className="left">
-                      <Link to={`/player/${p.id}`}>{p.name}</Link>
-                      {row?.traded && <span className="badge">↔ traded</span>}
-                      {row?.games_out >= 2 && <span className="badge warn" title="Not in the team's last games">out {row.games_out}</span>}
-                    </td>
-                    {row ? (
-                      <>
-                        <td className="left">{row.team}</td><td>{row.games_played}</td><td>{row.goals}</td><td>{row.assists}</td>
-                        <td>{row.points}</td>
-                        <td className="accent">{fp(fantasyPoints(row, SKATER_CATS, scoring))}</td>
-                        <td>{row.games_played ? (fantasyPoints(row, SKATER_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
-                        <td>{fmt1(row.point_pace)}</td>
-                        <td>{row.recent_points ?? '–'}</td><td>{fmt1(row.recent_pace)}</td>
-                      </>
-                    ) : (
-                      <td className="left" colSpan="10"><span className="muted">No games this season</span></td>
-                    )}
-                    <td><button className="link-button" onClick={() => togglePlayer(p)}>Remove</button></td>
-                  </tr>
-                ))}
-              </tbody>
-              {skaterTotals.length > 1 && (
-                <tfoot>
-                  <tr>
-                    <td className="left">Team total</td><td />
-                    <td /><td>{sum(skaterTotals, 'goals')}</td><td>{sum(skaterTotals, 'assists')}</td>
-                    <td>{sum(skaterTotals, 'points')}</td>
-                    <td className="accent">{fp(skaterTotals.reduce((t, r) => t + fantasyPoints(r, SKATER_CATS, scoring), 0))}</td><td />
-                    <td>{fmt1(sum(skaterTotals, 'point_pace'))}</td>
-                    <td>{sum(skaterTotals, 'recent_points')}</td><td>{fmt1(sum(skaterTotals, 'recent_pace'))}</td><td />
-                  </tr>
-                </tfoot>
+      <PageTabs
+        tabs={[
+          {
+            id: 'roster',
+            label: `Roster${list.players.length ? ` (${list.players.length})` : ''}`,
+            content: (
+              <>
+              {list.players.length === 0 && (
+                <p className="status">No players yet. Search above, or press ☆ Add to team on a <Link to="/skaters">player</Link> or <Link to="/goalies">goalie</Link> page.</p>
               )}
-            </table>
-          </div>
-        </>
-      )}
+              {list.players.length > 0 && !data && <p className="status">Loading…</p>}
 
-      {data && goalieRows.length > 0 && (
-        <>
-          <h2>Goalies</h2>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th className="left">Goalie</th><th className="left">Team</th><th>GP</th><th>W</th><th>L</th><th>Fantasy pts</th><th>Per GP</th><th>SV%</th><th>GAA</th><th>GSAA</th><th>Recent SV%</th><th /></tr>
-              </thead>
-              <tbody>
-                {goalieRows.map(({ p, row }) => (
-                  <tr key={p.id}>
-                    <td className="left"><Link to={`/goalie/${p.id}`}>{p.name}</Link></td>
-                    {row ? (
-                      <>
-                        <td className="left">{row.team}</td><td>{row.games_played}</td><td>{row.wins}</td><td>{row.losses}</td>
-                        <td className="accent">{fp(fantasyPoints(row, GOALIE_CATS, scoring))}</td>
-                        <td>{row.games_played ? (fantasyPoints(row, GOALIE_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
-                        <td>{sv(row.save_pct)}</td><td>{row.gaa?.toFixed(2)}</td><td>{signed(row.gsaa)}</td><td>{sv(row.recent_save_pct)}</td>
-                      </>
-                    ) : (
-                      <td className="left" colSpan="10"><span className="muted">No games this season</span></td>
-                    )}
-                    <td><button className="link-button" onClick={() => togglePlayer(p)}>Remove</button></td>
-                  </tr>
-                ))}
-              </tbody>
-              {goalieTotals.length > 1 && (
-                <tfoot>
-                  <tr>
-                    <td className="left">Team total</td><td /><td>{sum(goalieTotals, 'games_played')}</td>
-                    <td>{sum(goalieTotals, 'wins')}</td><td>{sum(goalieTotals, 'losses')}</td>
-                    <td className="accent">{fp(goalieTotals.reduce((t, r) => t + fantasyPoints(r, GOALIE_CATS, scoring), 0))}</td><td /><td /><td /><td /><td /><td />
-                  </tr>
-                </tfoot>
+              {data && skaterRows.length > 0 && (
+                <>
+                  <h2>Skaters</h2>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr><th className="left">Player</th><th className="left">Team</th><th>GP</th><th>G</th><th>A</th><th>P</th><th>Fantasy pts</th><th>Per GP</th><th>Pace</th><th>L10 P</th><th>L10 pace</th><th /></tr>
+                      </thead>
+                      <tbody>
+                        {skaterRows.map(({ p, row }) => (
+                          <tr key={p.id}>
+                            <td className="left">
+                              <Link to={`/player/${p.id}`}>{p.name}</Link>
+                              {row?.traded && <span className="badge">↔ traded</span>}
+                              {row?.games_out >= 2 && <span className="badge warn" title="Not in the team's last games">out {row.games_out}</span>}
+                            </td>
+                            {row ? (
+                              <>
+                                <td className="left">{row.team}</td><td>{row.games_played}</td><td>{row.goals}</td><td>{row.assists}</td>
+                                <td>{row.points}</td>
+                                <td className="accent">{fp(fantasyPoints(row, SKATER_CATS, scoring))}</td>
+                                <td>{row.games_played ? (fantasyPoints(row, SKATER_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
+                                <td>{fmt1(row.point_pace)}</td>
+                                <td>{row.recent_points ?? '–'}</td><td>{fmt1(row.recent_pace)}</td>
+                              </>
+                            ) : (
+                              <td className="left" colSpan="10"><span className="muted">No games this season</span></td>
+                            )}
+                            <td><button className="link-button" onClick={() => togglePlayer(p)}>Remove</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {skaterTotals.length > 1 && (
+                        <tfoot>
+                          <tr>
+                            <td className="left">Team total</td><td />
+                            <td /><td>{sum(skaterTotals, 'goals')}</td><td>{sum(skaterTotals, 'assists')}</td>
+                            <td>{sum(skaterTotals, 'points')}</td>
+                            <td className="accent">{fp(skaterTotals.reduce((t, r) => t + fantasyPoints(r, SKATER_CATS, scoring), 0))}</td><td />
+                            <td>{fmt1(sum(skaterTotals, 'point_pace'))}</td>
+                            <td>{sum(skaterTotals, 'recent_points')}</td><td>{fmt1(sum(skaterTotals, 'recent_pace'))}</td><td />
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </>
               )}
-            </table>
-          </div>
-        </>
-      )}
 
-      {list.players.length > 0 && <FantasyWeek players={list.players} />}
-
-      {data && <Pickups data={data} kind={kind} rosterIds={taken} scoring={scoring} onAdd={add} />}
-
-      {list.players.length > 1 && (
-        <p><Link to={`/compare?ids=${list.players.filter((p) => p.kind === (skaterRows.length ? 'skater' : 'goalie')).slice(0, 3).map((p) => p.id).join(',')}`}>Compare your players →</Link></p>
-      )}
+              {data && goalieRows.length > 0 && (
+                <>
+                  <h2>Goalies</h2>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr><th className="left">Goalie</th><th className="left">Team</th><th>GP</th><th>W</th><th>L</th><th>Fantasy pts</th><th>Per GP</th><th>SV%</th><th>GAA</th><th>GSAA</th><th>Recent SV%</th><th /></tr>
+                      </thead>
+                      <tbody>
+                        {goalieRows.map(({ p, row }) => (
+                          <tr key={p.id}>
+                            <td className="left"><Link to={`/goalie/${p.id}`}>{p.name}</Link></td>
+                            {row ? (
+                              <>
+                                <td className="left">{row.team}</td><td>{row.games_played}</td><td>{row.wins}</td><td>{row.losses}</td>
+                                <td className="accent">{fp(fantasyPoints(row, GOALIE_CATS, scoring))}</td>
+                                <td>{row.games_played ? (fantasyPoints(row, GOALIE_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
+                                <td>{sv(row.save_pct)}</td><td>{row.gaa?.toFixed(2)}</td><td>{signed(row.gsaa)}</td><td>{sv(row.recent_save_pct)}</td>
+                              </>
+                            ) : (
+                              <td className="left" colSpan="10"><span className="muted">No games this season</span></td>
+                            )}
+                            <td><button className="link-button" onClick={() => togglePlayer(p)}>Remove</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {goalieTotals.length > 1 && (
+                        <tfoot>
+                          <tr>
+                            <td className="left">Team total</td><td /><td>{sum(goalieTotals, 'games_played')}</td>
+                            <td>{sum(goalieTotals, 'wins')}</td><td>{sum(goalieTotals, 'losses')}</td>
+                            <td className="accent">{fp(goalieTotals.reduce((t, r) => t + fantasyPoints(r, GOALIE_CATS, scoring), 0))}</td><td /><td /><td /><td /><td /><td />
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </>
+              )}
+              {list.players.length > 1 && (
+                <p><Link to={`/compare?ids=${list.players.filter((p) => p.kind === (skaterRows.length ? 'skater' : 'goalie')).slice(0, 3).map((p) => p.id).join(',')}`}>Compare your players →</Link></p>
+              )}
+              </>
+            ),
+          },
+          {
+            id: 'week',
+            label: 'This week',
+            content: list.players.length > 0 ? <FantasyWeek players={list.players} /> : <p className="status">Add players to see their games this week.</p>,
+          },
+          {
+            id: 'pickups',
+            label: 'Pickup ideas',
+            content: data ? (
+              <>
+                <div className="tabs" role="tablist">
+                  <button role="tab" aria-selected={kind === 'skater'} className={kind === 'skater' ? 'on' : ''} onClick={() => setKind('skater')}>Skaters</button>
+                  <button role="tab" aria-selected={kind === 'goalie'} className={kind === 'goalie' ? 'on' : ''} onClick={() => setKind('goalie')}>Goalies</button>
+                </div>
+                <Pickups data={data} kind={kind} rosterIds={taken} scoring={scoring} onAdd={add} />
+              </>
+            ) : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'settings',
+            label: 'Scoring & backup',
+            content: (
+              <>
+                <ScoringSettings scoring={scoring} setScoring={setScoring} />
+                <RosterTools only="buttons" players={list.players} scoring={scoring} onLoad={loadRoster} />
+              </>
+            ),
+          },
+        ]}
+      />
     </main>
   )
 }

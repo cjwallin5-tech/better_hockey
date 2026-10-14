@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
 import Rankings from '../components/Rankings.jsx'
@@ -79,50 +80,80 @@ export default function Goalie() {
         League-average save % is {fmtSv(lg)}. Recent form covers the last {window} appearances.
       </p>
 
-      <Career playerId={g.player_id} />
-
-      <Rankings playerId={g.player_id} kind="goalie" />
-
-      <h2>This season</h2>
-      <div className="charts">
-        <GsaaChart games={chrono} leagueSvPct={lg} />
-        <figure className="chart">
-          <figcaption><h3>Save % by situation</h3></figcaption>
-          <div className="splits">
-            <Split label="Even strength" saves={g.ev_saves} shots={g.ev_shots_against} pct={g.ev_save_pct} />
-            <Split label="Penalty kill" saves={g.pp_saves} shots={g.pp_shots_against} pct={g.pp_save_pct} />
-            <Split label="Power play (short-handed shots)" saves={g.sh_saves} shots={g.sh_shots_against} pct={g.sh_save_pct} />
-          </div>
-        </figure>
-      </div>
-
-      <GoalieShots playerId={g.player_id} />
-
-      <h2>Game log</h2>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th className="left">Date</th><th className="left">Opponent</th><th>Start</th>
-              <th>Dec</th><th>SA</th><th>SV</th><th>GA</th><th>SV%</th><th>GSAA</th><th>TOI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {games.map((x) => (
-              <tr key={x.game_id}>
-                <td className="left">{x.game_date}</td>
-                <td className="left">{x.is_home ? 'vs' : '@'} {x.opponent}</td>
-                <td>{x.started ? 'Yes' : 'Relief'}</td>
-                <td>{x.decision ?? '–'}</td>
-                <td>{x.shots_against}</td><td>{x.saves}</td><td>{x.goals_against}</td>
-                <td>{x.shots_against ? fmtSv(x.saves / x.shots_against) : '–'}</td>
-                <td>{fmtSigned(gameGsaa(x))}</td>
-                <td>{fmtToi(x.toi_sec)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <PageTabs
+        tabs={[
+          {
+            id: 'season',
+            label: 'This season',
+            content: (
+              <>
+              <div className="charts">
+                <GsaaChart games={chrono} leagueSvPct={lg} />
+                <figure className="chart">
+                  <figcaption><h3>Save % by situation</h3></figcaption>
+                  <div className="splits">
+                    <Split label="Even strength" saves={g.ev_saves} shots={g.ev_shots_against} pct={g.ev_save_pct} />
+                    <Split label="Penalty kill" saves={g.pp_saves} shots={g.pp_shots_against} pct={g.pp_save_pct} />
+                    <Split label="Power play (short-handed shots)" saves={g.sh_saves} shots={g.sh_shots_against} pct={g.sh_save_pct} />
+                  </div>
+                </figure>
+              </div>
+              </>
+            ),
+          },
+          {
+            id: 'career',
+            label: 'Career & rankings',
+            content: (
+              <>
+                <Career playerId={g.player_id} />
+                <Rankings playerId={g.player_id} kind="goalie" />
+              </>
+            ),
+          },
+          {
+            id: 'shots',
+            label: 'Shots faced',
+            content: (
+              <>
+              <GoalieShots playerId={g.player_id} />
+              </>
+            ),
+          },
+          {
+            id: 'log',
+            label: 'Game log',
+            content: (
+              <>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="left">Date</th><th className="left">Opponent</th><th>Start</th>
+                      <th>Dec</th><th>SA</th><th>SV</th><th>GA</th><th>SV%</th><th>GSAA</th><th>TOI</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {games.map((x) => (
+                      <tr key={x.game_id}>
+                        <td className="left">{x.game_date}</td>
+                        <td className="left">{x.is_home ? 'vs' : '@'} {x.opponent}</td>
+                        <td>{x.started ? 'Yes' : 'Relief'}</td>
+                        <td>{x.decision ?? '–'}</td>
+                        <td>{x.shots_against}</td><td>{x.saves}</td><td>{x.goals_against}</td>
+                        <td>{x.shots_against ? fmtSv(x.saves / x.shots_against) : '–'}</td>
+                        <td>{fmtSigned(gameGsaa(x))}</td>
+                        <td>{fmtToi(x.toi_sec)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            ),
+          },
+        ]}
+      />
     </main>
   )
 }

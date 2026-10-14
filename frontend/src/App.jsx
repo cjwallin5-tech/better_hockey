@@ -33,8 +33,6 @@ export default function App() {
         <NavLink to="/goalies">Goalies</NavLink>
         <NavLink to="/standings">Standings</NavLink>
         <NavLink to="/alltime">All-time</NavLink>
-        <NavLink to="/milestones">Milestones</NavLink>
-        <NavLink to="/trophies">Trophies</NavLink>
         <NavLink to="/compare">Compare</NavLink>
         <NavMore items={[['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/schedule', 'Schedule grid']]} />
         <NavLink to="/fantasy">★ Fantasy team</NavLink>

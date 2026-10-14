@@ -23,7 +23,8 @@ export default function Trophies({ playerId }) {
   if (!list || list.length === 0) return null
 
   return (
-    <section className="context" aria-label="Trophy contention">
+    <section className="context" aria-label="Trophy contention"
+      title={`In contention means a top-${result.size} spot in the stat that decides the award, so it moves a lot early in the season. Voted awards like the Hart and Selke aren't covered.`}>
       <ul>
         {list.map((t) => (
           <li key={t.trophy}>
@@ -34,10 +35,6 @@ export default function Trophies({ playerId }) {
           </li>
         ))}
       </ul>
-      <p className="context-note">
-        Contention here means a top-{result.size} spot in the stat that decides the award, so it moves a lot
-        early in the season. Voted awards like the Hart and Selke aren't covered.
-      </p>
     </section>
   )
 }

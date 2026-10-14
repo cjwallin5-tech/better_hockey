@@ -3,7 +3,7 @@ import { downloadText } from '../csv.js'
 import { decodeShare, encodeShare, exportBackup, parseBackup } from '../fantasy.js'
 
 /** Back up, restore and share the roster + scoring (the data only lives in this browser). */
-export default function RosterTools({ players, scoring, onLoad, shared }) {
+export default function RosterTools({ players = [], scoring, onLoad, shared, only }) {
   const file = useRef(null)
   const [msg, setMsg] = useState('')
 
@@ -31,17 +31,19 @@ export default function RosterTools({ players, scoring, onLoad, shared }) {
 
   return (
     <div className="roster-tools">
-      {shared && (
+      {only !== 'buttons' && shared && (
         <p className="notice">
           {sharedRoster
             ? <>Someone shared a roster of {sharedRoster.players.length} players with you. <button onClick={() => { onLoad(sharedRoster); setMsg('Loaded the shared roster.') }}>Load it (replaces your roster)</button></>
             : "That share link couldn't be read."}
         </p>
       )}
+      {only === 'banner' ? null : <>
       {players.length > 0 && <button onClick={copyLink}>Copy share link</button>}
       {players.length > 0 && <button onClick={() => downloadText('fantasy-roster.json', exportBackup(players, scoring), 'application/json')}>Download backup</button>}
       <button onClick={() => file.current?.click()}>Restore from backup…</button>
       <input ref={file} type="file" accept="application/json,.json" hidden onChange={onFile} />
+      </>}
       {msg && <span className="muted" role="status"> {msg}</span>}
     </div>
   )

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
 import Rankings from '../components/Rankings.jsx'
@@ -106,12 +107,32 @@ export default function Player() {
         <Tile label="TOI / game" value={fmtToi(p.toi_per_game_sec)} />
       </section>
 
-      <Career playerId={p.player_id} />
+      <PageTabs
+        tabs={[
+          {
+            id: 'season',
+            label: 'This season',
+            content: (
+              <>
+              <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
 
       <Rankings playerId={p.player_id} kind="skater" />
 
-      <h2>This season</h2>
-      <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
+              <h2>Possession &amp; special teams</h2>
+              <p className="sub">
+                5v5 shot attempts: {p.sat_for ?? '–'} for, {p.sat_against ?? '–'} against
+                ({p.usat_for ?? '–'} / {p.usat_against ?? '–'} excluding blocked shots). Same peer
+                group as above.
+              </p>
+              <StatCards stats={POSSESSION} p={p} percentiles={percentiles} />
+              <section className="tiles usage">
+                <Tile label="EV TOI" value={fmtToi(p.ev_toi_per_game)} />
+                <Tile label="PP TOI" value={fmtToi(p.pp_toi_per_game)} />
+                <Tile label="SH TOI" value={fmtToi(p.sh_toi_per_game)} />
+                <Tile label="PP points" value={p.pp_points} />
+                <Tile label="SH points" value={p.sh_points} />
+                <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
+              </section>
 
       <div className="charts">
         <PaceChart
@@ -147,37 +168,44 @@ export default function Player() {
         <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
       </section>
 
-      <SkaterShots playerId={p.player_id} />
-
-      <Linemates playerId={p.player_id} />
-
-      <Similar playerId={p.player_id} />
-
-      <h2>Game log</h2>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th className="left">Date</th>
-              <th className="left">Opponent</th>
-              <th>G</th><th>A</th><th>P</th><th>Shots</th><th>+/-</th><th>PIM</th><th>TOI</th><th>Hits</th><th>BLK</th><th>TK</th><th>GV</th>
-            </tr>
-          </thead>
-          <tbody>
-            {games.map((g) => (
-              <tr key={g.game_id}>
-                <td className="left">{g.game_date}</td>
-                <td className="left">{g.is_home ? 'vs' : '@'} {g.opponent}</td>
-                <td>{g.goals}</td><td>{g.assists}</td><td>{g.points}</td>
-                <td>{g.shots ?? '–'}</td><td>{g.plus_minus ?? '–'}</td>
-                <td>{g.pim ?? '–'}</td><td>{fmtToi(g.toi_sec)}</td>
-                <td>{g.hits ?? '–'}</td><td>{g.blocked_shots ?? '–'}</td>
-                <td>{g.takeaways ?? '–'}</td><td>{g.giveaways ?? '–'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              <Similar playerId={p.player_id} />
+              </>
+            ),
+          },
+          {
+            id: 'log',
+            label: 'Game log',
+            content: (
+              <>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="left">Date</th>
+                      <th className="left">Opponent</th>
+                      <th>G</th><th>A</th><th>P</th><th>Shots</th><th>+/-</th><th>PIM</th><th>TOI</th><th>Hits</th><th>BLK</th><th>TK</th><th>GV</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {games.map((g) => (
+                      <tr key={g.game_id}>
+                        <td className="left">{g.game_date}</td>
+                        <td className="left">{g.is_home ? 'vs' : '@'} {g.opponent}</td>
+                        <td>{g.goals}</td><td>{g.assists}</td><td>{g.points}</td>
+                        <td>{g.shots ?? '–'}</td><td>{g.plus_minus ?? '–'}</td>
+                        <td>{g.pim ?? '–'}</td><td>{fmtToi(g.toi_sec)}</td>
+                        <td>{g.hits ?? '–'}</td><td>{g.blocked_shots ?? '–'}</td>
+                        <td>{g.takeaways ?? '–'}</td><td>{g.giveaways ?? '–'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            ),
+          },
+        ]}
+      />
     </main>
   )
 }

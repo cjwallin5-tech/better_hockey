@@ -274,3 +274,4 @@ CREATE TABLE IF NOT EXISTS season_record (
     value     INTEGER NOT NULL,
     PRIMARY KEY (stat, rank)
 );
+

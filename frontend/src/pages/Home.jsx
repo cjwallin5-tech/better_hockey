@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PageTabs from '../components/PageTabs.jsx'
 import LiveGames from '../components/LiveGames.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { fmt1, fmtToi } from '../format.js'
@@ -15,6 +16,7 @@ export default function Home() {
   const [records, setRecords] = useState(null)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const [showAllGames, setShowAllGames] = useState(false)
 
   useEffect(() => {
     fetch('/api/home')
@@ -66,7 +68,7 @@ export default function Home() {
               <h3>Top performers</h3>
               <table className="mini">
                 <tbody>
-                  {data.performers.map((p) => (
+                  {data.performers.slice(0, 5).map((p) => (
                     <tr key={`${p.player_id}-${p.game_id}`}>
                       <td>{player(p)} <span className="muted">{p.team} {p.is_home ? 'vs' : '@'} {p.opponent}</span></td>
                       <td className="num">{p.goals}G {p.assists}A</td>
@@ -98,7 +100,7 @@ export default function Home() {
         <section className="card">
           <h2>{data.upcoming_day ? `Next up: ${longDay(data.upcoming_day)}` : 'No upcoming games'}</h2>
           <ul className="scores">
-            {data.upcoming.map((g) => (
+            {(showAllGames ? data.upcoming : data.upcoming.slice(0, 8)).map((g) => (
               <li key={g.game_id}>
                 <span><Link to={`/team/${g.away}`}>{g.away}</Link></span>
                 <span className="at">@</span>
@@ -107,6 +109,13 @@ export default function Home() {
               </li>
             ))}
           </ul>
+          {data.upcoming.length > 8 && (
+            <p className="muted small">
+              <button type="button" className="link-button" onClick={() => setShowAllGames(!showAllGames)}>
+                {showAllGames ? 'Show fewer games' : `Show all ${data.upcoming.length} games`}
+              </button>
+            </p>
+          )}
 
           <h3>Top teams</h3>
           <table className="mini">
@@ -123,6 +132,15 @@ export default function Home() {
           <p className="muted small"><Link to="/standings">Full standings →</Link></p>
         </section>
 
+      </div>
+
+      <PageTabs
+        tabs={[
+          {
+            id: 'streaks',
+            label: 'Hot & cold',
+            content: (
+              <div className="home-grid">
         <section className="card">
           <h2>Hot streaks</h2>
           <p className="muted small">Consecutive games with a point.</p>
@@ -132,6 +150,13 @@ export default function Home() {
           <StreakTable rows={data.cold} unit="games" empty="Nobody fits right now." />
         </section>
 
+              </div>
+            ),
+          },
+          {
+            id: 'pace',
+            label: 'Pace leaders',
+            content: <div className="home-grid">
         <section className="card">
           <h2>Pace leaders</h2>
           <p className="muted small">Players with at least {data.min_gp} GP, projected to {gs} games.</p>
@@ -141,6 +166,12 @@ export default function Home() {
           <PaceTable rows={data.goal_pace} />
         </section>
 
+            </div>,
+          },
+          {
+            id: 'goalies',
+            label: 'Goaltending',
+            content: <div className="home-grid">
         <section className="card">
           <h2>Goaltending leaders</h2>
           <p className="muted small">By goals saved above average.</p>
@@ -160,7 +191,14 @@ export default function Home() {
           <p className="muted small"><Link to="/goalies">All goalies →</Link></p>
         </section>
 
-        {records && (
+            </div>,
+          },
+          ...(records
+            ? [{
+                id: 'records',
+                label: 'Record watch',
+                content: <div className="home-grid">
+        
           <section className="card record-card">
             <h2>Record watch</h2>
             <p className="muted small">
@@ -192,19 +230,11 @@ export default function Home() {
               )
             })}
           </section>
-        )}
-
-        <section className="card">
-          <h2>Explore</h2>
-          <ul className="explore">
-            <li><Link to="/skaters">Skater leaderboard</Link> — pace, defense, possession, special teams</li>
-            <li><Link to="/alltime">All-time leaders</Link> — every player in NHL history</li>
-            <li><Link to="/milestones">Milestone watch</Link> — who's closing in on 500 goals, 1,000 games…</li>
-            <li><Link to="/compare">Compare players</Link> — careers side by side</li>
-            <li><Link to="/fantasy">Your fantasy team</Link> — keep your fantasy players and their stats in one place</li>
-          </ul>
-        </section>
-      </div>
+                </div>,
+              }]
+            : []),
+        ]}
+      />
     </main>
   )
 

@@ -31,7 +31,7 @@ export default function Standings() {
       .catch((e) => setError(e.message))
   }, [])
 
-  const view = VIEWS.find((v) => v.id === viewId)
+  const view = VIEWS.find((v) => v.id === viewId) ?? VIEWS[0]
   const groups = useMemo(() => {
     if (!teams) return []
     const byGroup = new Map()
@@ -59,7 +59,7 @@ export default function Standings() {
           Pace projects each team's points over {games} games (max {games * 2}).
         </p>
       </header>
-      {early && (
+      {early && viewId !== 'odds' && (
         <p className="notice">
           Early season: teams have played at most {Math.max(...teams.map((t) => t.games_played))}{' '}
           games, so pace projections are very noisy (shown dimmed).
