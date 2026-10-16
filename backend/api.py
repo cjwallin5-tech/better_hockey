@@ -627,7 +627,7 @@ def probable_goalies_week(ids: str = "", days: int = 7):
 TRACKING_STATS = {
     "top_shot": ("e.top_shot_mph", "Hardest shot", "mph", "top_shot_pctile", "top_shot_date", "top_shot_game_id"),
     "avg_shot": ("e.avg_shot_mph", "Average shot speed", "mph", "avg_shot_pctile", None, None),
-    "hard_shots": ("coalesce(e.shots_90_100, 0) + coalesce(e.shots_100_plus, 0)", "Shots at 90+ mph", "shots", None, None, None),
+    "hard_shots": ("coalesce(e.shots_90_100, 0) + coalesce(e.shots_100_plus, 0)", "Shot attempts at 90+ mph", "attempts", None, None, None),
     "top_speed": ("e.top_speed_mph", "Fastest skating speed", "mph", "top_speed_pctile", "top_speed_date", "top_speed_game_id"),
     "bursts_22": ("e.bursts_22_plus", "Bursts over 22 mph", "bursts", "bursts_22_pctile", None, None),
     "bursts_20": ("coalesce(e.bursts_22_plus, 0) + coalesce(e.bursts_20_22, 0)", "Bursts over 20 mph", "bursts", None, None, None),

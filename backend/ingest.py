@@ -979,7 +979,7 @@ def ingest_team_abbrevs(conn):
 
 EDGE_FIRST_SEASON = 20212022   # the NHL's tracking data starts here
 EDGE_BASE = f"{config.WEB_API}/edge"
-EDGE_REFETCH_HOURS = 20       # the current season is refreshed for players who have played since the last fetch
+EDGE_REFRESH_WINDOW_HOURS = 30   # keep refreshing a player for this long after his latest game: the NHL's tracking lags the box score
 
 
 def edge_get(path):
@@ -1029,6 +1029,15 @@ def ensure_edge_columns(conn):
     conn.commit()
 
 
+def edge_current_candidates(last_game, fetched, window_hours=EDGE_REFRESH_WINDOW_HOURS):
+    """Current-season players whose tracking stats need (re)fetching: anyone never fetched, and anyone who was
+    last fetched less than `window_hours` after the start of his latest game. last_game: {player_id: start of
+    his latest game}; fetched: {player_id: when we last fetched him}. Past that window the tracking data has
+    caught up with the box score, so the player is left alone until he plays again."""
+    return [p for p, started in last_game.items()
+            if p not in fetched or fetched[p] < started + timedelta(hours=window_hours)]
+
+
 def edge_jobs(conn, seasons, limit=None):
     """(skater jobs, goalie jobs): player-seasons still to fetch. Past seasons are fetched once; the current
     season again for players who have played since we last looked."""
@@ -1037,10 +1046,10 @@ def edge_jobs(conn, seasons, limit=None):
         have = {r[0]: r[1] for r in conn.execute(
             "SELECT player_id, fetched_at FROM edge_skater_season WHERE season_id = %s", (season,))}
         if season == config.SEASON_ID:
-            played = {r[0]: r[1] for r in conn.execute(
-                "SELECT player_id, max(game_date) FROM skater_game WHERE season_id = %s GROUP BY player_id", (season,))}
-            ids = [p for p, last in played.items() if p not in have or last >= have[p].date()]
-            ids = [p for p in ids if p not in have or have[p] < datetime.now(have[p].tzinfo) - timedelta(hours=EDGE_REFETCH_HOURS)]
+            last_game = {r[0]: r[1] for r in conn.execute(
+                """SELECT g.player_id, max(m.start_time) FROM skater_game g JOIN game m USING (game_id)
+                   WHERE g.season_id = %s GROUP BY g.player_id""", (season,))}
+            ids = edge_current_candidates(last_game, have)
         else:
             ids = [r[0] for r in conn.execute(
                 "SELECT player_id FROM career_season WHERE season_id = %s AND games_played > 0", (season,)) if r[0] not in have]
@@ -1049,10 +1058,10 @@ def edge_jobs(conn, seasons, limit=None):
         have_g = {r[0]: r[1] for r in conn.execute(
             "SELECT player_id, fetched_at FROM edge_goalie_season WHERE season_id = %s", (season,))}
         if season == config.SEASON_ID:
-            played = {r[0]: r[1] for r in conn.execute(
-                "SELECT player_id, max(game_date) FROM goalie_game WHERE season_id = %s GROUP BY player_id", (season,))}
-            gids = [p for p, last in played.items() if p not in have_g or (last >= have_g[p].date()
-                    and have_g[p] < datetime.now(have_g[p].tzinfo) - timedelta(hours=EDGE_REFETCH_HOURS))]
+            last_game = {r[0]: r[1] for r in conn.execute(
+                """SELECT g.player_id, max(m.start_time) FROM goalie_game g JOIN game m USING (game_id)
+                   WHERE g.season_id = %s GROUP BY g.player_id""", (season,))}
+            gids = edge_current_candidates(last_game, have_g)
         else:
             gids = [p for p in _season_player_ids("goalie", season) if p not in have_g]
         goalies += [(p, season) for p in gids]

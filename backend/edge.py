@@ -10,6 +10,7 @@ import re
 SKATER_COLUMNS = [
     ("top_shot_mph", "REAL"), ("top_shot_pctile", "REAL"), ("top_shot_date", "DATE"), ("top_shot_game_id", "BIGINT"),
     ("avg_shot_mph", "REAL"), ("avg_shot_pctile", "REAL"),
+    # shot ATTEMPTS (on goal, missed or blocked) by speed band; the column names keep the old "shots" wording
     ("shots_100_plus", "INTEGER"), ("shots_90_100", "INTEGER"), ("shots_80_90", "INTEGER"), ("shots_70_80", "INTEGER"),
     ("top_speed_mph", "REAL"), ("top_speed_pctile", "REAL"), ("top_speed_date", "DATE"), ("top_speed_game_id", "BIGINT"),
     ("bursts_22_plus", "INTEGER"), ("bursts_22_pctile", "REAL"), ("bursts_20_22", "INTEGER"), ("bursts_18_20", "INTEGER"),
@@ -57,7 +58,7 @@ def parse_skater(detail, skating, shot):
     fastest = _get(skating, "topSkatingSpeeds", 0)
     bursts = skating.get("skatingSpeedDetails") or {}
     speeds = shot.get("shotSpeedDetails") or {}
-    return {
+    row = {
         "top_shot_mph": _first(_get(top_shot, "imperial"), _get(detail, "topShotSpeed", "imperial")),
         "top_shot_pctile": _first(_get(top_shot, "percentile"), _get(detail, "topShotSpeed", "percentile")),
         "top_shot_date": _first(_get(hardest, "gameDate"), _get(detail, "topShotSpeed", "overlay", "gameDate")),
@@ -86,6 +87,13 @@ def parse_skater(detail, skating, shot):
         "sog": _get(shots_by_area.get("all"), "shots"), "sog_goals": _get(shots_by_area.get("all"), "goals"),
         "hd_sog": _get(shots_by_area.get("high"), "shots"), "hd_goals": _get(shots_by_area.get("high"), "goals"),
     }
+    # The NHL reports 0 mph for a player it tracked no shot from; that means "no data", not a record low.
+    if not row["top_shot_mph"]:
+        for col in ("top_shot_mph", "top_shot_pctile", "top_shot_date", "top_shot_game_id"):
+            row[col] = None
+    if not row["avg_shot_mph"]:
+        row["avg_shot_mph"] = row["avg_shot_pctile"] = None
+    return row
 
 
 def parse_goalie(detail):

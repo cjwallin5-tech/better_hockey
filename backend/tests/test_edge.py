@@ -1,5 +1,6 @@
 import re
 import unittest
+from datetime import datetime, timedelta, timezone
 
 import api
 import edge
@@ -77,6 +78,21 @@ class ParseSkater(unittest.TestCase):
         self.assertIsNone(edge._game_id("/gamecenter/nothing"))
 
 
+class ZeroMeansNoData(unittest.TestCase):
+    def test_a_zero_mph_top_shot_is_missing_not_a_record_low(self):
+        shot = {"hardestShots": [{"gameDate": "2025-11-13", "gameCenterLink": "/gamecenter/a/2025/11/13/2025020274",
+                                  "shotSpeed": {"imperial": 0}}],
+                "shotSpeedDetails": {"topShotSpeed": {"imperial": 0, "percentile": 0.0}, "avgShotSpeed": {"imperial": 0, "percentile": 0.0}}}
+        r = edge.parse_skater({"topShotSpeed": {"imperial": 0, "percentile": 0.0}}, SKATING, shot)
+        for col in ("top_shot_mph", "top_shot_pctile", "top_shot_date", "top_shot_game_id", "avg_shot_mph", "avg_shot_pctile"):
+            self.assertIsNone(r[col], col)
+        self.assertEqual(r["top_speed_mph"], 24.6119)       # the rest of the row is untouched
+
+    def test_a_real_slow_shot_is_kept(self):
+        r = edge.parse_skater({"topShotSpeed": {"imperial": 34.19, "percentile": 0.02}}, None, None)
+        self.assertEqual(r["top_shot_mph"], 34.19)
+
+
 class ParseGoalie(unittest.TestCase):
     def test_every_column_and_nothing_else(self):
         self.assertEqual(set(edge.parse_goalie(GOALIE)), {c for c, _ in edge.GOALIE_COLUMNS})
@@ -91,6 +107,32 @@ class ParseGoalie(unittest.TestCase):
     def test_missing_ranges_are_none(self):
         r = edge.parse_goalie({"shotLocationSummary": [{"locationCode": "all", "savePctg": 0.9}]})
         self.assertEqual((r["sv_all"], r["sv_high"], r["saves_long"]), (0.9, None, None))
+
+
+class CurrentSeasonRefresh(unittest.TestCase):
+    START = datetime(2026, 10, 14, 23, 0, tzinfo=timezone.utc)
+
+    def pick(self, fetched, window=30):
+        return ingest.edge_current_candidates({1: self.START}, {} if fetched is None else {1: fetched}, window)
+
+    def test_never_fetched_players_are_included(self):
+        self.assertEqual(self.pick(None), [1])
+
+    def test_fetched_before_his_latest_game_is_refreshed(self):
+        self.assertEqual(self.pick(self.START - timedelta(hours=16)), [1])   # the night the backfill raced the games
+
+    def test_fetched_soon_after_the_game_is_refreshed_again_next_time(self):
+        self.assertEqual(self.pick(self.START + timedelta(hours=5)), [1])    # the tracking data may not have caught up yet
+
+    def test_fetched_long_after_the_game_is_left_alone(self):
+        self.assertEqual(self.pick(self.START + timedelta(hours=31)), [])
+        self.assertEqual(self.pick(self.START + timedelta(hours=30)), [])    # the window is exclusive
+
+    def test_only_the_players_who_need_it(self):
+        out = ingest.edge_current_candidates(
+            {1: self.START, 2: self.START, 3: self.START},
+            {1: self.START + timedelta(days=2), 2: self.START - timedelta(hours=1)})
+        self.assertEqual(sorted(out), [2, 3])
 
 
 class Consistency(unittest.TestCase):

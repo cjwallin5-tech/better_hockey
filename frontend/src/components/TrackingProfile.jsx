@@ -101,7 +101,7 @@ export default function TrackingProfile({ playerId }) {
             <thead>
               <tr>
                 <th className="left">Season</th><th>GP</th><th>Top speed</th><th>22+ bursts</th><th>Hardest shot</th>
-                <th>Avg shot</th><th>90+ mph shots</th><th>Miles / GP</th><th>OZ %</th><th>DZ %</th>
+                <th>Avg shot</th><th title="Shot attempts of any kind at 90 mph or harder">90+ mph attempts</th><th>Miles / GP</th><th>OZ %</th><th>DZ %</th>
               </tr>
             </thead>
             <tbody>
