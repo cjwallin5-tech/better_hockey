@@ -7,7 +7,7 @@
        PUBLIC_URL is the site's address, used for the "turn this off" link.
     3. Fix the script path if the project lives somewhere else.
     4. launchctl load ~/Library/LaunchAgents/com.hockeystats.digest.plist
-  Test first with:  cd backend && .venv/bin/python digest.py --dry
+  Test first with:  cd backend && .venv/bin/python digest.py with the dry-run flag (see README)
   Output goes to backend/logs/digest.log. The Mac must be awake at the scheduled time (launchd runs a missed job at the next wake).
 -->
 <plist version="1.0">
