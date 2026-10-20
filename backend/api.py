@@ -16,6 +16,7 @@ import config
 import defense
 import era
 import headtohead
+import luck
 import playoff_odds
 import probable_goalies
 import trajectory
@@ -1908,6 +1909,92 @@ def goalie_shots(player_id: int):
             (config.SEASON_ID, player_id),
         ).fetchone()
     return {"shots": rows, "summary": summary}
+
+
+# --- Luck and regression --------------------------------------------------------------------------
+@app.get("/api/luck/skaters")
+def luck_skaters(position: str = "", min_attempts: int = luck.MIN_ATTEMPTS, dir: str = "desc", rank: str = "points",
+                 limit: int = 50):
+    """Skaters' goals and points against what their shots (and their teammates' shots while on the ice) predict,
+    with a z-score for how unusual each gap is (see luck.py). rank=points or goals picks which z orders the list;
+    dir=desc lists the hottest first, dir=asc the coldest."""
+    if rank not in ("points", "goals"):
+        raise HTTPException(400, "rank must be points or goals")
+    limit = max(1, min(limit, 200))
+    where, params = ["a.attempts >= %(min_attempts)s"], {"season": config.SEASON_ID, "min_attempts": max(0, min_attempts)}
+    if position == "F":
+        where.append("p.position <> 'D'")
+    elif position in ("C", "L", "R", "D"):
+        where.append("p.position = %(position)s")
+        params["position"] = position
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        rows = conn.execute(
+            f"""WITH a AS (
+                    SELECT shooter_id AS player_id,
+                           count(*) FILTER (WHERE kind <> 'block') AS attempts,
+                           count(*) FILTER (WHERE kind IN ('shot', 'goal')) AS shots_on_goal,
+                           count(*) FILTER (WHERE kind = 'goal') AS goals,
+                           count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL) AS model_goals,
+                           coalesce(sum(xg), 0) AS ixg,
+                           coalesce(sum(xg * (1 - xg)), 0) AS variance,
+                           count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL AND strength = 'ev') AS ev_model_goals,
+                           coalesce(sum(xg) FILTER (WHERE strength = 'ev'), 0) AS ev_ixg
+                    FROM shot WHERE season_id = %(season)s AND shooter_id IS NOT NULL GROUP BY shooter_id),
+                o AS (
+                    SELECT player_id, sum(gf) AS gf, sum(ga) AS ga, sum(xgf) AS xgf, sum(xga) AS xga
+                    FROM skater_game_onice WHERE season_id = %(season)s AND xgf IS NOT NULL GROUP BY player_id)
+                SELECT a.*, p.name, p.team, p.position, p.games_played, p.pdo_5v5 AS pdo, p.points,
+                       p.goals AS season_goals, p.pp_goals, p.ev_points, p.ev_goals_for, o.gf, o.ga, o.xgf, o.xga
+                FROM a JOIN skater_season p ON p.player_id = a.player_id AND p.season_id = %(season)s
+                       LEFT JOIN o ON o.player_id = a.player_id
+                WHERE {' AND '.join(where)}""", params).fetchall()
+        # League assists per teammate even-strength goal, forwards and defensemen apart: the baseline each
+        # player's own rate is pulled toward (see luck.assist_rate).
+        baseline = {r["role"]: r["assists"] / r["mates"] for r in conn.execute(
+            """SELECT CASE WHEN position = 'D' THEN 'D' ELSE 'F' END AS role,
+                      sum(greatest(0, ev_points - (goals - pp_goals)))::float AS assists,
+                      sum(greatest(0, ev_goals_for - (goals - pp_goals)))::float AS mates
+               FROM skater_season WHERE season_id = %s AND ev_points IS NOT NULL AND ev_goals_for IS NOT NULL
+               GROUP BY 1 HAVING sum(greatest(0, ev_goals_for - (goals - pp_goals))) > 0""", (config.SEASON_ID,))}
+    key = "points_z" if rank == "points" else "z"
+    out = []
+    for r in rows:
+        line = luck.skater_line(r, config.GAMES_PER_SEASON, baseline.get("D" if r["position"] == "D" else "F"))
+        if line[key] is None:
+            continue
+        out.append({"player_id": r["player_id"], "name": r["name"], "team": r["team"], "position": r["position"],
+                    "games_played": r["games_played"], "attempts": r["attempts"], "shots_on_goal": r["shots_on_goal"],
+                    "goals": r["goals"], "ixg": r["ixg"], "pdo": r["pdo"],
+                    "onice_gf": r["gf"], "onice_ga": r["ga"], "onice_xgf": r["xgf"], "onice_xga": r["xga"], **line})
+    out.sort(key=lambda x: (x[key], x["name"]), reverse=dir.lower() != "asc")
+    return {"season": config.SEASON_ID, "games": config.GAMES_PER_SEASON, "min_attempts": min_attempts,
+            "rank": rank, "z_flag": luck.Z_FLAG, "rows": out[:limit]}
+
+
+@app.get("/api/luck/goalies")
+def luck_goalies(min_faced: int = luck.MIN_FACED, dir: str = "desc", limit: int = 50):
+    """Goalies' goals saved above expected (xG faced minus goals allowed), with a z-score for the gap."""
+    limit = max(1, min(limit, 200))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        rows = conn.execute(
+            """SELECT f.*, g.name, g.team, g.games_played FROM (
+                   SELECT goalie_id AS player_id, count(*) AS faced, count(*) FILTER (WHERE kind = 'goal') AS goals,
+                          count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL) AS model_goals,
+                          coalesce(sum(xg), 0) AS xga, coalesce(sum(xg * (1 - xg)), 0) AS variance
+                   FROM shot WHERE season_id = %(season)s AND goalie_id IS NOT NULL AND kind IN ('shot', 'goal')
+                   GROUP BY goalie_id) f
+               JOIN goalie_season g ON g.player_id = f.player_id AND g.season_id = %(season)s
+               WHERE f.faced >= %(min_faced)s""",
+            {"season": config.SEASON_ID, "min_faced": max(0, min_faced)}).fetchall()
+    out = []
+    for r in rows:
+        line = luck.goalie_line(r)
+        if line["z"] is None:
+            continue
+        out.append({"player_id": r["player_id"], "name": r["name"], "team": r["team"], "games_played": r["games_played"],
+                    "faced": r["faced"], "goals": r["goals"], "xga": r["xga"], **line})
+    out.sort(key=lambda x: (x["z"], x["name"]), reverse=dir.lower() != "asc")
+    return {"season": config.SEASON_ID, "min_faced": min_faced, "z_flag": luck.Z_FLAG, "rows": out[:limit]}
 
 
 # --- Games and schedules ------------------------------------------------------------------------

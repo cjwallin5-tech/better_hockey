@@ -42,6 +42,18 @@ Things worth knowing:
   or transactions, so the UI says "not in the lineup", never "injured".
 - Per-player career data is fetched lazily by the API and cached in Postgres for 24 hours.
 
+## Season rollover (each October)
+
+The nightly job only keeps the current season (`SEASON_ID` in `backend/config.py`) up to date. Past seasons are loaded by hand
+and never refreshed, so when a new season starts the one that just finished stops being updated and needs a final pass:
+
+- Run `python ingest.py backfill-onice` and `python ingest.py backfill-edge` from `backend/` (both resumable; the EDGE one takes
+  hours, see Speed & shots below). The EDGE speed extras (bursts, average shot speed, bands) refresh only weekly during the
+  season, so this pass is what settles the finished season's final numbers.
+- Before relying on `backfill-onice`, check that the finished season's games are in `skater_game_hist`, since that table is what
+  the backfill reads. This hasn't been checked for a season ending yet (as of 2026-10).
+- The season's data is already correct while it's the current season; this is housekeeping, not a correctness check.
+
 ## Features worth knowing about
 
 - **Fantasy team** (`/fantasy`): roster, league scoring you set yourself, fantasy points, a this-week schedule with lineup
@@ -58,6 +70,12 @@ Things worth knowing:
   `python ingest.py backfill-edge` loads past seasons. The NHL allows only about 70 requests a minute, so the full backfill takes
   hours: it loads the core stats for everyone first, then the speed extras (bursts, average shot speed, shot-speed bands) in a
   second sweep. The nightly run tops up the current season (core stats for players who played; extras weekly).
+- **Luck & regression** (`/luck`, under More): who is scoring or saving more, or less, than their shots predict. For skaters it compares
+  goals with the summed xG of their shots, and points with an estimate that adds assists gained or lost when teammates finish
+  above or below their shots while the player is on the ice (plus shooting % against expected, a full-season pace, on-ice goals
+  against expected at 5v5, and the NHL's PDO); for goalies, goals saved above expected. Each gap gets a z-score from the shots' own variance, and
+  |z| of 1.5 or more is flagged hot or cold (`backend/luck.py` explains the method and what it can't see: our xG model doesn't know
+  who is shooting, so elite finishers always run "hot", and the shot table only holds the current season).
 - **Head-to-head** (`/head-to-head`, under More, and linked from every game page): team-vs-team results and a skater's scoring against a
   team, over this season and the previous four (the games we store). Past seasons are paired into opponents by
   `ingest_team_abbrevs`; the Coyotes' games count toward Utah. Goalies aren't covered.

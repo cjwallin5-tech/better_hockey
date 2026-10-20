@@ -1,28 +1,26 @@
 # To do (as of 2026-10-20)
 
-## Open
+Feature ideas, aiming at a December launch. Check the code for what already exists before building any of these.
 
-1. **Push the two local commits** (`43f3985` tracking stats, `246cc15` fixes): `git push origin main`.
-2. **Look at the new pages in a browser** (none have been seen on screen yet): Home probable goalies, Fantasy goalie starts, player pages,
-   Compare, the All-Time era-adjusted view, saved views, head-to-head, Speed & shots, and the game-page charts.
-3. **Next October (first run after a season ends):** run both `python ingest.py backfill-onice` and `backfill-edge` so the season that
-   just ended is filled in. Both were fully caught up for 2025-26 as of this date.
+## Beating NHL.com (explain why, not just what)
 
-## Known issues (not scheduled)
+1. **Luck and regression dashboard** (in progress): goals vs expected goals per skater, shooting % vs career norm, on-ice shooting and
+   save % (PDO), and goals saved above expected for goalies. Label players as running hot or cold.
+2. **Role changes:** flag power-play unit promotions/demotions and rises or drops in ice time over the last 5-10 games (we already
+   store PP/EV/SH ice time per game and have a lines page).
+3. **Rolling windows and game logs:** last 5, 10 and 20 games next to season totals, with a points-per-game trend line. Check what the
+   player pages already show.
+4. **Matchup quality:** opponent shots against and goals against, which goalie a team is likely to face, and a weekly strength-of-schedule score.
 
-- **Tracking leaders hide early-season stars.** `/api/tracking/leaders` defaults to `min_gp=10`, so in the first weeks of a season players
-  with fewer games (McDavid, MacKinnon) are missing from the current-season list. Options: scale the default to games played so far, skip
-  it for speed stats, and/or make it a visible control.
-- **Current-season speed extras lag the core stats by up to a week** (bursts, average shot speed, bands refresh weekly; core stats nightly).
-  Options: show an "as of" date next to them, or refresh them nightly.
+## Fantasy
 
-## Done
+5. **Value in your scoring:** rank every player by value above a replacement-level player under the league scoring you set.
+6. **Trade analyzer:** enter "I give A and B, I get C" and compare using value above replacement, remaining schedule and the regression flags.
+7. **Category league support** (H2H categories and roto): rank players by z-scores per category. The README only mentions points scoring.
+8. **Streaming goalie finder:** goalies on weak weekly schedules who are likely to start, using the starter model.
+9. **Digest upgrades:** add role-change and regression alerts to the morning email.
 
-- EDGE tracking backfill pass 2 finished on 2026-10-16 (all 5,435 skater-seasons have extras).
-- Extras verified and `smoke_test.py` rerun on 2026-10-20: 0 failures.
-- API on port 8000 restarted with the newer endpoints.
-- On-ice backfill is complete for 2022-23 through 2025-26.
-- Morning roster email set up on 2026-10-20 (Gmail SMTP, `com.hockeystats.digest` launchd job loaded for 8:00 AM, test email sent,
-  API restarted with the SMTP settings so password-reset emails send). It sends nothing until an account turns the digest on, and the
-  "turn this off" link points at `localhost:5173` until `PUBLIC_URL` is set to a real address. If the API is restarted by hand it needs
-  the SMTP variables from `~/Library/LaunchAgents/com.hockeystats.digest.plist` exported first.
+## Skipped on purpose
+
+- Salary cap, contracts and real injury reports (not available from free NHL data; lineup gaps stay inferred).
+- More EDGE speed and shot-speed features (fun trivia, doesn't predict fantasy results).
