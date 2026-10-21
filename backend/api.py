@@ -17,8 +17,14 @@ import defense
 import era
 import headtohead
 import luck
+import luck_db
+import matchups
+import matchups_db
 import playoff_odds
 import probable_goalies
+import roles
+import roles_db
+import streaming
 import trajectory
 
 app = FastAPI(title="Hockey Stats")
@@ -549,34 +555,26 @@ def defense_profile(player_id: int):
             "onice_career": defense.onice_career(onice["rows"].get(player_id, []))}
 
 
-@app.get("/api/probable-goalies/week")
-def probable_goalies_week(ids: str = "", days: int = 7):
-    """For rostered goalies: the chance of starting each of their team's games in the next `days` days.
-    Games already played or under way anchor the chain (their starter is known); later games are chained
-    from them, so a back-to-back after an uncertain starter is a mix of both cases (see probable_goalies.py)."""
-    try:
-        wanted = [int(i) for i in ids.split(",") if i.strip()][:20]
-    except ValueError:
-        raise HTTPException(400, "ids must be comma-separated player ids")
-    days = max(1, min(days, 14))
-    if not wanted:
-        return {"from": None, "to": None, "goalies": []}
+def _goalie_plans(teams, days):
+    """Start-probability plans for the given teams' games over the next `days` days (today first, Eastern).
+
+    Returns (today, end, plans, teams_with_history): plans maps a team to its upcoming games, each with the distribution of
+    who might start. Games already played or under way anchor the chain (their starter is known); later games are chained
+    from them, so a back-to-back after an uncertain starter is a mix of both cases (see probable_goalies.py). The NHL
+    boxscore is checked for confirmed starters close to game time, outside the database connection."""
+    teams = list(teams)
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
         end = today + timedelta(days=days - 1)
-        roster = conn.execute(
-            "SELECT player_id, name, team FROM goalie_season WHERE season_id = %s AND player_id = ANY(%s)",
-            (config.SEASON_ID, wanted)).fetchall()
-        teams = {(r["team"] or "").split(",")[-1] for r in roster}
         starts = conn.execute(
             """SELECT g.team, g.player_id, g.game_date, s.name FROM goalie_game g
                LEFT JOIN goalie_season s ON s.season_id = g.season_id AND s.player_id = g.player_id
                WHERE g.season_id = %s AND g.started AND g.team = ANY(%s) ORDER BY g.game_date DESC, g.game_id DESC""",
-            (config.SEASON_ID, list(teams))).fetchall()
+            (config.SEASON_ID, teams)).fetchall()
         games = conn.execute(
             """SELECT game_id, game_date, start_time, state, home, away FROM game
                WHERE season_id = %s AND game_date <= %s AND (home = ANY(%s) OR away = ANY(%s)) ORDER BY game_date, game_id""",
-            (config.SEASON_ID, end, list(teams), list(teams))).fetchall()
+            (config.SEASON_ID, end, teams, teams)).fetchall()
     by_team = {}
     for r in starts:
         by_team.setdefault(r["team"], []).append(r)
@@ -608,11 +606,32 @@ def probable_goalies_week(ids: str = "", days: int = 7):
                 plan.append({"game_id": g["game_id"], "date": g["game_date"], "opponent": g["away"] if g["home"] == team else g["home"],
                              "home_game": g["home"] == team, "back_to_back": tired, "confirmed": confirmed, "dist": dict(dist)})
         plans[team] = plan
+    return today, end, plans, set(by_team)
+
+
+@app.get("/api/probable-goalies/week")
+def probable_goalies_week(ids: str = "", days: int = 7):
+    """For rostered goalies: the chance of starting each of their team's games in the next `days` days.
+    Games already played or under way anchor the chain (their starter is known); later games are chained
+    from them, so a back-to-back after an uncertain starter is a mix of both cases (see probable_goalies.py)."""
+    try:
+        wanted = [int(i) for i in ids.split(",") if i.strip()][:20]
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    days = max(1, min(days, 14))
+    if not wanted:
+        return {"from": None, "to": None, "goalies": []}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        roster = conn.execute(
+            "SELECT player_id, name, team FROM goalie_season WHERE season_id = %s AND player_id = ANY(%s)",
+            (config.SEASON_ID, wanted)).fetchall()
+    teams = {(r["team"] or "").split(",")[-1] for r in roster}
+    today, end, plans, known = _goalie_plans(teams, days)
 
     out = []
     for r in roster:
         team = (r["team"] or "").split(",")[-1]
-        has_history = bool(by_team.get(team))
+        has_history = team in known
         entries = [{"game_id": p["game_id"], "date": p["date"], "opponent": p["opponent"], "home_game": p["home_game"],
                     "back_to_back": p["back_to_back"], "confirmed": p["confirmed"],
                     "probability": round(p["dist"].get(r["player_id"], 0.0), 3) if has_history else None}
@@ -620,6 +639,46 @@ def probable_goalies_week(ids: str = "", days: int = 7):
         out.append({"player_id": r["player_id"], "name": r["name"], "team": team, "games": entries,
                     "expected_starts": round(sum(e["probability"] or 0 for e in entries), 1) if has_history else None})
     return {"from": today, "to": end, "goalies": out}
+
+
+@app.get("/api/streaming/goalies")
+def streaming_goalies(days: int = 7):
+    """Every goalie with a chance to start in the next `days` days: for each game his chance to start and what a start
+    there is expected to be worth (win, loss and overtime-loss chances, saves, goals against, shutout chance), from the
+    two teams' ratings. The Fantasy page turns these into points or category value under your league. See streaming.py."""
+    days = max(1, min(days, 14))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        teams, league = matchups_db.team_table(conn, config.SEASON_ID)
+        goalies = conn.execute(
+            "SELECT player_id, name, team FROM goalie_season WHERE season_id = %s", (config.SEASON_ID,)).fetchall()
+        _, estimate = matchups_db.goalie_effects(conn, config.SEASON_ID, league.get("shots_pg"), league.get("goals_pg")) if league else (None, {})
+        standings = conn.execute(
+            "SELECT coalesce(sum(losses), 0) AS losses, coalesce(sum(ot_losses), 0) AS otl FROM team_season WHERE season_id = %s",
+            (config.SEASON_ID,)).fetchone()
+    if not teams:
+        return {"from": None, "to": None, "league": {}, "goalies": []}
+    otl_share = standings["otl"] / (standings["losses"] + standings["otl"]) if standings["losses"] + standings["otl"] else 0.23
+    ratings = {t["team"]: t for t in teams}
+    today, end, plans, _ = _goalie_plans(ratings, days)
+
+    out = []
+    for g in goalies:
+        team = (g["team"] or "").split(",")[-1]
+        own = ratings.get(team)
+        games = []
+        for p in plans.get(team, []):
+            prob = p["dist"].get(g["player_id"], 0.0)
+            opp = ratings.get(p["opponent"])
+            if prob <= 0 or own is None or opp is None:
+                continue
+            line = streaming.goalie_game(own, opp, estimate.get(g["player_id"], 0.0), league, otl_share)
+            games.append({"game_id": p["game_id"], "date": p["date"], "opponent": p["opponent"], "home_game": p["home_game"],
+                          "back_to_back": p["back_to_back"], "confirmed": p["confirmed"], "probability": round(prob, 3),
+                          "goalie_ratio": opp["goalie_ratio"], "goalie_label": opp["goalie_label"], "line": line})
+        if games:
+            out.append({"player_id": g["player_id"], "name": g["name"], "team": team, "games": games,
+                        "expected_starts": round(sum(x["probability"] for x in games), 2)})
+    return {"from": today, "to": end, "days": days, "league": league, "otl_share": otl_share, "goalies": out}
 
 
 # --- NHL EDGE tracking stats ------------------------------------------------------------------------
@@ -1908,67 +1967,33 @@ def goalie_shots(player_id: int):
                FROM shot WHERE season_id = %s AND goalie_id = %s AND kind IN ('shot', 'goal')""",
             (config.SEASON_ID, player_id),
         ).fetchone()
-    return {"shots": rows, "summary": summary}
+        # An attempt's xG includes the chance of missing the net, so shots on goal alone need scaling up to the
+        # league's goal total (see luck_db.GOALIE_CALIBRATION_CTE); each shot's own xG is left as the model made it.
+        factor = luck_db.goalie_factor(conn, config.SEASON_ID)
+        summary["xga"] = summary["xga"] * factor
+    return {"shots": rows, "summary": summary, "xga_factor": factor}
 
 
 # --- Luck and regression --------------------------------------------------------------------------
 @app.get("/api/luck/skaters")
 def luck_skaters(position: str = "", min_attempts: int = luck.MIN_ATTEMPTS, dir: str = "desc", rank: str = "points",
-                 limit: int = 50):
+                 vs: str = "own", limit: int = 50):
     """Skaters' goals and points against what their shots (and their teammates' shots while on the ice) predict,
     with a z-score for how unusual each gap is (see luck.py). rank=points or goals picks which z orders the list;
-    dir=desc lists the hottest first, dir=asc the coldest."""
+    vs=own compares each player with what their own past seasons say they should score, vs=average with an average
+    shooter; dir=desc lists the hottest first, dir=asc the coldest."""
     if rank not in ("points", "goals"):
         raise HTTPException(400, "rank must be points or goals")
+    if vs not in ("own", "average"):
+        raise HTTPException(400, "vs must be own or average")
     limit = max(1, min(limit, 200))
-    where, params = ["a.attempts >= %(min_attempts)s"], {"season": config.SEASON_ID, "min_attempts": max(0, min_attempts)}
-    if position == "F":
-        where.append("p.position <> 'D'")
-    elif position in ("C", "L", "R", "D"):
-        where.append("p.position = %(position)s")
-        params["position"] = position
+    key = ("points_z" if rank == "points" else "z") + ("_adj" if vs == "own" else "")
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
-        rows = conn.execute(
-            f"""WITH a AS (
-                    SELECT shooter_id AS player_id,
-                           count(*) FILTER (WHERE kind <> 'block') AS attempts,
-                           count(*) FILTER (WHERE kind IN ('shot', 'goal')) AS shots_on_goal,
-                           count(*) FILTER (WHERE kind = 'goal') AS goals,
-                           count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL) AS model_goals,
-                           coalesce(sum(xg), 0) AS ixg,
-                           coalesce(sum(xg * (1 - xg)), 0) AS variance,
-                           count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL AND strength = 'ev') AS ev_model_goals,
-                           coalesce(sum(xg) FILTER (WHERE strength = 'ev'), 0) AS ev_ixg
-                    FROM shot WHERE season_id = %(season)s AND shooter_id IS NOT NULL GROUP BY shooter_id),
-                o AS (
-                    SELECT player_id, sum(gf) AS gf, sum(ga) AS ga, sum(xgf) AS xgf, sum(xga) AS xga
-                    FROM skater_game_onice WHERE season_id = %(season)s AND xgf IS NOT NULL GROUP BY player_id)
-                SELECT a.*, p.name, p.team, p.position, p.games_played, p.pdo_5v5 AS pdo, p.points,
-                       p.goals AS season_goals, p.pp_goals, p.ev_points, p.ev_goals_for, o.gf, o.ga, o.xgf, o.xga
-                FROM a JOIN skater_season p ON p.player_id = a.player_id AND p.season_id = %(season)s
-                       LEFT JOIN o ON o.player_id = a.player_id
-                WHERE {' AND '.join(where)}""", params).fetchall()
-        # League assists per teammate even-strength goal, forwards and defensemen apart: the baseline each
-        # player's own rate is pulled toward (see luck.assist_rate).
-        baseline = {r["role"]: r["assists"] / r["mates"] for r in conn.execute(
-            """SELECT CASE WHEN position = 'D' THEN 'D' ELSE 'F' END AS role,
-                      sum(greatest(0, ev_points - (goals - pp_goals)))::float AS assists,
-                      sum(greatest(0, ev_goals_for - (goals - pp_goals)))::float AS mates
-               FROM skater_season WHERE season_id = %s AND ev_points IS NOT NULL AND ev_goals_for IS NOT NULL
-               GROUP BY 1 HAVING sum(greatest(0, ev_goals_for - (goals - pp_goals))) > 0""", (config.SEASON_ID,))}
-    key = "points_z" if rank == "points" else "z"
-    out = []
-    for r in rows:
-        line = luck.skater_line(r, config.GAMES_PER_SEASON, baseline.get("D" if r["position"] == "D" else "F"))
-        if line[key] is None:
-            continue
-        out.append({"player_id": r["player_id"], "name": r["name"], "team": r["team"], "position": r["position"],
-                    "games_played": r["games_played"], "attempts": r["attempts"], "shots_on_goal": r["shots_on_goal"],
-                    "goals": r["goals"], "ixg": r["ixg"], "pdo": r["pdo"],
-                    "onice_gf": r["gf"], "onice_ga": r["ga"], "onice_xgf": r["xgf"], "onice_xga": r["xga"], **line})
+        rows = luck_db.skater_rows(conn, config.SEASON_ID, config.GAMES_PER_SEASON, position, min_attempts)
+    out = [r for r in rows if r[key] is not None]
     out.sort(key=lambda x: (x[key], x["name"]), reverse=dir.lower() != "asc")
     return {"season": config.SEASON_ID, "games": config.GAMES_PER_SEASON, "min_attempts": min_attempts,
-            "rank": rank, "z_flag": luck.Z_FLAG, "rows": out[:limit]}
+            "rank": rank, "vs": vs, "z_flag": luck.Z_FLAG, "rows": out[:limit]}
 
 
 @app.get("/api/luck/goalies")
@@ -1976,25 +2001,180 @@ def luck_goalies(min_faced: int = luck.MIN_FACED, dir: str = "desc", limit: int 
     """Goalies' goals saved above expected (xG faced minus goals allowed), with a z-score for the gap."""
     limit = max(1, min(limit, 200))
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
-        rows = conn.execute(
-            """SELECT f.*, g.name, g.team, g.games_played FROM (
-                   SELECT goalie_id AS player_id, count(*) AS faced, count(*) FILTER (WHERE kind = 'goal') AS goals,
-                          count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL) AS model_goals,
-                          coalesce(sum(xg), 0) AS xga, coalesce(sum(xg * (1 - xg)), 0) AS variance
-                   FROM shot WHERE season_id = %(season)s AND goalie_id IS NOT NULL AND kind IN ('shot', 'goal')
-                   GROUP BY goalie_id) f
-               JOIN goalie_season g ON g.player_id = f.player_id AND g.season_id = %(season)s
-               WHERE f.faced >= %(min_faced)s""",
-            {"season": config.SEASON_ID, "min_faced": max(0, min_faced)}).fetchall()
-    out = []
-    for r in rows:
-        line = luck.goalie_line(r)
-        if line["z"] is None:
-            continue
-        out.append({"player_id": r["player_id"], "name": r["name"], "team": r["team"], "games_played": r["games_played"],
-                    "faced": r["faced"], "goals": r["goals"], "xga": r["xga"], **line})
+        rows = luck_db.goalie_rows(conn, config.SEASON_ID, min_faced)
+    out = [r for r in rows if r["z"] is not None]
     out.sort(key=lambda x: (x["z"], x["name"]), reverse=dir.lower() != "asc")
     return {"season": config.SEASON_ID, "min_faced": min_faced, "z_flag": luck.Z_FLAG, "rows": out[:limit]}
+
+
+@app.get("/api/luck/history/{player_id}")
+def luck_history(player_id: int):
+    """A player's finishing (skater) or goals saved above expected (goalie) season by season, past seasons included."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        history = luck_db.skater_history(conn, player_id)
+        kind = "skater"
+        if not history["seasons"]:
+            history, kind = luck_db.goalie_history(conn, player_id), "goalie"
+    return {"kind": kind if history["seasons"] else None, **history}
+
+
+@app.get("/api/luck/persistence")
+def luck_persistence():
+    """How well one season's luck figure predicts the next (see luck_db.persistence)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        result = luck_db.persistence(conn)
+    return {"min_attempts": luck.MIN_PERSIST_ATTEMPTS, "min_faced": luck.MIN_PERSIST_FACED, **result}
+
+
+@app.get("/api/luck/players")
+def luck_players(ids: str = ""):
+    """Luck figures for specific players (comma-separated ids, skaters and goalies mixed), keyed by player id.
+    Players with no shots yet are left out; `enough` says whether the sample is big enough to trust the flag."""
+    try:
+        wanted = [int(x) for x in ids.split(",") if x.strip()][:100]
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    if not wanted:
+        return {"season": config.SEASON_ID, "z_flag": luck.Z_FLAG, "skaters": {}, "goalies": {}}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        skaters = luck_db.skater_rows(conn, config.SEASON_ID, config.GAMES_PER_SEASON, ids=wanted)
+        goalies = luck_db.goalie_rows(conn, config.SEASON_ID, ids=wanted)
+    return {"season": config.SEASON_ID, "games": config.GAMES_PER_SEASON, "z_flag": luck.Z_FLAG,
+            "skaters": {r["player_id"]: r for r in skaters}, "goalies": {r["player_id"]: r for r in goalies}}
+
+
+PRIOR_MIN_GAMES = 20  # games in a past season before its rates count as a track record
+
+
+# --- Fantasy value ----------------------------------------------------------------------------------
+@app.get("/api/fantasy/games-left")
+def fantasy_games_left():
+    """Games each team has played and has left this season, from the stored schedule. The Fantasy page uses it to turn
+    a player's per-game value into value over the rest of the season."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        rows = conn.execute(
+            """SELECT team, count(*) FILTER (WHERE state IN ('OFF', 'FINAL')) AS played,
+                      count(*) FILTER (WHERE state NOT IN ('OFF', 'FINAL')) AS left
+               FROM (SELECT home AS team, state FROM game WHERE season_id = %(s)s
+                     UNION ALL SELECT away, state FROM game WHERE season_id = %(s)s) t
+               GROUP BY team""", {"s": config.SEASON_ID}).fetchall()
+    return {"season": config.SEASON_ID, "games_per_season": config.GAMES_PER_SEASON,
+            "teams": {r["team"]: {"played": r["played"], "left": r["left"]} for r in rows}}
+
+
+@app.get("/api/fantasy/priors")
+def fantasy_priors():
+    """Each skater's track record: goals and assists per game over the last two seasons, the more recent one counting
+    double. The Fantasy page pulls a short early-season sample toward this (a backtest on four past seasons found
+    that predicts the rest of the season far better than pulling toward the position average). A season counts
+    only with PRIOR_MIN_GAMES games; players without one are left out."""
+    seasons = [config.SEASON_ID - 10001, config.SEASON_ID - 20002]
+    weights = {seasons[0]: 2.0, seasons[1]: 1.0}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        rows = conn.execute(
+            """SELECT player_id, season_id, games_played, goals, assists FROM career_season
+               WHERE season_id = ANY(%s) AND games_played >= %s""", (seasons, PRIOR_MIN_GAMES)).fetchall()
+    acc = {}
+    for r in rows:
+        w = weights[r["season_id"]]
+        a = acc.setdefault(r["player_id"], {"w": 0.0, "goals": 0.0, "assists": 0.0, "games": 0})
+        a["w"] += w
+        a["goals"] += w * r["goals"] / r["games_played"]
+        a["assists"] += w * r["assists"] / r["games_played"]
+        a["games"] += r["games_played"]
+    return {"season": config.SEASON_ID, "seasons": seasons, "min_games": PRIOR_MIN_GAMES,
+            "players": {pid: {"goals": a["goals"] / a["w"], "assists": a["assists"] / a["w"], "games": a["games"]}
+                        for pid, a in acc.items()}}
+
+
+# --- Matchup quality ------------------------------------------------------------------------------
+@app.get("/api/matchups/teams")
+def matchup_teams():
+    """Every team's offense and defense rating (ratios to the league average, from expected goals) and the matchup
+    ratios for skaters and goalies facing it, where above 1 is favorable to the player. See matchups.py."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        teams, league = matchups_db.team_table(conn, config.SEASON_ID)
+    return {"season": config.SEASON_ID, "league": league, "label_at": matchups.LABEL_AT,
+            "priors": {"team_games": matchups.TEAM_PRIOR_GAMES, "goalie_shots": matchups.GOALIE_PRIOR_SHOTS}, "teams": teams}
+
+
+@app.get("/api/matchups/schedule")
+def matchup_schedule(days: int = 7):
+    """Each team's games in the next `days` days (today first, Eastern) with how favorable each is for skaters and for
+    goalies, and the stretch's summary: games, average ratio and opportunity index (sum of ratio - 1)."""
+    days = max(1, min(days, 21))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        teams, _ = matchups_db.team_table(conn, config.SEASON_ID)
+        today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        games = conn.execute(
+            """SELECT game_id, game_date, start_time, home, away FROM game
+               WHERE season_id = %s AND game_date >= %s AND game_date < %s AND state NOT IN ('OFF', 'FINAL')
+               ORDER BY game_date, start_time, game_id""", (config.SEASON_ID, today, today + timedelta(days=days))).fetchall()
+    by_team = {t["team"]: t for t in teams}
+    out = []
+    for t in teams:
+        mine = []
+        for g in games:
+            if t["team"] not in (g["home"], g["away"]):
+                continue
+            opp = g["away"] if g["home"] == t["team"] else g["home"]
+            o = by_team.get(opp)
+            mine.append({"game_id": g["game_id"], "date": g["game_date"], "opponent": opp, "home_game": g["home"] == t["team"],
+                         "skater_ratio": o["skater_ratio"] if o else None, "goalie_ratio": o["goalie_ratio"] if o else None,
+                         "skater_label": o["skater_label"] if o else None, "goalie_label": o["goalie_label"] if o else None})
+        out.append({"team": t["team"], "name": t["name"], "logo_url": t["logo_url"], "logo_dark_url": t["logo_dark_url"],
+                    "games": mine,
+                    "skaters": matchups.schedule_summary([g["skater_ratio"] for g in mine]),
+                    "goalies": matchups.schedule_summary([g["goalie_ratio"] for g in mine])})
+    return {"season": config.SEASON_ID, "from": today, "to": today + timedelta(days=days - 1), "days": days,
+            "label_at": matchups.LABEL_AT, "teams": out}
+
+
+# --- Role changes ---------------------------------------------------------------------------------
+@app.get("/api/roles/changes")
+def role_changes(window: int = 5, kind: str = "all", dir: str = "up", position: str = "", limit: int = 50):
+    """Skaters whose power-play unit or even-strength ice time moved over their last `window` games compared with
+    their earlier games this season (see roles.py). dir=up lists promotions and rising ice time, dir=down the
+    opposite; kind=pp or ev narrows it to one of the two."""
+    if kind not in ("all", "pp", "ev"):
+        raise HTTPException(400, "kind must be all, pp or ev")
+    if dir not in ("up", "down"):
+        raise HTTPException(400, "dir must be up or down")
+    window = max(2, min(window, 20))
+    limit = max(1, min(limit, 200))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        lines = roles_db.player_lines(conn, config.SEASON_ID, window)
+    rows = []
+    for r in lines.values():
+        if position == "F" and r["position"] == "D" or position in ("C", "L", "R", "D") and r["position"] != position:
+            continue
+        hit = {"all": (r["pp_change"], r["ev_change"]), "pp": (r["pp_change"],), "ev": (r["ev_change"],)}[kind]
+        if dir in hit:
+            rows.append(r)
+    # Biggest move first. Together, a power-play move outweighs a change in even-strength time: the share moves by
+    # tenths while the time moves by minutes, so the two are put on a similar scale (0.1 of share ~ 30 seconds).
+    size = {"pp": lambda r: r["pp_share_delta"], "ev": lambda r: r["ev_delta"],
+            "all": lambda r: r["pp_share_delta"] * 10 + r["ev_delta"] / 300}[kind]
+    rows.sort(key=lambda r: (size(r), r["name"]), reverse=dir == "up")
+    return {"season": config.SEASON_ID, "window": window, "kind": kind, "dir": dir, "rows": rows[:limit],
+            "thresholds": {"pp1": roles.PP1_SHARE, "pp2": roles.PP2_SHARE, "ev_seconds": roles.EV_CHANGE_SEC,
+                           "min_base_games": roles.MIN_BASE_GAMES}}
+
+
+@app.get("/api/roles/players")
+def role_players(ids: str = "", window: int = 5):
+    """Role-change figures for specific skaters (comma-separated ids), keyed by player id. Skaters without enough
+    games to compare are left out."""
+    try:
+        wanted = [int(x) for x in ids.split(",") if x.strip()][:100]
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    window = max(2, min(window, 20))
+    if not wanted:
+        return {"season": config.SEASON_ID, "window": window, "players": {}}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        lines = roles_db.player_lines(conn, config.SEASON_ID, window, ids=wanted)
+    return {"season": config.SEASON_ID, "window": window, "players": lines}
 
 
 # --- Games and schedules ------------------------------------------------------------------------

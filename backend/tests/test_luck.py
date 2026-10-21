@@ -134,5 +134,73 @@ class PointsLuck(unittest.TestCase):
         self.assertGreaterEqual(out["assist_rate"], 0)
 
 
+PRIOR = {"model_goals": 60, "ixg": 40.0, "variance": 30.0, "seasons": 3}
+
+
+class FinishingSkill(unittest.TestCase):
+    def test_edge_is_goals_above_xg_shrunk_by_the_prior(self):
+        self.assertAlmostEqual(luck.finishing_skill(PRIOR), 20 / (40 + luck.PRIOR_XG))
+
+    def test_a_poor_finisher_has_a_negative_edge(self):
+        self.assertLess(luck.finishing_skill({**PRIOR, "model_goals": 30}), 0)
+
+    def test_no_history_is_no_edge(self):
+        self.assertEqual(luck.finishing_skill(None), 0.0)
+        self.assertEqual(luck.finishing_skill({**PRIOR, "seasons": 0}), 0.0)
+
+    def test_a_short_history_claims_little(self):
+        small = {"model_goals": 4, "ixg": 1.0, "variance": 1.0, "seasons": 1}  # +3 goals over one hot month
+        self.assertLess(luck.finishing_skill(small), 0.1)
+
+
+class AdjustedForHistory(unittest.TestCase):
+    def test_a_proven_finisher_is_judged_against_their_own_norm(self):
+        out = luck.skater_line(skater(), 82, 0.5, PRIOR)
+        skill = 20 / 70
+        # plain: 10 goals vs 6 xG is +4 (z 2.0, hot); against 6 * (1 + skill) it is much less surprising
+        self.assertAlmostEqual(out["z"], 2.0)
+        self.assertAlmostEqual(out["diff_adj"], 10 - 6 * (1 + skill))
+        self.assertAlmostEqual(out["z_adj"], (10 - 6 * (1 + skill)) / 2)
+        self.assertEqual(out["flag"], "hot")
+        self.assertEqual(out["flag_adj"], "steady")
+        self.assertTrue(out["has_history"])
+        self.assertEqual(out["prior_seasons"], 3)
+        self.assertAlmostEqual(out["prior_diff"], 20.0)
+        self.assertAlmostEqual(out["prior_z"], 20 / math.sqrt(30))
+
+    def test_points_luck_uses_the_adjusted_goal_gap_too(self):
+        out = luck.skater_line(skater(), 82, 0.5, PRIOR)
+        k = 9 / 23
+        self.assertAlmostEqual(out["points_diff_adj"], 10 - 6 * (1 + 20 / 70) + k)
+        self.assertAlmostEqual(out["points_z_adj"], out["points_diff_adj"] / math.sqrt(4 + k * k * 5))
+        self.assertLess(out["points_diff_adj"], out["points_diff"])
+
+    def test_without_history_the_adjusted_figures_match_the_plain_ones(self):
+        out = luck.skater_line(skater(), 82, 0.5)
+        self.assertFalse(out["has_history"])
+        self.assertEqual(out["prior_seasons"], 0)
+        self.assertIsNone(out["prior_z"])
+        self.assertAlmostEqual(out["z_adj"], out["z"])
+        self.assertAlmostEqual(out["diff_adj"], out["diff"])
+        self.assertAlmostEqual(out["points_z_adj"], out["points_z"])
+        self.assertEqual(out["flag_adj"], out["flag"])
+
+    def test_a_chronic_underperformer_is_less_cold_than_average_suggests(self):
+        poor = {"model_goals": 30, "ixg": 40.0, "variance": 30.0, "seasons": 3}
+        out = luck.skater_line(skater(goals=2, model_goals=2), 82, 0.5, poor)
+        self.assertGreater(out["z_adj"], out["z"])
+
+
+class Pearson(unittest.TestCase):
+    def test_perfect_and_inverse(self):
+        self.assertAlmostEqual(luck.pearson([1, 2, 3, 4], [2, 4, 6, 8]), 1.0)
+        self.assertAlmostEqual(luck.pearson([1, 2, 3, 4], [8, 6, 4, 2]), -1.0)
+
+    def test_too_few_pairs_or_no_spread(self):
+        self.assertIsNone(luck.pearson([1, 2], [1, 2]))
+        self.assertIsNone(luck.pearson([1, 1, 1], [1, 2, 3]))
+        self.assertIsNone(luck.pearson([1, 2, 3], [1, 2]))
+
+
 if __name__ == "__main__":
     unittest.main()

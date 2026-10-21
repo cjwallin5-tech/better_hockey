@@ -619,3 +619,70 @@ export function CompareChart({ title, series, xLabel, yLabel, yDomain, yFmt = (v
     </figure>
   )
 }
+
+/**
+ * A trend line over a season's games: each game's own value as a dot, a rolling line over the last `w` games, and
+ * dashed reference lines for the season average and (optionally) a league figure. `games` is chronological and
+ * `raw` / `roll` have one entry per game (null where there is nothing to draw). `tip(i)` returns the tooltip rows.
+ */
+export function RollingChart({ title, games, raw, roll, avg, avgLabel, refLine, w, rawLabel, fmt, domain, ticks, tip, note }) {
+  const [plotRef, W] = useWidth()
+  const PW = W - M.l - M.r
+  const n = games.length
+  const nums = [...raw, ...roll, avg, refLine?.value].filter((v) => v != null)
+  const auto = niceAxis(Math.max(...nums, 0))
+  const [lo, hi] = domain ?? [0, auto.top]
+  const tickList = ticks ?? auto.ticks
+  const slot = PW / Math.max(n, 8)
+  const x = (i) => M.l + slot * i + slot / 2
+  const y = (v) => M.t + PH - ((Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo)) * PH
+  const [idx, cursor] = useGameCursor(n, x, W)
+  const step = Math.ceil(n / 10)
+  const g = idx == null ? null : games[idx]
+  const rollPath = roll
+    .map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`))
+    .filter(Boolean)
+    .map((pt, i) => `${i ? 'L' : 'M'}${pt}`)
+    .join(' ')
+
+  return (
+    <figure className="chart wide">
+      <figcaption>
+        <h3>{title}</h3>
+        <ul className="legend">
+          <li><i className="key box above" /> {rawLabel}</li>
+          <li><i className="key solid roll" /> {w}-game rolling</li>
+          <li><i className="key dashed" /> {avgLabel}</li>
+          {refLine && <li><i className="key dashed" style={{ borderTopColor: 'var(--series-2)' }} /> {refLine.label}</li>}
+        </ul>
+      </figcaption>
+      <div className="plot" ref={plotRef}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}: each game and a ${w}-game rolling line`} {...cursor}>
+          {tickList.map((v) => (
+            <g key={v}>
+              <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} className="grid" />
+              <text x={M.l - 8} y={y(v)} dy="0.32em" textAnchor="end" className="axis">{fmt(v)}</text>
+            </g>
+          ))}
+          {avg != null && <line x1={M.l} x2={W - M.r} y1={y(avg)} y2={y(avg)} stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="5 4" />}
+          {refLine && <line x1={M.l} x2={W - M.r} y1={y(refLine.value)} y2={y(refLine.value)} stroke="var(--series-2)" strokeWidth="1.5" strokeDasharray="5 4" />}
+          {games.map((game, i) => (
+            <g key={game.game_id}>
+              {i === idx && <rect x={x(i) - slot / 2} y={M.t} width={slot} height={PH} className="hover-band" />}
+              {raw[i] != null && <circle cx={x(i)} cy={y(raw[i])} r="3.5" fill="var(--series-1)" opacity="0.5" />}
+              {i % step === 0 && <text x={x(i)} y={H - 8} textAnchor="middle" className="axis">{i + 1}</text>}
+            </g>
+          ))}
+          <path d={rollPath} className="roll-line" />
+        </svg>
+        {g && (
+          <Tooltip W={W} x={x(idx)}>
+            <div className="tip-head">Game {idx + 1} · {fmtDate(g.game_date)} {g.is_home ? 'vs' : '@'} {g.opponent}</div>
+            {tip(idx)}
+          </Tooltip>
+        )}
+      </div>
+      <p className="axis-note">Game number{note ? ` · ${note}` : ''}</p>
+    </figure>
+  )
+}

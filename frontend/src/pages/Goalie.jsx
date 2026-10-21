@@ -7,6 +7,8 @@ import Rankings from '../components/Rankings.jsx'
 import FantasyStar from '../components/FantasyStar.jsx'
 import { GoalieShots } from '../components/Shots.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
+import LuckPanel from '../components/Luck.jsx'
+import { GoalieForm } from '../components/Form.jsx'
 import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
 import { GsaaChart } from '../components/Charts.jsx'
@@ -88,6 +90,8 @@ export default function Goalie() {
             label: 'This season',
             content: (
               <>
+              <GoalieForm games={chrono} leagueSvPct={lg} />
+
               <div className="charts">
                 <GsaaChart games={chrono} leagueSvPct={lg} />
                 <figure className="chart">
@@ -117,6 +121,8 @@ export default function Goalie() {
             label: 'Shots faced',
             content: (
               <>
+              <LuckPanel playerId={g.player_id} goalie />
+
               <TrackingProfile playerId={g.player_id} />
 
               <GoalieShots playerId={g.player_id} />

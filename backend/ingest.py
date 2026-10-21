@@ -821,6 +821,55 @@ def backfill_onice(conn, seasons, limit=None):
     print(f"on-ice backfill: {stored} games stored, {unusable} without usable shift data")
 
 
+def fetch_pbp(game_id):
+    pbp = get_json(f"{config.WEB_API}/gamecenter/{game_id}/play-by-play")
+    time.sleep(0.3)
+    return game_id, pbp
+
+
+def shot_hist_rows(game_id, season_id, pbp):
+    """(game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg) for every shot attempt in a game."""
+    rows = []
+    for r in shotlib.extract_shots(pbp):
+        if r["event_id"] is not None:
+            rows.append((game_id, r["event_id"], season_id, r["shooter_id"], r["goalie_id"], r["kind"], r["strength"],
+                         shotlib.xg(r)))
+    return rows
+
+
+def backfill_shots(conn, seasons, limit=None):
+    """Every shot attempt with its xG for past seasons' games (from skater_game_hist), into shot_hist, so the luck
+    and regression views can look across seasons. Resumable: games already pulled (shot_hist_game) are skipped.
+    One request per game at the NHL's rate limits; run it by hand, not in the nightly job."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT h.game_id, h.season_id FROM skater_game_hist h
+               LEFT JOIN shot_hist_game s USING (game_id)
+               WHERE h.season_id = ANY(%s) AND s.game_id IS NULL
+               GROUP BY h.game_id, h.season_id ORDER BY h.season_id, h.game_id""", (seasons,))
+        todo = cur.fetchall()
+    if limit:
+        todo = todo[:limit]
+    print(f"shot backfill: {len(todo)} games to process", flush=True)
+    season_of = dict(todo)
+    stored = 0
+    started = time.time()
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for i, (game_id, pbp) in enumerate(pool.map(fetch_pbp, [t[0] for t in todo]), 1):
+            rows = shot_hist_rows(game_id, season_of[game_id], pbp)
+            cur.executemany(
+                """INSERT INTO shot_hist (game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (game_id, event_id) DO NOTHING""", rows)
+            cur.execute("INSERT INTO shot_hist_game (game_id, season_id, shots) VALUES (%s,%s,%s) ON CONFLICT (game_id) DO NOTHING",
+                        (game_id, season_of[game_id], len(rows)))
+            conn.commit()
+            stored += 1
+            if i % 50 == 0:
+                rate = i / (time.time() - started)
+                print(f"  {i}/{len(todo)} ({(len(todo) - i) / rate / 60:.0f} min left)", flush=True)
+    print(f"shot backfill: {stored} games stored")
+
+
 def goalie_rows(game_id, box):
     """One goalie_game row per goalie who actually played (backups who sat have 0 ice time)."""
     rows = []
@@ -1141,6 +1190,44 @@ def ingest_edge(conn, seasons, limit=None, extras=True):
     print(f"edge: finished, {done} fetched in the last pass")
 
 
+def parse_backfill_args(args, default_seasons):
+    """(seasons, limit) from `[20222023,20232024,...] [--limit N]`. The number after --limit is the limit, never a season."""
+    limit = None
+    rest = list(args)
+    if "--limit" in rest:
+        i = rest.index("--limit")
+        limit = int(rest[i + 1])
+        del rest[i:i + 2]
+    wanted = [a for a in rest if a.isdigit() or "," in a]
+    seasons = [int(x) for x in wanted[0].split(",")] if wanted else default_seasons
+    return seasons, limit
+
+
+def toi_rows(data, season_id):
+    """skater_game_toi tuples from the stats API's per-game time-on-ice rows."""
+    return [(r["playerId"], r["gameId"], season_id, r["gameDate"], r["teamAbbrev"], r.get("positionCode"),
+             r["evTimeOnIce"] or 0, r["ppTimeOnIce"] or 0, r["shTimeOnIce"] or 0, r.get("otTimeOnIce") or 0,
+             r["timeOnIce"] or 0, r.get("shifts")) for r in data]
+
+
+def ingest_toi(conn):
+    """Even-strength, power-play and shorthanded ice time for every skater game this season: one request for the
+    whole season, upserted (it is cheap, and it picks up the NHL's later corrections)."""
+    data = get_json(f"{config.STATS_API}/skater/timeonice", isGame="true", limit=-1,
+                    cayenneExp=f"seasonId={config.SEASON_ID} and gameTypeId={config.GAME_TYPE}")["data"]
+    with conn.cursor() as cur:
+        cur.executemany(
+            """INSERT INTO skater_game_toi (player_id, game_id, season_id, game_date, team, position, ev_sec, pp_sec,
+                                            sh_sec, ot_sec, total_sec, shifts)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               ON CONFLICT (player_id, game_id) DO UPDATE SET team=EXCLUDED.team, position=EXCLUDED.position,
+                   ev_sec=EXCLUDED.ev_sec, pp_sec=EXCLUDED.pp_sec, sh_sec=EXCLUDED.sh_sec, ot_sec=EXCLUDED.ot_sec,
+                   total_sec=EXCLUDED.total_sec, shifts=EXCLUDED.shifts""",
+            toi_rows(data, config.SEASON_ID))
+    conn.commit()
+    print(f"toi: {len(data)} skater games")
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -1150,6 +1237,7 @@ def main():
         ingest_schedule(conn)
         ingest_goalie_season(conn)
         ingest_games(conn)
+        ingest_toi(conn)
         ingest_onice(conn)
         ingest_alltime(conn)
         ingest_career_seasons(conn)
@@ -1163,24 +1251,24 @@ def main():
 if __name__ == "__main__":
     if sys.argv[1:2] == ["backfill-edge"]:
         # python ingest.py backfill-edge [20212022,20222023,...] [--limit N]
-        args = sys.argv[2:]
-        limit = int(args[args.index("--limit") + 1]) if "--limit" in args else None
-        wanted = [a for a in args if a.isdigit() or "," in a]
-        seasons = [int(x) for x in wanted[0].split(",")] if wanted else \
-            [s for s in range(EDGE_FIRST_SEASON, config.SEASON_ID, 10001)]
+        seasons, limit = parse_backfill_args(sys.argv[2:], list(range(EDGE_FIRST_SEASON, config.SEASON_ID, 10001)))
         with psycopg.connect(config.DATABASE_URL) as conn:
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             ingest_edge(conn, seasons, limit)
     elif sys.argv[1:2] == ["backfill-onice"]:
         # python ingest.py backfill-onice [20222023,20232024,...] [--limit N]
-        args = sys.argv[2:]
-        limit = int(args[args.index("--limit") + 1]) if "--limit" in args else None
-        wanted = [a for a in args if a.isdigit() or "," in a]
-        seasons = [int(x) for x in wanted[0].split(",")] if wanted else [config.SEASON_ID - 10001 * i for i in range(1, 5)]
+        seasons, limit = parse_backfill_args(sys.argv[2:], [config.SEASON_ID - 10001 * i for i in range(1, 5)])
         with psycopg.connect(config.DATABASE_URL) as conn:
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             backfill_onice(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-shots"]:
+        # python ingest.py backfill-shots [20222023,20232024,...] [--limit N]
+        seasons, limit = parse_backfill_args(sys.argv[2:], [config.SEASON_ID - 10001 * i for i in range(1, 5)])
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            backfill_shots(conn, seasons, limit)
     else:
         main()

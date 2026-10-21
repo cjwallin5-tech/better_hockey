@@ -1,5 +1,6 @@
 import datetime as dt
 import unittest
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 import config
@@ -62,6 +63,95 @@ class Render(unittest.TestCase):
     def test_a_day_with_only_a_streak_still_sends_a_generic_subject(self):
         subject, _ = digest.render(day(hot=[{"name": "H", "recent_points": 5, "recent_games": 5, "recent_pace": 60.0, "pace": 40.0}], idle=[{"name": "x"}]))
         self.assertEqual(subject, "NHL roster update")
+
+
+class SendRetry(unittest.TestCase):
+    def test_retries_until_the_network_is_back(self):
+        waits = []
+        with mock.patch.object(digest.mail, "send", side_effect=[False, False, True]) as send:
+            ok = digest.send_with_retry("a@b.c", "s", "b", attempts=5, wait=10, sleep=waits.append)
+        self.assertTrue(ok)
+        self.assertEqual(send.call_count, 3)
+        self.assertEqual(waits, [10, 20])
+
+    def test_gives_up_after_the_last_attempt_without_a_trailing_wait(self):
+        waits = []
+        with mock.patch.object(digest.mail, "send", return_value=False) as send:
+            ok = digest.send_with_retry("a@b.c", "s", "b", attempts=3, wait=10, sleep=waits.append)
+        self.assertFalse(ok)
+        self.assertEqual(send.call_count, 3)
+        self.assertEqual(waits, [10, 20])
+
+
+class LuckSection(unittest.TestCase):
+    def alert(self, name, kind="skater", flag="hot", z=3.0, actual=16, expected=9.0):
+        return {"name": name, "kind": kind, "flag": flag, "z": z, "actual": actual, "expected": expected}
+
+    def test_hot_skater_line(self):
+        self.assertEqual(digest.luck_line(self.alert("A Hot")),
+                         "A Hot has 16 points against about 9 expected from the shots (z +3.0). Some of it may cool off.")
+
+    def test_cold_skater_line(self):
+        line = digest.luck_line(self.alert("B Cold", flag="cold", z=-2.1, actual=3, expected=7.2))
+        self.assertIn("3 points against about 7 expected", line)
+        self.assertIn("z -2.1", line)
+        self.assertIn("bounce back", line)
+
+    def test_goalie_lines_talk_about_goals_allowed(self):
+        hot = digest.luck_line(self.alert("G Hot", kind="goalie", z=2.0, actual=5, expected=9.4))
+        cold = digest.luck_line(self.alert("G Cold", kind="goalie", flag="cold", z=-2.5, actual=14, expected=8.0))
+        self.assertIn("allowed 5 goals against about 9 expected", hot)
+        self.assertIn("cool off", hot)
+        self.assertIn("better stretch", cold)
+
+    def test_the_section_appears_in_the_email(self):
+        _, body = digest.render(day(playing=[entry("P", "COL", "DAL", True, None)]) | {"luck": [self.alert("A Hot")]})
+        self.assertIn("LUCK CHECK", body)
+        self.assertIn("A Hot has 16 points", body)
+
+    def test_a_day_with_only_a_luck_flag_still_sends(self):
+        out = digest.render(day(idle=[{"name": "x"}]) | {"luck": [self.alert("A Hot")]})
+        self.assertIsNotNone(out)
+        self.assertEqual(out[0], "NHL roster update")
+
+    def test_no_luck_section_without_alerts(self):
+        _, body = digest.render(day(playing=[entry("P", "COL", "DAL", True, None)]))
+        self.assertNotIn("LUCK CHECK", body)
+
+
+class RoleSection(unittest.TestCase):
+    def alert(self, name="A Skater", **kw):
+        base = {"name": name, "team": "WPG", "window": 5, "pp_change": "up", "pp_label": "Promoted to PP1",
+                "pp_base": 67.0, "pp": 165.0, "ev_change": None, "ev_base": 1093.0, "ev": 1190.0}
+        return {**base, **kw}
+
+    def test_a_power_play_promotion(self):
+        self.assertEqual(digest.role_line(self.alert()),
+                         "A Skater (WPG): Promoted to PP1 (1:07 to 2:45 of power play a game). Last 5 games vs the rest of the season.")
+
+    def test_an_ice_time_change_on_its_own(self):
+        line = digest.role_line(self.alert(pp_change=None, pp_label=None, ev_change="down", ev_base=900.0, ev=765.0))
+        self.assertIn("less even-strength time (15:00 to 12:45 a game)", line)
+        self.assertNotIn("power play", line)
+
+    def test_both_changes_in_one_sentence(self):
+        line = digest.role_line(self.alert(ev_change="up"))
+        self.assertIn("Promoted to PP1", line)
+        self.assertIn("; more even-strength time", line)
+
+    def test_the_section_appears_in_the_email(self):
+        _, body = digest.render(day(playing=[entry("P", "COL", "DAL", True, None)]) | {"roles": [self.alert()]})
+        self.assertIn("ROLE CHANGES", body)
+        self.assertIn("A Skater (WPG): Promoted to PP1", body)
+
+    def test_a_day_with_only_a_role_change_still_sends(self):
+        out = digest.render(day(idle=[{"name": "x"}]) | {"roles": [self.alert()]})
+        self.assertIsNotNone(out)
+        self.assertEqual(out[0], "NHL roster update")
+
+    def test_no_section_without_changes(self):
+        _, body = digest.render(day(playing=[entry("P", "COL", "DAL", True, None)]))
+        self.assertNotIn("ROLE CHANGES", body)
 
 
 if __name__ == "__main__":

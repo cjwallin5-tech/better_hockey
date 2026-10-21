@@ -1,12 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MatchupTag, pctOff, ratioLabel, useMatchupTeams } from './Matchups.jsx'
 
 const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
+
+const ratioFor = (teams, opp, kind) => teams.get(opp)?.[kind === 'goalie' ? 'goalie_ratio' : 'skater_ratio'] ?? null
+const labelFor = (teams, opp, kind) => teams.get(opp)?.[kind === 'goalie' ? 'goalie_label' : 'skater_label'] ?? null
+
+/** One player's week in a cell: the average matchup over their games, with the sum of how far each is from average. */
+function WeekMatchup({ games, kind, teams }) {
+  if (!teams || games.length === 0) return <span className="muted">–</span>
+  const ratios = games.map((g) => ratioFor(teams, g.opponent, kind)).filter((r) => r != null)
+  if (ratios.length === 0) return <span className="muted">–</span>
+  const avg = ratios.reduce((t, r) => t + r, 0) / ratios.length
+  const index = ratios.reduce((t, r) => t + r - 1, 0)
+  const lab = ratioLabel(avg)
+  return (
+    <span title={`Average opponent is ${pctOff(avg)} vs average over ${ratios.length} game${ratios.length === 1 ? '' : 's'}; opportunity index ${index > 0 ? '+' : ''}${index.toFixed(2)}`}>
+      {pctOff(avg)} <MatchupTag ratio={avg} label={lab} who={kind === 'goalie' ? 'goalies' : 'skaters'} />
+    </span>
+  )
+}
 
 /** Roster alerts (lineup gaps, trades) and each player's team games over the next week. */
 export default function FantasyWeek({ players }) {
   const key = players.map((p) => p.id).join(',')
   const [state, setState] = useState({ key: null, data: null })
+  const teams = useMatchupTeams()
 
   useEffect(() => {
     if (!key) return
@@ -44,7 +64,7 @@ export default function FantasyWeek({ players }) {
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th className="left">Player</th><th className="left">Team</th><th>Games</th><th className="left">Schedule</th></tr>
+            <tr><th className="left">Player</th><th className="left">Team</th><th>Games</th><th title="How favorable this week's opponents are on average: skaters face defense and goalie, goalies face offense">Week matchup</th><th className="left">Schedule</th></tr>
           </thead>
           <tbody>
             {rows.map(({ p, w }) => (
@@ -52,10 +72,16 @@ export default function FantasyWeek({ players }) {
                 <td className="left"><Link to={`/${p.kind === 'goalie' ? 'goalie' : 'player'}/${p.id}`}>{p.name}</Link></td>
                 <td className="left">{w.team}</td>
                 <td className={w.games.length === most && most > 0 ? 'accent' : ''}>{w.games.length}</td>
+                <td><WeekMatchup games={w.games} kind={p.kind} teams={teams} /></td>
                 <td className="left">
                   {w.games.length === 0
                     ? <span className="muted">No games</span>
-                    : w.games.map((g) => `${dayName(g.game_date)} ${g.home_game ? 'vs' : '@'} ${g.opponent}`).join(' · ')}
+                    : w.games.map((g) => (
+                      <span key={g.game_id} style={{ marginRight: 10, whiteSpace: 'nowrap' }}>
+                        {dayName(g.game_date)} {g.home_game ? 'vs' : '@'} {g.opponent}
+                        {teams && <MatchupTag ratio={ratioFor(teams, g.opponent, p.kind)} label={labelFor(teams, g.opponent, p.kind)} who={p.kind === 'goalie' ? 'goalies' : 'skaters'} />}
+                      </span>
+                    ))}
                 </td>
               </tr>
             ))}

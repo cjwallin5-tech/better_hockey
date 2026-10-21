@@ -7,6 +7,7 @@ most once per Eastern-time day. Usage:
     python digest.py --preview 8478402,8480069   print a digest for these player ids (no account needed)
 """
 import sys
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -15,13 +16,55 @@ from psycopg.rows import dict_row
 
 import api
 import config
+import luck_db
 import mail
+import roles_db
 
 ET = ZoneInfo("America/New_York")
 HOT_MIN_GAMES = 5      # recent games needed before a hot streak means anything
 HOT_RATIO = 1.25       # recent pace at least this much above the season pace
 HOT_MAX = 3
 MISSING_GAMES = 2      # team games in a row without playing before we flag it
+LUCK_MAX = 4           # most luck-check lines in one email, biggest gaps first
+ROLE_WINDOW = 5        # games compared with the rest of the season for role changes
+ROLE_MAX = 4           # most role-change lines in one email, biggest moves first
+SEND_ATTEMPTS = 5      # tries per email; waits 30s, 60s, 90s, 120s between them
+SEND_WAIT_SECONDS = 30
+
+
+def _mmss(seconds):
+    return f"{int(round(seconds)) // 60}:{int(round(seconds)) % 60:02d}"
+
+
+def role_alerts(conn, players):
+    """Rostered skaters whose power-play unit or even-strength ice time moved over their last ROLE_WINDOW games
+    (see roles.py), biggest moves first. Each is a dict ready for render()."""
+    ids = [p["id"] for p in players if p["kind"] == "skater"]
+    if not ids:
+        return []
+    lines = [r for r in roles_db.player_lines(conn, config.SEASON_ID, ROLE_WINDOW, ids=ids).values() if r["direction"]]
+    # same scale as the Role changes page: a power-play move outweighs even-strength time
+    lines.sort(key=lambda r: abs(r["pp_share_delta"] * 10 + r["ev_delta"] / 300), reverse=True)
+    return [{"name": r["name"], "team": r["team"], "window": r["window"], "pp_change": r["pp_change"],
+             "pp_label": r["pp_label"], "pp_base": r["pp_base"], "pp": r["pp"], "ev_change": r["ev_change"],
+             "ev_base": r["ev_base"], "ev": r["ev"]} for r in lines[:ROLE_MAX]]
+
+
+def luck_alerts(conn, players):
+    """Rostered players running well above or below what their shots predict (flagged by luck.py, with enough of a
+    sample to mean something), biggest gaps first. Each is a dict ready for render()."""
+    ids = [p["id"] for p in players]
+    out = []
+    for r in luck_db.skater_rows(conn, config.SEASON_ID, config.GAMES_PER_SEASON, ids=ids):
+        if r["enough"] and r["points_flag_adj"] in ("hot", "cold"):  # judged against the player's own history
+            out.append({"name": r["name"], "kind": "skater", "flag": r["points_flag_adj"], "z": r["points_z_adj"],
+                        "actual": r["points"], "expected": r["xpoints_adj"]})
+    for r in luck_db.goalie_rows(conn, config.SEASON_ID, ids=ids):
+        if r["enough"] and r["flag"] in ("hot", "cold"):
+            out.append({"name": r["name"], "kind": "goalie", "flag": r["flag"], "z": r["z"],
+                        "actual": r["goals"], "expected": r["xga"]})
+    out.sort(key=lambda a: abs(a["z"]), reverse=True)
+    return out[:LUCK_MAX]
 
 
 def _roster_rows(conn, ids):
@@ -76,12 +119,39 @@ def gather(conn, players):
                 watch.append(f"{row['name']} has played for more than one team this season ({row['team']}).")
     hot.sort(key=lambda h: h["recent_pace"] - h["pace"], reverse=True)
     return {"today": today, "roster_size": len(playing) + len(idle), "playing": playing, "idle": idle,
-            "hot": hot[:HOT_MAX], "watch": watch}
+            "hot": hot[:HOT_MAX], "watch": watch, "luck": luck_alerts(conn, players),
+            "roles": role_alerts(conn, players)}
+
+
+def role_line(a):
+    """One sentence for the role-changes section."""
+    parts = []
+    if a["pp_change"]:
+        parts.append(f"{a['pp_label']} ({_mmss(a['pp_base'])} to {_mmss(a['pp'])} of power play a game)")
+    if a["ev_change"]:
+        parts.append(f"{'more' if a['ev_change'] == 'up' else 'less'} even-strength time "
+                     f"({_mmss(a['ev_base'])} to {_mmss(a['ev'])} a game)")
+    return f"{a['name']} ({a['team']}): " + "; ".join(parts) + f". Last {a['window']} games vs the rest of the season."
+
+
+def luck_line(a):
+    """One sentence for the luck-check section."""
+    if a["kind"] == "goalie":
+        if a["flag"] == "hot":
+            return (f"{a['name']} has allowed {a['actual']} goals against about {a['expected']:.0f} expected from the shots "
+                    f"faced (z {a['z']:+.1f}). Hard to keep up, so some of it may cool off.")
+        return (f"{a['name']} has allowed {a['actual']} goals against about {a['expected']:.0f} expected from the shots "
+                f"faced (z {a['z']:+.1f}). A better stretch may be coming.")
+    if a["flag"] == "hot":
+        return (f"{a['name']} has {a['actual']} points against about {a['expected']:.0f} expected from the shots "
+                f"(z {a['z']:+.1f}). Some of it may cool off.")
+    return (f"{a['name']} has {a['actual']} points against about {a['expected']:.0f} expected from the shots "
+            f"(z {a['z']:+.1f}). A bounce back may be coming.")
 
 
 def render(d):
     """(subject, plain-text body), or None when there is nothing worth an email."""
-    if not (d["playing"] or d["hot"] or d["watch"]):
+    if not (d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles")):
         return None
     lines = [f"Your NHL roster for {d['today']:%A, %B %-d}", ""]
     if d["playing"]:
@@ -105,6 +175,14 @@ def render(d):
             lines.append(f"  {h['name']}: {h['recent_points']} points in the last {h['recent_games']} games "
                          f"(a {h['recent_pace']:.0f}-point pace vs {h['pace']:.0f} for the season)")
         lines.append("")
+    if d.get("roles"):
+        lines.append("ROLE CHANGES (ice time is the earliest sign of a new role)")
+        lines += [f"  {role_line(a)}" for a in d["roles"]]
+        lines.append("")
+    if d.get("luck"):
+        lines.append("LUCK CHECK (results vs. what the shots say; early in the season these swing a lot)")
+        lines += [f"  {luck_line(a)}" for a in d["luck"]]
+        lines.append("")
     if d["watch"]:
         lines += ["WATCH"] + [f"  {w}" for w in d["watch"]] + [""]
     lines.append(f"Turn this email off any time: {config.PUBLIC_URL}/account")
@@ -118,6 +196,16 @@ def due_users(conn):
            FROM digest_pref p JOIN app_user u ON u.id = p.user_id JOIN fantasy_state f ON f.user_id = u.id
            WHERE p.enabled AND jsonb_array_length(f.players) > 0
              AND (p.last_sent_on IS NULL OR p.last_sent_on < (now() AT TIME ZONE 'America/New_York')::date)""").fetchall()
+
+
+def send_with_retry(to, subject, body, attempts=SEND_ATTEMPTS, wait=SEND_WAIT_SECONDS, sleep=time.sleep):
+    """mail.send, retried: launchd often fires right as the Mac wakes, before the network is back."""
+    for i in range(attempts):
+        if mail.send(to, subject, body):
+            return True
+        if i < attempts - 1:
+            sleep(wait * (i + 1))
+    return False
 
 
 def main(argv):
@@ -142,7 +230,7 @@ def main(argv):
             if not config.SMTP_HOST:
                 print("SMTP_HOST is not set, so nothing can be sent. Use --dry to preview.")
                 return 1
-            if mail.send(u["email"], *out):
+            if send_with_retry(u["email"], *out):
                 conn.execute("UPDATE digest_pref SET last_sent_on = (now() AT TIME ZONE 'America/New_York')::date "
                              "WHERE user_id = %s", (u["id"],))
                 conn.commit()

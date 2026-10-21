@@ -83,7 +83,7 @@ export function GoalieShots({ playerId }) {
   return (
     <section>
       <h2>Shots faced &amp; goals saved above expected</h2>
-      <p className="sub">{NOTE} Goals saved above expected (GSAx) is the xG of the shots faced minus the goals allowed on them.</p>
+      <p className="sub">{NOTE} Goals saved above expected (GSAx) is the xG of the shots faced minus the goals allowed on them, with xG scaled so the league's expected goals on shots on goal match its actual goals.</p>
       <div className="tiles">
         <Tile label="Shots faced" value={s.faced} />
         <Tile label="xG faced" value={s.xga.toFixed(1)} />

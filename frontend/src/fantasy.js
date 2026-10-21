@@ -141,6 +141,42 @@ export function useScoring() {
   return { scoring, setScoring }
 }
 
+// --- League shape: how many teams and starting slots, so "replacement level" means what it does in your league ---
+const LEAGUE_KEY = 'nhl-stats.fantasy-league'
+export const LEAGUE_EVENT = 'fantasy-league-changed'
+
+export function readLeague() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEAGUE_KEY) ?? 'null')
+    return raw && typeof raw === 'object' ? raw : {}
+  } catch {
+    return {}
+  }
+}
+
+/** { league, setLeague }: raw settings (see value.cleanLeague), kept in this browser only. */
+export function useLeague() {
+  const [league, setLeagueState] = useState(readLeague)
+  useEffect(() => {
+    const sync = () => setLeagueState(readLeague())
+    window.addEventListener(LEAGUE_EVENT, sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener(LEAGUE_EVENT, sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
+  const setLeague = useCallback((next) => {
+    try {
+      localStorage.setItem(LEAGUE_KEY, JSON.stringify(next))
+    } catch {
+      // storage unavailable: the change simply won't persist
+    }
+    window.dispatchEvent(new Event(LEAGUE_EVENT))
+  }, [])
+  return { league, setLeague }
+}
+
 /** Fantasy points for a season row under the given scoring; stats the row lacks count as 0. */
 export const fantasyPoints = (row, cats, scoring) =>
   cats.reduce((t, [key]) => t + (row[key] ?? 0) * (Number(scoring[key]) || 0), 0)

@@ -14,6 +14,8 @@ import Similar from '../components/Similar.jsx'
 import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
+import LuckPanel from '../components/Luck.jsx'
+import { SkaterForm } from '../components/Form.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
@@ -117,6 +119,8 @@ export default function Player() {
             label: 'This season',
             content: (
               <>
+              <SkaterForm games={[...games].reverse()} />
+
               <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
 
               <div className="charts">
@@ -180,6 +184,8 @@ export default function Player() {
             label: 'Shots & lines',
             content: (
               <>
+              <LuckPanel playerId={p.player_id} />
+
               <TrackingProfile playerId={p.player_id} />
 
               <SkaterShots playerId={p.player_id} />

@@ -15,6 +15,8 @@ import ScheduleGrid from './pages/ScheduleGrid.jsx'
 import HeadToHead from './pages/HeadToHead.jsx'
 import Tracking from './pages/Tracking.jsx'
 import Luck from './pages/Luck.jsx'
+import Roles from './pages/Roles.jsx'
+import Matchups from './pages/Matchups.jsx'
 import Account from './pages/Account.jsx'
 import { initAuth, useAuth } from './auth.js'
 import Fantasy from './pages/Fantasy.jsx'
@@ -37,7 +39,7 @@ export default function App() {
         <NavLink to="/standings">Standings</NavLink>
         <NavLink to="/alltime">All-time</NavLink>
         <NavLink to="/compare">Compare</NavLink>
-        <NavMore items={[['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/schedule', 'Schedule grid'], ['/head-to-head', 'Head-to-head'], ['/tracking', 'Speed & shots'], ['/luck', 'Luck & regression']]} />
+        <NavMore items={[['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/schedule', 'Schedule grid'], ['/head-to-head', 'Head-to-head'], ['/tracking', 'Speed & shots'], ['/luck', 'Luck & regression'], ['/roles', 'Role changes'], ['/matchups', 'Matchups']]} />
         <NavLink to="/fantasy">★ Fantasy team</NavLink>
         <NavLink to="/account">{user ? user.email : 'Log in'}</NavLink>
         <button className="theme-toggle" onClick={toggle} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
@@ -58,6 +60,8 @@ export default function App() {
         <Route path="/head-to-head" element={<HeadToHead />} />
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/luck" element={<Luck />} />
+        <Route path="/roles" element={<Roles />} />
+        <Route path="/matchups" element={<Matchups />} />
         <Route path="/account" element={<Account />} />
         <Route path="/fantasy" element={<Fantasy />} />
         <Route path="/watchlist" element={<Navigate to="/fantasy" replace />} />

@@ -6,7 +6,15 @@ import GoalieStarts from '../components/GoalieStarts.jsx'
 import Pickups from '../components/Pickups.jsx'
 import { useAuth } from '../auth.js'
 import RosterTools from '../components/RosterTools.jsx'
-import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints, useFantasy, useScoring } from '../fantasy.js'
+import { LuckBadge, useLuck } from '../components/Luck.jsx'
+import { RoleBadge, useRoles } from '../components/Roles.jsx'
+import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints, useFantasy, useLeague, useScoring } from '../fantasy.js'
+import PlayerValues from '../components/PlayerValues.jsx'
+import TradeAnalyzer from '../components/TradeAnalyzer.jsx'
+import StreamingGoalies from '../components/StreamingGoalies.jsx'
+import { GROUPS, cleanLeague, playerValues } from '../value.js'
+import { categoryValues } from '../categories.js'
+import { CATEGORY_PRESETS, GOALIE_CATEGORIES, SKATER_CATEGORIES } from '../categoryDefs.js'
 import { fmt1 } from '../format.js'
 
 const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
@@ -45,20 +53,102 @@ function ScoringSettings({ scoring, setScoring }) {
   )
 }
 
+function LeagueSettings({ league, setLeague }) {
+  const cfg = cleanLeague(league)
+  const set = (patch) => setLeague({ ...cfg, ...patch })
+  const toggle = (kind, key) => {
+    const list = cfg.categories[kind]
+    set({ categories: { ...cfg.categories, [kind]: list.includes(key) ? list.filter((k) => k !== key) : [...list, key] } })
+  }
+  const checks = (kind, defs) => (
+    <div className="scoring-grid">
+      {defs.map((d) => (
+        <label key={d.key} className="scoring-field">
+          <input type="checkbox" checked={cfg.categories[kind].includes(d.key)} onChange={() => toggle(kind, d.key)} />
+          <span>{d.label}{d.sign < 0 ? ' (lower is better)' : ''}</span>
+        </label>
+      ))}
+    </div>
+  )
+  return (
+    <details className="scoring" open>
+      <summary>League format and size</summary>
+      <p className="muted">
+        Used for player values and the trade analyzer. Replacement level is the best player at a position who wouldn't be
+        starting in your league (teams × starting slots). Saved in this browser only.
+      </p>
+      <div className="tabs" role="group" aria-label="League format">
+        <button className={cfg.format === 'points' ? 'on' : ''} onClick={() => set({ format: 'points' })}>Points league</button>
+        <button className={cfg.format === 'categories' ? 'on' : ''} onClick={() => set({ format: 'categories' })}>Category league (head-to-head or roto)</button>
+      </div>
+      <div className="scoring-grid">
+        <label className="scoring-field">
+          <input type="number" min="2" max="32" value={cfg.teams} onChange={(e) => set({ teams: e.target.value })} />
+          <span>Teams</span>
+        </label>
+        {GROUPS.map((g) => (
+          <label key={g} className="scoring-field">
+            <input type="number" min="0" max="10" value={cfg.slots[g]} onChange={(e) => set({ slots: { ...cfg.slots, [g]: e.target.value } })} />
+            <span>{{ C: 'Center slots', L: 'Left wing slots', R: 'Right wing slots', D: 'Defense slots', G: 'Goalie slots' }[g]}</span>
+          </label>
+        ))}
+      </div>
+      {cfg.format === 'categories' && (
+        <>
+          <h3>Categories your league counts</h3>
+          <p className="muted">
+            Players are valued by how far above the rostered pool they are in each category you pick, added up (z-scores), over the
+            rest of the season. Points-per-stat scoring doesn't apply in a category league.
+          </p>
+          <div className="tabs" role="group" aria-label="Category presets">
+            {Object.entries(CATEGORY_PRESETS).map(([name, preset]) => (
+              <button key={name} onClick={() => set({ categories: preset })}>{name}</button>
+            ))}
+          </div>
+          <h3>Skaters</h3>
+          {checks('skater', SKATER_CATEGORIES)}
+          <h3>Goalies</h3>
+          {checks('goalie', GOALIE_CATEGORIES)}
+        </>
+      )}
+    </details>
+  )
+}
+
 export default function Fantasy() {
   const { list, togglePlayer, replacePlayers } = useFantasy()
   const [params, setParams] = useSearchParams()
   const { user, sync } = useAuth()
   const { scoring, setScoring } = useScoring()
+  const { league, setLeague } = useLeague()
+  const [extras, setExtras] = useState(null) // games left per team and each skater's record, for player values
   const [data, setData] = useState(null)
   const [kind, setKind] = useState('skater')
   const [query, setQuery] = useState('')
+  const luck = useLuck(list.players.map((p) => p.id))
+  const roles = useRoles(list.players.filter((p) => p.kind === 'skater').map((p) => p.id))
 
   useEffect(() => {
     Promise.all([fetch('/api/skaters').then((r) => r.json()), fetch('/api/goalies').then((r) => r.json())])
       .then(([skaters, goalies]) => setData({ skaters, goalies: goalies.goalies }))
       .catch(() => setData({ skaters: [], goalies: [] }))
   }, [])
+
+  useEffect(() => {
+    Promise.all([fetch('/api/fantasy/games-left').then((r) => r.json()), fetch('/api/fantasy/priors').then((r) => r.json())])
+      .then(([gl, pri]) => setExtras({ gamesLeft: gl.teams, gamesPerSeason: gl.games_per_season, priors: pri.players }))
+      .catch(() => setExtras({ gamesLeft: {}, gamesPerSeason: 84, priors: {} })) // values still work, with rougher estimates
+  }, [])
+
+  // Value over replacement for every player, under your scoring and league (see value.js)
+  const leagueCfg = useMemo(() => cleanLeague(league), [league])
+  const isCats = leagueCfg.format === 'categories'
+  const values = useMemo(() => {
+    if (!data || !extras) return null
+    const args = { skaters: data.skaters, goalies: data.goalies, league, ...extras }
+    return isCats ? categoryValues(args) : playerValues({ ...args, scoring })
+  }, [data, extras, scoring, league, isCats])
+  const valueText = (id) => { const v = values?.get(id); return v ? v.value.toFixed(1) : '–' }
 
   const taken = useMemo(() => new Set(list.players.map((p) => p.id)), [list])
   const matches = useMemo(() => {
@@ -78,6 +168,7 @@ export default function Fantasy() {
     togglePlayer({ id: r.player_id, kind, name: r.name })
     setQuery('')
   }
+  const addValued = (r, k) => togglePlayer({ id: r.player_id, kind: k, name: r.name })
 
   const skaterRows = list.players.filter((p) => p.kind === 'skater').map((p) => ({ p, row: data?.skaters.find((s) => s.player_id === p.id) }))
   const goalieRows = list.players.filter((p) => p.kind === 'goalie').map((p) => ({ p, row: data?.goalies.find((g) => g.player_id === p.id) }))
@@ -139,7 +230,7 @@ export default function Fantasy() {
                   <div className="table-wrap">
                     <table>
                       <thead>
-                        <tr><th className="left">Player</th><th className="left">Team</th><th>GP</th><th>G</th><th>A</th><th>P</th><th>Fantasy pts</th><th>Per GP</th><th>Pace</th><th>L10 P</th><th>L10 pace</th><th /></tr>
+                        <tr><th className="left">Player</th><th className="left">Team</th><th>GP</th><th>G</th><th>A</th><th>P</th>{isCats ? <th title="Value over the rest of the season in your categories (z-scores above replacement)">Value</th> : <><th>Fantasy pts</th><th>Per GP</th></>}<th>Pace</th><th>L10 P</th><th>L10 pace</th><th /></tr>
                       </thead>
                       <tbody>
                         {skaterRows.map(({ p, row }) => (
@@ -148,18 +239,24 @@ export default function Fantasy() {
                               <Link to={`/player/${p.id}`}>{p.name}</Link>
                               {row?.traded && <span className="badge">↔ traded</span>}
                               {row?.games_out >= 2 && <span className="badge warn" title="Not in the team's last games">out {row.games_out}</span>}
+                              <RoleBadge row={roles?.[p.id]} />
+                              <LuckBadge row={luck?.skaters?.[p.id]} />
                             </td>
                             {row ? (
                               <>
                                 <td className="left">{row.team}</td><td>{row.games_played}</td><td>{row.goals}</td><td>{row.assists}</td>
                                 <td>{row.points}</td>
-                                <td className="accent">{fp(fantasyPoints(row, SKATER_CATS, scoring))}</td>
-                                <td>{row.games_played ? (fantasyPoints(row, SKATER_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
+                                {isCats ? <td className="accent">{valueText(p.id)}</td> : (
+                                  <>
+                                    <td className="accent">{fp(fantasyPoints(row, SKATER_CATS, scoring))}</td>
+                                    <td>{row.games_played ? (fantasyPoints(row, SKATER_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
+                                  </>
+                                )}
                                 <td>{fmt1(row.point_pace)}</td>
                                 <td>{row.recent_points ?? '–'}</td><td>{fmt1(row.recent_pace)}</td>
                               </>
                             ) : (
-                              <td className="left" colSpan="10"><span className="muted">No games this season</span></td>
+                              <td className="left" colSpan={isCats ? 9 : 10}><span className="muted">No games this season</span></td>
                             )}
                             <td><button className="link-button" onClick={() => togglePlayer(p)}>Remove</button></td>
                           </tr>
@@ -171,7 +268,9 @@ export default function Fantasy() {
                             <td className="left">Team total</td><td />
                             <td /><td>{sum(skaterTotals, 'goals')}</td><td>{sum(skaterTotals, 'assists')}</td>
                             <td>{sum(skaterTotals, 'points')}</td>
-                            <td className="accent">{fp(skaterTotals.reduce((t, r) => t + fantasyPoints(r, SKATER_CATS, scoring), 0))}</td><td />
+                            {isCats
+                              ? <td className="accent">{skaterTotals.reduce((t, r) => t + (values?.get(r.player_id)?.value ?? 0), 0).toFixed(1)}</td>
+                              : <><td className="accent">{fp(skaterTotals.reduce((t, r) => t + fantasyPoints(r, SKATER_CATS, scoring), 0))}</td><td /></>}
                             <td>{fmt1(sum(skaterTotals, 'point_pace'))}</td>
                             <td>{sum(skaterTotals, 'recent_points')}</td><td>{fmt1(sum(skaterTotals, 'recent_pace'))}</td><td />
                           </tr>
@@ -188,21 +287,28 @@ export default function Fantasy() {
                   <div className="table-wrap">
                     <table>
                       <thead>
-                        <tr><th className="left">Goalie</th><th className="left">Team</th><th>GP</th><th>W</th><th>L</th><th>Fantasy pts</th><th>Per GP</th><th>SV%</th><th>GAA</th><th>GSAA</th><th>Recent SV%</th><th /></tr>
+                        <tr><th className="left">Goalie</th><th className="left">Team</th><th>GP</th><th>W</th><th>L</th>{isCats ? <th title="Value over the rest of the season in your categories (z-scores above replacement)">Value</th> : <><th>Fantasy pts</th><th>Per GP</th></>}<th>SV%</th><th>GAA</th><th>GSAA</th><th>Recent SV%</th><th /></tr>
                       </thead>
                       <tbody>
                         {goalieRows.map(({ p, row }) => (
                           <tr key={p.id}>
-                            <td className="left"><Link to={`/goalie/${p.id}`}>{p.name}</Link></td>
+                            <td className="left">
+                              <Link to={`/goalie/${p.id}`}>{p.name}</Link>
+                              <LuckBadge row={luck?.goalies?.[p.id]} goalie />
+                            </td>
                             {row ? (
                               <>
                                 <td className="left">{row.team}</td><td>{row.games_played}</td><td>{row.wins}</td><td>{row.losses}</td>
-                                <td className="accent">{fp(fantasyPoints(row, GOALIE_CATS, scoring))}</td>
-                                <td>{row.games_played ? (fantasyPoints(row, GOALIE_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
+                                {isCats ? <td className="accent">{valueText(p.id)}</td> : (
+                                  <>
+                                    <td className="accent">{fp(fantasyPoints(row, GOALIE_CATS, scoring))}</td>
+                                    <td>{row.games_played ? (fantasyPoints(row, GOALIE_CATS, scoring) / row.games_played).toFixed(2) : '–'}</td>
+                                  </>
+                                )}
                                 <td>{sv(row.save_pct)}</td><td>{row.gaa?.toFixed(2)}</td><td>{signed(row.gsaa)}</td><td>{sv(row.recent_save_pct)}</td>
                               </>
                             ) : (
-                              <td className="left" colSpan="10"><span className="muted">No games this season</span></td>
+                              <td className="left" colSpan={isCats ? 9 : 10}><span className="muted">No games this season</span></td>
                             )}
                             <td><button className="link-button" onClick={() => togglePlayer(p)}>Remove</button></td>
                           </tr>
@@ -213,7 +319,9 @@ export default function Fantasy() {
                           <tr>
                             <td className="left">Team total</td><td /><td>{sum(goalieTotals, 'games_played')}</td>
                             <td>{sum(goalieTotals, 'wins')}</td><td>{sum(goalieTotals, 'losses')}</td>
-                            <td className="accent">{fp(goalieTotals.reduce((t, r) => t + fantasyPoints(r, GOALIE_CATS, scoring), 0))}</td><td /><td /><td /><td /><td /><td />
+                            {isCats
+                              ? <><td className="accent">{goalieTotals.reduce((t, r) => t + (values?.get(r.player_id)?.value ?? 0), 0).toFixed(1)}</td><td /><td /><td /><td /><td /></>
+                              : <><td className="accent">{fp(goalieTotals.reduce((t, r) => t + fantasyPoints(r, GOALIE_CATS, scoring), 0))}</td><td /><td /><td /><td /><td /><td /></>}
                           </tr>
                         </tfoot>
                       )}
@@ -241,16 +349,32 @@ export default function Fantasy() {
                   <button role="tab" aria-selected={kind === 'skater'} className={kind === 'skater' ? 'on' : ''} onClick={() => setKind('skater')}>Skaters</button>
                   <button role="tab" aria-selected={kind === 'goalie'} className={kind === 'goalie' ? 'on' : ''} onClick={() => setKind('goalie')}>Goalies</button>
                 </div>
-                <Pickups data={data} kind={kind} rosterIds={taken} scoring={scoring} onAdd={add} />
+                <Pickups data={data} kind={kind} rosterIds={taken} scoring={scoring} values={isCats ? values : null} onAdd={add} />
               </>
             ) : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'stream',
+            label: 'Streaming goalies',
+            content: <StreamingGoalies scoring={scoring} categories={isCats ? leagueCfg.categories : null} rosterIds={taken} onAdd={addValued} />,
+          },
+          {
+            id: 'values',
+            label: 'Player values',
+            content: values ? <PlayerValues data={data} values={values} rosterIds={taken} onAdd={addValued} categories={isCats ? leagueCfg.categories : null} /> : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'trade',
+            label: 'Trade analyzer',
+            content: values ? <TradeAnalyzer data={data} values={values} roster={list.players} categories={isCats ? leagueCfg.categories : null} /> : <p className="status">Loading…</p>,
           },
           {
             id: 'settings',
             label: 'Scoring & backup',
             content: (
               <>
-                <ScoringSettings scoring={scoring} setScoring={setScoring} />
+                {isCats ? <p className="notice">Your league counts categories, so points-per-stat scoring doesn't apply. Switch to a points league below to use it.</p> : <ScoringSettings scoring={scoring} setScoring={setScoring} />}
+                <LeagueSettings league={league} setLeague={setLeague} />
                 <RosterTools only="buttons" players={list.players} scoring={scoring} onLoad={loadRoster} />
               </>
             ),

@@ -16,9 +16,15 @@ defensemen until the player has a real sample). Teammates scoring more than thei
 is on the ice is then worth assist_rate assists of luck to that player. Points luck is own finishing luck plus
 that assist luck, and its variance adds the two parts (the on-ice part treated as Poisson, variance = xGF).
 
+Past seasons separate skill from luck. The model has no idea who is shooting, so elite finishers beat their xG
+year after year. From a player's earlier seasons we estimate that edge (their goals above xG as a share of xG,
+shrunk toward zero by PRIOR_XG expected goals so a short history can't claim much) and scale this season's xG by
+it. Gaps measured that way (the *_adj figures) say whether a player is hot or cold for *them*, not for an
+average shooter. With no history the two are the same.
+
 What it does not know:
-- The model has no idea who is shooting. Elite finishers beat their xG year after year, so a large positive
-  gap is only partly luck for them. The sample is also small early in a season, so treat early flags as hints.
+- The sample is small early in a season, so treat early flags as hints. Past seasons come from stored shots only
+  (the last four plus this one), and skill can change with age, role and linemates.
 - Only goals are modeled. The assist figure above is a rough estimate, and power-play assists are left out of it
   (on-ice expected goals are 5v5 only).
 - Empty-net goals have no xG, so they are left out of the comparison on both sides.
@@ -29,6 +35,9 @@ Z_FLAG = 1.5       # |z| at or above this is flagged hot or cold
 MIN_ATTEMPTS = 20  # unblocked shot attempts a skater needs to be listed by default
 MIN_FACED = 50     # shots on goal a goalie needs to face to be listed by default
 PRIOR_GOALS = 10   # teammate goals' worth of league-average assist rate blended into a player's own
+PRIOR_XG = 30      # expected goals of "no edge" blended into a player's finishing history (about one season of a top scorer)
+MIN_PERSIST_ATTEMPTS = 100  # shot attempts in both seasons for a skater to count in the year-over-year correlation
+MIN_PERSIST_FACED = 300     # shots faced in both seasons for a goalie to count
 
 
 def z_score(actual, expected, variance):
@@ -47,6 +56,30 @@ def flag(z):
     if z <= -Z_FLAG:
         return "cold"
     return "steady"
+
+
+def finishing_skill(prior):
+    """A player's finishing edge from earlier seasons: goals above xG as a share of xG, pulled toward zero.
+
+    prior: {model_goals, ixg, variance, seasons} summed over the earlier seasons, or None. 0.2 means they have
+    scored about 20% more than an average shooter would from the same shots.
+    """
+    if not prior or not prior.get("seasons"):
+        return 0.0
+    return (prior["model_goals"] - prior["ixg"]) / (prior["ixg"] + PRIOR_XG)
+
+
+def pearson(xs, ys):
+    """Correlation of two equal-length lists, or None with fewer than 3 pairs or no spread in either."""
+    n = len(xs)
+    if n < 3 or n != len(ys):
+        return None
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    syy = sum((y - my) ** 2 for y in ys)
+    if sxx <= 0 or syy <= 0:
+        return None
+    return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / math.sqrt(sxx * syy)
 
 
 def pace(total, games_played, games):
@@ -84,15 +117,30 @@ def points_luck(r, diff, assist_baseline):
             "points_flag": flag(z), "assist_luck": assist_luck, "assist_rate": k}
 
 
-def skater_line(r, games, assist_baseline=None):
+def skater_line(r, games, assist_baseline=None, prior=None):
     """One skater's luck figures from aggregated shot and on-ice numbers.
 
     r: attempts, shots_on_goal, goals, model_goals, ixg, variance, games_played, and the on-ice totals
     gf, ga, xgf, xga (5v5), plus what points_luck needs. games is the length of a season, for the full-season
     pace. assist_baseline is the league's assists per teammate goal for this player's role (forward or defenseman).
+    prior: the player's summed earlier seasons (see finishing_skill); fills the *_adj figures, which equal the
+    plain ones when there is no history.
     """
     diff = r["model_goals"] - r["ixg"]
     z = z_score(r["model_goals"], r["ixg"], r["variance"])
+    skill = finishing_skill(prior)
+    diff_adj = r["model_goals"] - r["ixg"] * (1 + skill)
+    z_adj = z_score(r["model_goals"], r["ixg"] * (1 + skill), r["variance"])
+    pts, pts_adj = points_luck(r, diff, assist_baseline), points_luck(r, diff_adj, assist_baseline)
+    history = {
+        "has_history": bool(prior and prior.get("seasons")), "prior_seasons": (prior or {}).get("seasons", 0),
+        "prior_diff": None if not prior else prior["model_goals"] - prior["ixg"],
+        "prior_z": None if not prior else z_score(prior["model_goals"], prior["ixg"], prior["variance"]),
+        "skill": skill,
+        "diff_adj": diff_adj, "z_adj": z_adj, "flag_adj": flag(z_adj),
+        "points_diff_adj": pts_adj["points_diff"], "points_z_adj": pts_adj["points_z"],
+        "points_flag_adj": pts_adj["points_flag"], "xpoints_adj": pts_adj["xpoints"],
+    }
     sog = r["shots_on_goal"]
     # Goals only ever come from shots on goal, so expected goals per on-goal shot is the fair comparison for shooting %.
     onice_diff = None
@@ -105,7 +153,7 @@ def skater_line(r, games, assist_baseline=None):
         "goals_pace": pace(r["goals"], r["games_played"], games),
         "xg_pace": pace(r["ixg"], r["games_played"], games),
         "onice_diff": onice_diff,
-        **points_luck(r, diff, assist_baseline),
+        **pts, **history,
     }
 
 

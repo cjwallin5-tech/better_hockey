@@ -330,3 +330,45 @@ CREATE TABLE IF NOT EXISTS edge_goalie_season (
     PRIMARY KEY (player_id, season_id)
 );
 ALTER TABLE edge_skater_season ADD COLUMN IF NOT EXISTS extras_at TIMESTAMPTZ;   -- when the speed-detail extras were fetched
+
+-- Past seasons' shots, kept only as much as the luck and regression views need (see luck_db.py). The current
+-- season's full shot rows live in `shot`; `python ingest.py backfill-shots` fills this one from play-by-play.
+CREATE TABLE IF NOT EXISTS shot_hist (
+    game_id    BIGINT NOT NULL,
+    event_id   INTEGER NOT NULL,
+    season_id  INTEGER NOT NULL,
+    shooter_id INTEGER,
+    goalie_id  INTEGER,
+    kind       TEXT NOT NULL,        -- shot, miss, block or goal
+    strength   TEXT,                 -- ev, pp or sh
+    xg         REAL,
+    PRIMARY KEY (game_id, event_id)
+);
+CREATE INDEX IF NOT EXISTS shot_hist_shooter ON shot_hist (season_id, shooter_id);
+CREATE INDEX IF NOT EXISTS shot_hist_goalie ON shot_hist (season_id, goalie_id);
+CREATE TABLE IF NOT EXISTS shot_hist_game (   -- games already pulled, so the backfill can resume
+    game_id    BIGINT PRIMARY KEY,
+    season_id  INTEGER NOT NULL,
+    shots      INTEGER NOT NULL,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Ice time by situation for every skater game this season, from the NHL stats API's per-game time-on-ice report.
+-- Feeds the role-change views (roles.py): who moved up or down the power-play units, who is playing more or less.
+CREATE TABLE IF NOT EXISTS skater_game_toi (
+    player_id  INTEGER NOT NULL,
+    game_id    BIGINT NOT NULL,
+    season_id  INTEGER NOT NULL,
+    game_date  DATE NOT NULL,
+    team       TEXT NOT NULL,
+    position   TEXT,
+    ev_sec     INTEGER NOT NULL,
+    pp_sec     INTEGER NOT NULL,
+    sh_sec     INTEGER NOT NULL,
+    ot_sec     INTEGER NOT NULL DEFAULT 0,
+    total_sec  INTEGER NOT NULL,
+    shifts     INTEGER,
+    PRIMARY KEY (player_id, game_id)
+);
+CREATE INDEX IF NOT EXISTS skater_game_toi_player ON skater_game_toi (player_id, season_id, game_date DESC);
+CREATE INDEX IF NOT EXISTS skater_game_toi_team ON skater_game_toi (season_id, team, game_date DESC);
