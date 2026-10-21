@@ -4,6 +4,8 @@ import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
 import SavedViews from '../components/SavedViews.jsx'
 import { fmt1, STABLE_GP } from '../format.js'
+import { describe } from '../glossary.js'
+import SeasonSwitch from '../components/SeasonSwitch.jsx'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
@@ -128,6 +130,7 @@ export default function Goalies() {
         <h1>Goalie Stats</h1>
         <p>League-average save percentage this season: {fmtSv(rows[0]?.league_sv_pct)}. L{recentWindow} columns use each goalie's last {recentWindow} appearances.</p>
       </header>
+      <SeasonSwitch seasonId={data?.season_id} kind="goalie" />
       <SavedViews path="/goalies" />
       {maxGp < STABLE_GP && (
         <p className="notice">
@@ -164,7 +167,7 @@ export default function Goalies() {
           <thead>
             <tr>
               {columns.map((c) => (
-                <th key={c.key} className={c.text ? 'left' : ''} onClick={() => onSort(c)}
+                <th key={c.key} className={c.text ? 'left' : ''} title={describe(c.label)} onClick={() => onSort(c)}
                   aria-sort={sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   {c.label}
                   {sort.key === c.key && <i>{sort.dir === 'asc' ? ' ▲' : ' ▼'}</i>}

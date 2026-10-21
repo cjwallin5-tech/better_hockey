@@ -28,7 +28,7 @@ export default function Trophies({ playerId }) {
       <ul>
         {list.map((t) => (
           <li key={t.trophy}>
-            <strong>🏆 In the {t.trophy} race.</strong>{' '}
+            <strong>In the {t.trophy} race.</strong>{' '}
             <span>
               {ordinal(t.rank)} of {t.of} in {STAT_LABEL[t.stat]} ({fmtValue(t.stat, t.value)}), {t.basis}.
             </span>

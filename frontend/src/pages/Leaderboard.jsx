@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
 import SavedViews from '../components/SavedViews.jsx'
+import { describe } from '../glossary.js'
+import SeasonSwitch from '../components/SeasonSwitch.jsx'
 
 // Pace from fewer games than this is mostly noise, so it's dimmed and flagged.
 const STABLE_GP = 20
@@ -232,6 +234,7 @@ export default function Leaderboard() {
           uses only each player's last {meta.recent_window} games.
         </p>
       </header>
+      <SeasonSwitch seasonId={meta?.season_id} kind="skater" />
       <SavedViews path="/skaters" />
 
       {maxGp < STABLE_GP && (
@@ -320,6 +323,7 @@ export default function Leaderboard() {
                 <th
                   key={c.key}
                   className={c.text ? 'left' : ''}
+                  title={describe(c.label)}
                   onClick={() => onSort(c)}
                   aria-sort={
                     sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'

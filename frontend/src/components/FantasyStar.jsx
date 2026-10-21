@@ -1,4 +1,5 @@
 import { useFantasy } from '../fantasy.js'
+import Icon from './Icon.jsx'
 
 /** A toggle that adds a player ({ id, kind: 'skater' | 'goalie', name }) to your fantasy team. */
 export default function FantasyStar({ player }) {
@@ -12,7 +13,7 @@ export default function FantasyStar({ player }) {
       title={on ? 'On your fantasy team' : 'Add to your fantasy team'}
       onClick={() => togglePlayer(player)}
     >
-      {on ? '★' : '☆'} <span>{on ? 'On my team' : 'Add to team'}</span>
+      <Icon name="star" filled={on} /> <span>{on ? 'On my team' : 'Add to team'}</span>
     </button>
   )
 }

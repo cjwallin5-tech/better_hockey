@@ -4,6 +4,7 @@ import Career from '../components/Career.jsx'
 import { RankCards } from '../components/Rankings.jsx'
 import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
+import Flag from '../components/Flag.jsx'
 
 /**
  * Page for a player with no games in the current season (retired, or between seasons): bio and
@@ -26,7 +27,7 @@ export default function CareerPlayer({ id, goalie }) {
   }, [id])
 
   const { data, error } = result.id === id ? result : { data: null, error: null }
-  const back = <Link to="/alltime" className="back">← All-time leaders</Link>
+  const back = <Link to={goalie ? '/alltime/goalies' : '/alltime/skaters'} className="back">← All-time {goalie ? 'goalies' : 'skaters'}</Link>
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<p className="status">Loading…</p></main>
 
@@ -43,7 +44,7 @@ export default function CareerPlayer({ id, goalie }) {
       {back}
       <header>
         <h1>
-          {data.name} <span>{data.kind === 'goalie' ? 'G' : data.position}{data.hall_of_fame ? ' · Hockey Hall of Fame' : ''}</span>
+          <Flag playerId={id} />{data.name} <span>{data.kind === 'goalie' ? 'G' : data.position}{data.hall_of_fame ? ' · Hockey Hall of Fame' : ''}</span>
         </h1>
         <p>{status}. No games in the current season, so this page shows career history.</p>
         <p><Link to={`/compare?ids=${id}`}>Compare with other players →</Link></p>

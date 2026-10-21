@@ -313,7 +313,7 @@ export default function Compare() {
             <p className="sub">
               Era-adjusted: each season's goals and assists are scaled to today's scoring level for the player's role
               (forward or defenseman), so a 1980s season and a 2020s one are on the same footing. Games, ice time and
-              power-play share are not adjusted. <Link to="/alltime?v=adjusted">See the all-time era-adjusted leaders →</Link>
+              power-play share are not adjusted. <Link to="/alltime/skaters?v=adjusted">See the all-time era-adjusted leaders →</Link>
             </p>
           )}
         </>

@@ -44,3 +44,35 @@ export function RoleBadge({ row }) {
   if (!s) return null
   return <span className={s.direction === 'down' ? 'badge warn' : 'badge'} title={s.title}>{s.short}</span>
 }
+
+/** One skater's role on the player page: power-play unit and ice time, last few games vs earlier. Null until there is enough to compare. */
+export function RolePanel({ playerId, window = 5 }) {
+  const row = useRoles([playerId], window)?.[playerId]
+  if (!row) return null
+  const s = roleSummary(row)
+  const tile = (label, base, now) => (
+    <div className="tile">
+      <span>{label}</span>
+      <strong>{mmss(now)}</strong>
+      <span>was {mmss(base)}</span>
+    </div>
+  )
+  return (
+    <section>
+      <h2>Role</h2>
+      <p className="sub">
+        Last {row.window} games against earlier this season. {s ? s.title + '.' : 'No real change in power-play unit or ice time.'}
+      </p>
+      <div className="tiles">
+        <div className="tile">
+          <span>Power-play unit</span>
+          <strong>{unitName(row.unit)}</strong>
+          <span>was {unitName(row.unit_base)}</span>
+        </div>
+        {tile('PP time / game', row.pp_base, row.pp)}
+        {tile('Even strength / game', row.ev_base, row.ev)}
+        {tile('Total / game', row.total_base, row.total)}
+      </div>
+    </section>
+  )
+}

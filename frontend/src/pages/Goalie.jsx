@@ -13,6 +13,7 @@ import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
 import { GsaaChart } from '../components/Charts.jsx'
 import { fmt1, fmtToi } from '../format.js'
+import Flag from '../components/Flag.jsx'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
@@ -48,7 +49,7 @@ export default function Goalie() {
       {back}
       <header>
         <h1>
-          {g.name}{' '}
+          <Flag playerId={g.player_id} />{g.name}{' '}
           <span>
             {g.team?.split(',').map((abbr, i) => (
               <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>

@@ -4,6 +4,8 @@ import { seasonLabel } from '../career.js'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
 import SavedViews from '../components/SavedViews.jsx'
+import { describe } from '../glossary.js'
+import SeasonSwitch from '../components/SeasonSwitch.jsx'
 
 const PAGE_SIZE = 50
 
@@ -80,10 +82,9 @@ const VIEWS = {
 // Rate stats are meaningless over a handful of games, so sorting by them applies a minimum.
 const AUTO_MIN_GP = { skater: 300, goalie: 150 }
 
-export default function AllTime() {
+/** All-time leaders for one kind of player ('skater' or 'goalie'), each on its own page. */
+export default function AllTime({ kind }) {
   const initial = new URLSearchParams(window.location.search)
-  const initialKind = initial.get('kind') === 'goalie' ? 'goalie' : 'skater'
-  const [kind, setKind] = useState(initialKind)
   const [gameType, setGameType] = useState(initial.get('gt') === '3' ? 3 : 2)
   const [search, setSearch] = useState(() => initial.get('q') ?? '')
   const [debouncedSearch, setDebouncedSearch] = useState(() => initial.get('q') ?? '')
@@ -95,11 +96,11 @@ export default function AllTime() {
   const [debutTo, setDebutTo] = useState(() => initial.get('to') ?? '')
   const [minGpInput, setMinGpInput] = useState(() => initial.get('min_gp') ?? '')
   const [sort, setSort] = useState(() => ({
-    key: initial.get('sort') ?? (initialKind === 'skater' ? 'points' : 'wins'),
+    key: initial.get('sort') ?? (kind === 'skater' ? 'points' : 'wins'),
     dir: initial.get('dir') ?? 'desc',
   }))
   const [viewId, setViewId] = useState(() => {
-    const views = VIEWS[initialKind]
+    const views = VIEWS[kind]
     return (views.find((v) => v.id === initial.get('v')) ?? views.find((v) => v.keys.includes(initial.get('sort'))) ?? views[0]).id
   })
   const [page, setPage] = useState(() => Math.max(0, Number(initial.get('page') ?? 1) - 1))
@@ -107,7 +108,7 @@ export default function AllTime() {
   const [result, setResult] = useState({ key: '', data: null, error: null })
 
   useUrlSync([
-    ['kind', kind, 'skater'], ['gt', gameType, 2], ['sort', sort.key, kind === 'skater' ? 'points' : 'wins'], ['dir', sort.dir, 'desc'],
+    ['gt', gameType, 2], ['sort', sort.key, kind === 'skater' ? 'points' : 'wins'], ['dir', sort.dir, 'desc'],
     ['q', search, ''], ['pos', position, ''], ['country', country, ''], ['active', activeOnly, false], ['hof', hofOnly, false],
     ['from', debutFrom, ''], ['to', debutTo, ''], ['min_gp', minGpInput, ''], ['page', page + 1, 1], ['v', viewId, VIEWS[kind][0].id],
   ])
@@ -173,16 +174,6 @@ export default function AllTime() {
   // Changing any filter returns to the first page.
   const reset = (setter) => (value) => { setter(value); setPage(0) }
 
-  const switchKind = (k) => {
-    setKind(k)
-    setViewId(VIEWS[k][0].id)
-    setSort({ key: VIEWS[k][0].sort, dir: 'desc' })
-    setPosition('')
-    setCountry('')
-    setMinGpInput('')
-    setPage(0)
-  }
-
   const switchView = (v) => {
     setViewId(v.id)
     setSort({ key: v.sort, dir: 'desc' })
@@ -214,21 +205,18 @@ export default function AllTime() {
 
   return (
     <main>
+      <SeasonSwitch kind={kind} active="alltime" />
       <header>
-        <h1>All-time leaders</h1>
+        <h1>All-time {kind === 'skater' ? 'skaters' : 'goalies'}</h1>
         <p>
           Career totals for every {kind === 'skater' ? 'skater' : 'goalie'} in NHL history. Some stats
           are blank for early eras (shots start in 1967-68, plus/minus in 1959-60). Click any
           name for their career page.
         </p>
       </header>
-      <SavedViews path="/alltime" />
+      <SavedViews path={`/alltime/${kind}s`} />
 
       <div className="controls">
-        <div className="tabs" role="tablist">
-          <button role="tab" aria-selected={kind === 'skater'} className={kind === 'skater' ? 'on' : ''} onClick={() => switchKind('skater')}>Skaters</button>
-          <button role="tab" aria-selected={kind === 'goalie'} className={kind === 'goalie' ? 'on' : ''} onClick={() => switchKind('goalie')}>Goalies</button>
-        </div>
         <div className="tabs" role="tablist">
           <button role="tab" aria-selected={gameType === 2} className={gameType === 2 ? 'on' : ''} onClick={() => reset(setGameType)(2)}>Regular season</button>
           <button role="tab" aria-selected={gameType === 3} className={gameType === 3 ? 'on' : ''} onClick={() => { reset(setGameType)(3); if (view.regularOnly) switchView(VIEWS[kind][0]) }}>Playoffs</button>
@@ -290,9 +278,9 @@ export default function AllTime() {
                 <th className="left" onClick={() => onSort({ key: 'name', asc: true })} aria-sort={sort.key === 'name' ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   Player{sort.key === 'name' && <i>{sort.dir === 'asc' ? ' ▲' : ' ▼'}</i>}
                 </th>
-                {kind === 'skater' && <th className="left">Pos</th>}
+                {kind === 'skater' && <th className="left" title={describe('Pos')}>Pos</th>}
                 {columns.map((c) => (
-                  <th key={c.key} onClick={() => onSort(c)} aria-sort={sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <th key={c.key} title={describe(c.label)} onClick={() => onSort(c)} aria-sort={sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                     {c.label}{sort.key === c.key && <i>{sort.dir === 'asc' ? ' ▲' : ' ▼'}</i>}
                   </th>
                 ))}

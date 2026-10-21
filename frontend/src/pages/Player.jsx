@@ -16,7 +16,9 @@ import DefenseProfile from '../components/DefenseProfile.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
 import LuckPanel from '../components/Luck.jsx'
 import { SkaterForm } from '../components/Form.jsx'
+import { RolePanel } from '../components/Roles.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
+import Flag from '../components/Flag.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
 const fmtToi = (sec) =>
@@ -83,7 +85,7 @@ export default function Player() {
       {back}
       <header>
         <h1>
-          {p.name}{' '}
+          <Flag playerId={p.player_id} />{p.name}{' '}
           <span>
             {p.team?.split(',').map((abbr, i) => (
               <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>
@@ -121,6 +123,8 @@ export default function Player() {
               <>
               <SkaterForm games={[...games].reverse()} />
 
+              <RolePanel playerId={p.player_id} />
+
               <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
 
               <div className="charts">
@@ -152,7 +156,6 @@ export default function Player() {
             label: 'Defense & possession',
             content: (
               <>
-              <h2>Defensive game</h2>
               <p className="sub">
                 Percentile among {peer_count} {peer_group} with at least {peer_min_gp} GP. Higher bar is
                 better for every stat, including giveaways.

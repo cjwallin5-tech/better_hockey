@@ -220,7 +220,7 @@ export default function Fantasy() {
             content: (
               <>
               {list.players.length === 0 && (
-                <p className="status">No players yet. Search above, or press ☆ Add to team on a <Link to="/skaters">player</Link> or <Link to="/goalies">goalie</Link> page.</p>
+                <p className="status">No players yet. Search above, or press Add to team on a <Link to="/skaters">player</Link> or <Link to="/goalies">goalie</Link> page.</p>
               )}
               {list.players.length > 0 && !data && <p className="status">Loading…</p>}
 

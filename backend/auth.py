@@ -237,7 +237,7 @@ def put_fantasy_state(state: FantasyState, request: Request):
 # --- Saved leaderboard views --------------------------------------------------------------------
 # A view is a page plus the filter/sort query string that page keeps in its URL. Only these pages can
 # be saved, and the query is re-encoded from parsed pairs so nothing but simple filter values is kept.
-VIEW_PATHS = {"/skaters", "/goalies", "/alltime"}
+VIEW_PATHS = {"/skaters", "/goalies", "/alltime", "/alltime/skaters", "/alltime/goalies"}
 MAX_VIEWS = 30
 MAX_QUERY_PAIRS, MAX_KEY, MAX_VALUE = 20, 30, 100
 

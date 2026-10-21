@@ -116,7 +116,8 @@ and never refreshed, so when a new season starts the one that just finished stop
   pulled much harder toward average (his saved goals barely repeat year to year). The Fantasy "This week" tab tags each of your
   players' games soft or tough and shows the week's average. `backend/matchups.py` documents the method; differences between teams
   are modest, so it is a tiebreaker, not a verdict.
-- **Role changes** (`/roles`, under More): who has moved up or down the power-play units and who is playing more or less over their last
+- **Role changes** (a Role panel on the skater page's This season tab; the old `/roles` page, `frontend/src/pages/Roles.jsx`, is no longer linked and
+  `/roles` redirects to Skaters): who has moved up or down the power-play units and who is playing more or less over their last
   few games compared with earlier this season, from the NHL's per-game ice time by situation (`skater_game_toi`, one request a
   night). A skater's unit comes from their share of the team's power-play time (45%+ is PP1, 15%+ is PP2); `backend/roles.py`
   explains the method and its limits. Rostered skaters get a small badge on the Fantasy page.

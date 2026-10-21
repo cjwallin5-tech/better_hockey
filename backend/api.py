@@ -304,6 +304,7 @@ def _goalie_params():
 def goalies():
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         return {
+            "season_id": config.SEASON_ID,
             "recent_window": config.RECENT_GOALIE_GAMES,
             "goalies": conn.execute(GOALIES_SQL, _goalie_params()).fetchall(),
         }
