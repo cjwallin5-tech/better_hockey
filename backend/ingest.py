@@ -1026,6 +1026,23 @@ def ingest_team_abbrevs(conn):
     print(f"team abbreviations: {loose} past team-games still unmatched")
 
 
+def ingest_home_flags(conn):
+    """Whether each past team-game was at home. The team summary report carries it (homeRoad), one request a season."""
+    for back in range(1, HISTORY_SEASONS + 1):
+        season = config.SEASON_ID - 10001 * back
+        have = conn.execute("SELECT count(*) FROM team_game_hist WHERE season_id = %s AND is_home IS NULL", (season,)).fetchone()[0]
+        if not have:
+            continue
+        data = get_json(f"{config.STATS_API}/team/summary", isGame="true", limit=-1,
+                        cayenneExp=f"seasonId={season} and gameTypeId={config.GAME_TYPE}")["data"]
+        with conn.cursor() as cur:
+            cur.executemany("UPDATE team_game_hist SET is_home = %s WHERE team_name = %s AND game_id = %s",
+                            [(r["homeRoad"] == "H", r["teamFullName"], r["gameId"]) for r in data if r.get("homeRoad")])
+        conn.commit()
+        print(f"home flags {season}: {len(data)} team games")
+        time.sleep(1)
+
+
 EDGE_FIRST_SEASON = 20212022   # the NHL's tracking data starts here
 EDGE_BASE = f"{config.WEB_API}/edge"
 EDGE_REFRESH_WINDOW_HOURS = 30   # keep refreshing a player for this long after his latest game: the NHL's tracking lags the box score
@@ -1190,6 +1207,36 @@ def ingest_edge(conn, seasons, limit=None, extras=True):
     print(f"edge: finished, {done} fetched in the last pass")
 
 
+SEASON_LEADERBOARD_FIRST = 20052006   # first season with hits, blocks and the other tracked stats (the NHL's modern era)
+
+
+def past_season_ids(current=None, first=SEASON_LEADERBOARD_FIRST):
+    """Every season from `first` up to (not including) the current one, oldest first."""
+    return list(range(first, (current or config.SEASON_ID), 10001))
+
+
+def backfill_seasons(conn, seasons):
+    """Full-season skater and goalie leaderboards for past seasons, so the leaderboards can show them. A finished season
+    never changes, so one with rows already is skipped. The ingest functions read config.SEASON_ID, so it is pointed at each
+    season in turn (and put back after)."""
+    real = config.SEASON_ID
+    try:
+        for season in seasons:
+            have_skaters = conn.execute("SELECT 1 FROM skater_season WHERE season_id = %s LIMIT 1", (season,)).fetchone()
+            have_goalies = conn.execute("SELECT 1 FROM goalie_season WHERE season_id = %s LIMIT 1", (season,)).fetchone()
+            if have_skaters and have_goalies:
+                print(f"{season}: already loaded")
+                continue
+            config.SEASON_ID = season
+            print(f"{season}: loading")
+            if not have_skaters:
+                ingest_season(conn)
+            if not have_goalies:
+                ingest_goalie_season(conn)
+    finally:
+        config.SEASON_ID = real
+
+
 def parse_backfill_args(args, default_seasons):
     """(seasons, limit) from `[20222023,20232024,...] [--limit N]`. The number after --limit is the limit, never a season."""
     limit = None
@@ -1245,6 +1292,7 @@ def main():
         ingest_era_adjusted(conn)
         ingest_history(conn)
         ingest_team_abbrevs(conn)
+        ingest_home_flags(conn)
         ingest_edge(conn, [config.SEASON_ID])
 
 
@@ -1263,6 +1311,13 @@ if __name__ == "__main__":
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             backfill_onice(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-seasons"]:
+        # python ingest.py backfill-seasons [20222023,20232024,...]   (default: every season since 2005-06)
+        seasons, _ = parse_backfill_args(sys.argv[2:], past_season_ids())
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            backfill_seasons(conn, seasons)
     elif sys.argv[1:2] == ["backfill-shots"]:
         # python ingest.py backfill-shots [20222023,20232024,...] [--limit N]
         seasons, limit = parse_backfill_args(sys.argv[2:], [config.SEASON_ID - 10001 * i for i in range(1, 5)])

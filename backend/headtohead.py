@@ -1,7 +1,8 @@
 """Head-to-head summaries over the games we store: this season plus the previous four.
 
-Team results come from team_game_hist (past seasons) and game (this season); a player's games against a
-team come from his stored game lines, with the opponent found by pairing the two teams of each game.
+Team results come from team_game_hist (past seasons) and game (this season); a skater's games against a
+team come from their stored game lines, with the opponent found by pairing the two teams of each game. A goalie's
+come from this season's goalie_game and, for past seasons, from the stored shots they faced (shot_hist).
 A game is one of W, OTW (won in overtime or a shootout), OTL or L from the first team's point of view.
 """
 from collections import defaultdict
@@ -49,7 +50,7 @@ def _line(rows):
 
 def player_summary(rows, team):
     """rows: every stored game of one player (season_id, game_date, opponent, goals, assists).
-    Returns his line against `team`, the same line against everyone else, and a per-season split."""
+    Returns their line against `team`, the same line against everyone else, and a per-season split."""
     vs = [r for r in rows if r["opponent"] == team]
     rest = [r for r in rows if r["opponent"] != team]
     seasons = defaultdict(list)
@@ -57,3 +58,24 @@ def player_summary(rows, team):
         seasons[r["season_id"]].append(r)
     return {"vs": _line(vs), "rest": _line(rest),
             "by_season": [{"season_id": k, **_line(v)} for k, v in sorted(seasons.items(), reverse=True)]}
+
+
+def _goalie_line(rows):
+    gp = len(rows)
+    sa, ga = sum(r["shots_against"] for r in rows), sum(r["goals_against"] for r in rows)
+    return {"games": gp, "shots_against": sa, "goals_against": ga,
+            "save_pct": round((sa - ga) / sa, 3) if sa else None,
+            "shots_per_game": round(sa / gp, 1) if gp else None,
+            "goals_against_per_game": round(ga / gp, 2) if gp else None}
+
+
+def goalie_summary(rows, team):
+    """rows: every stored game a goalie faced shots in (season_id, game_date, opponent, shots_against, goals_against).
+    Returns their line against `team`, the same line against everyone else, and a per-season split."""
+    vs = [r for r in rows if r["opponent"] == team]
+    rest = [r for r in rows if r["opponent"] != team]
+    seasons = defaultdict(list)
+    for r in vs:
+        seasons[r["season_id"]].append(r)
+    return {"vs": _goalie_line(vs), "rest": _goalie_line(rest),
+            "by_season": [{"season_id": k, **_goalie_line(v)} for k, v in sorted(seasons.items(), reverse=True)]}

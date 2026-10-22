@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CompareChart } from './Charts.jsx'
 import { seasonLabel } from '../career.js'
 import { fmtToi } from '../format.js'
+import { describe } from '../glossary.js'
 
 const STATS = [
   { id: 'hits', label: 'Hits' },
@@ -55,10 +56,10 @@ export default function DefenseProfile({ playerId }) {
         <table>
           <thead>
             <tr>
-              <th className="left">Season</th><th className="left">Team</th><th>GP</th><th>TOI</th>
+              <th className="left">Season</th><th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th><th title={describe('TOI')}>TOI</th>
               {STATS.map((s) => <th key={s.id} title={s.note}>{s.label}/60</th>)}
               <th title="Takeaways minus giveaways per 60, against the league's rate">Net T–G/60</th>
-              {hasOnice && <><th>5v5 min</th><th>xGA/60</th><th title="Team xGA/60 with him on the ice minus off it">xGA/60 vs. mates</th><th>CF%</th></>}
+              {hasOnice && <><th title={describe('5v5 min')}>5v5 min</th><th title={describe('xGA/60')}>xGA/60</th><th title="Team xGA/60 with him on the ice minus off it">xGA/60 vs. mates</th><th title={describe('CF%')}>CF%</th></>}
             </tr>
           </thead>
           <tbody>

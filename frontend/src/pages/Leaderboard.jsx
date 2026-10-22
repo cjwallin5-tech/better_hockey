@@ -5,6 +5,7 @@ import { useUrlSync } from '../urlState.js'
 import SavedViews from '../components/SavedViews.jsx'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
+import { seasonLabel } from '../career.js'
 
 // Pace from fewer games than this is mostly noise, so it's dimmed and flagged.
 const STABLE_GP = 20
@@ -33,9 +34,15 @@ const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
 const fmtToi = (sec) =>
   sec == null ? '–' : `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`
 
+// Columns built from this season's game-by-game data, which past seasons don't have.
+const CURRENT_ONLY = new Set([
+  'point_pace', 'recent_points', 'recent_pace', 'ixg', 'goals_minus_ixg', 'xgf_pct', 'recent_cf_pct', 'recent_ff_pct', 'cf_pct_trend',
+])
+
 export default function Leaderboard() {
   const initial = new URLSearchParams(window.location.search) // the URL carries the saved view
   const [meta, setMeta] = useState(null)
+  const [season, setSeason] = useState(() => (initial.get('season') ? Number(initial.get('season')) : null)) // null = current
   const [rows, setRows] = useState(null)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState(() => initial.get('q') ?? '')
@@ -54,24 +61,29 @@ export default function Leaderboard() {
 
   useUrlSync([
     ['view', viewId, 'scoring'], ['sort', sort.key, VIEWS.find((v) => v.id === viewId)?.defaultSort], ['dir', sort.dir, 'desc'],
-    ['q', search, ''], ['pos', position, 'ALL'], ['team', team, 'ALL'], ['country', country, 'ALL'],
+    ['season', season, null], ['q', search, ''], ['pos', position, 'ALL'], ['team', team, 'ALL'], ['country', country, 'ALL'],
     ['age_min', ageMin, ''], ['age_max', ageMax, ''], ['rookies', rookiesOnly, false], ['min_gp', minGpInput, null],
   ])
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/meta').then((r) => r.json()),
-      fetch('/api/skaters').then((r) => {
+    fetch('/api/meta').then((r) => r.json()).then(setMeta).catch((e) => setError(e.message))
+  }, [])
+
+  useEffect(() => {
+    let ignore = false
+    fetch(season ? `/api/skaters?season=${season}` : '/api/skaters')
+      .then((r) => {
         if (!r.ok) throw new Error(`API returned ${r.status}`)
         return r.json()
-      }),
-    ])
-      .then(([m, s]) => {
-        setMeta(m)
-        setRows(s)
       })
-      .catch((e) => setError(e.message))
-  }, [])
+      .then((s) => !ignore && setRows(s))
+      .catch((e) => !ignore && setError(e.message))
+    return () => { ignore = true }
+  }, [season])
+
+  // A past season has no game-by-game data stored, so the pace, last-N-games and expected-goals columns are left out.
+  const isPast = season != null
+  const onSeason = (id) => { setRows(null); setSeason(id) }
 
   const maxGp = useMemo(() => Math.max(0, ...(rows ?? []).map((r) => r.games_played)), [rows])
   // Auto cutoff: half the games the busiest player has played, so it scales through the season.
@@ -177,9 +189,9 @@ export default function Leaderboard() {
       { key: 'position', label: 'Pos', text: true },
       { key: 'age', label: 'Age' },
       { key: 'games_played', label: 'GP' },
-      ...stats[viewId],
+      ...stats[viewId].filter((c) => !isPast || !CURRENT_ONLY.has(c.key)),
     ]
-  }, [meta, viewId])
+  }, [meta, viewId, isPast])
 
   const onView = (id) => {
     setViewId(id)
@@ -223,18 +235,19 @@ export default function Leaderboard() {
   if (error) return <main><p className="status">Couldn't load stats: {error}</p></main>
   if (!rows) return <main><p className="status">Loading…</p></main>
 
-  const season = meta ? `${String(meta.season_id).slice(0, 4)}–${String(meta.season_id).slice(6)}` : ''
+  const seasonName = seasonLabel(season ?? meta?.season_id ?? '')
 
   return (
     <main>
       <header>
-        <h1>Skater Stats <span>{season}</span></h1>
+        <h1>Skater Stats <span>{meta || season ? seasonName : ''}</span></h1>
         <p>
-          Pace projects points over {meta.games_per_season} games. L{meta.recent_window} Pace
-          uses only each player's last {meta.recent_window} games.
+          {isPast
+            ? `Final regular-season totals for ${seasonName}. Pace, last-games form and expected goals are only kept for the current season.`
+            : `Pace projects points over ${meta?.games_per_season ?? 84} games. L${meta?.recent_window ?? 10} Pace uses only each player's last ${meta?.recent_window ?? 10} games.`}
         </p>
       </header>
-      <SeasonSwitch seasonId={meta?.season_id} kind="skater" />
+      <SeasonSwitch kind="skater" value={season} onChange={onSeason} />
       <SavedViews path="/skaters" />
 
       {maxGp < STABLE_GP && (

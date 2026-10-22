@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { GOALIE_CATS, SKATER_CATS, fantasyPoints } from '../fantasy.js'
 import { fmt1 } from '../format.js'
+import { describe } from '../glossary.js'
 
 const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
@@ -30,8 +31,8 @@ export default function Pickups({ data, kind, rosterIds, scoring, values, onAdd 
         <table>
           <thead>
             <tr>
-              <th className="left">Player</th><th className="left">Team</th><th>GP</th>
-              {goalie ? <><th>W</th><th>SV%</th><th>Recent SV%</th><th>Recent GSAA</th></> : <><th>P</th><th>L{top[0]?.recent_games ?? ''} P</th><th>L10 pace</th><th>PP TOI</th></>}
+              <th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th>
+              {goalie ? <><th title={describe('W')}>W</th><th title={describe('SV%')}>SV%</th><th title={describe('Recent SV%')}>Recent SV%</th><th title={describe('Recent GSAA')}>Recent GSAA</th></> : <><th title={describe('P')}>P</th><th>L{top[0]?.recent_games ?? ''} P</th><th title={describe('L10 pace')}>L10 pace</th><th title={describe('PP TOI')}>PP TOI</th></>}
               <th>{values ? 'Value' : 'Fantasy pts/GP'}</th><th />
             </tr>
           </thead>

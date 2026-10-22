@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { describe } from '../glossary.js'
 
 const STAT = { points: 'Points', goals: 'Goals', gsaa: 'GSAA' }
 const fmtValue = (stat, v) => (stat === 'gsaa' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : v)
@@ -33,7 +34,7 @@ export default function TrophyRaces() {
           {race.contenders.length === 0 ? <p className="status">No contenders yet.</p> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>#</th><th className="left">Player</th><th className="left">Team</th><th>GP</th><th>{STAT[race.stat]}</th></tr></thead>
+                <thead><tr><th>#</th><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th><th>{STAT[race.stat]}</th></tr></thead>
                 <tbody>
                   {race.contenders.map((c) => (
                     <tr key={c.player_id}>

@@ -154,5 +154,68 @@ class RoleSection(unittest.TestCase):
         self.assertNotIn("ROLE CHANGES", body)
 
 
+
+class RestNotes(unittest.TestCase):
+    def test_a_tired_game_is_flagged_in_the_game_line(self):
+        e = entry("Tired Guy", "OTT", "SJS", True, dt.datetime(2026, 12, 4, 0, 0, tzinfo=UTC))
+        e["game"]["rest"] = "tired"
+        _, body = digest.render(day(playing=[e]))
+        self.assertIn("Tired Guy (OTT) vs SJS, 7:00 PM ET - second night of a back-to-back vs a rested team", body)
+
+    def test_the_rested_side_is_told_about_the_edge(self):
+        self.assertEqual(digest.rest_note({"rest": "edge"}), " - opponent is on the second night of a back-to-back")
+
+    def test_normal_games_get_no_note(self):
+        self.assertEqual(digest.rest_note({"rest": None}), "")
+        self.assertEqual(digest.rest_note({}), "")
+
+
+class Watchlist(unittest.TestCase):
+    TODAY = dt.date(2026, 12, 3)
+
+    def ms(self):
+        return {
+            "reached": [
+                {"player_id": 1, "name": "Fresh", "label": "Goals", "milestone": 500, "date": dt.date(2026, 12, 2)},
+                {"player_id": 1, "name": "Old", "label": "Goals", "milestone": 300, "date": dt.date(2026, 11, 20)},
+                {"player_id": 9, "name": "Unwatched", "label": "Goals", "milestone": 100, "date": dt.date(2026, 12, 3)},
+            ],
+            "upcoming": [
+                {"player_id": 2, "name": "Close", "label": "Points", "milestone": 1000, "remaining": 4, "games_needed": 3},
+                {"player_id": 2, "name": "Far", "label": "Goals", "milestone": 400, "remaining": 30, "games_needed": 40},
+                {"player_id": 9, "name": "Unwatched", "label": "Goals", "milestone": 100, "remaining": 1, "games_needed": 1},
+            ],
+        }
+
+    def test_milestones_for_watched_players_only_recent_or_near(self):
+        out = digest.milestone_alerts(self.ms(), {1, 2}, self.TODAY)
+        self.assertEqual([(a["name"], a["reached"]) for a in out], [("Fresh", True), ("Close", False)])
+
+    def test_milestone_lines(self):
+        a, b = digest.milestone_alerts(self.ms(), {1, 2}, self.TODAY)
+        self.assertEqual(digest.milestone_line(a), "Fresh reached 500 career goals.")
+        self.assertEqual(digest.milestone_line(b), "Close is 4 points from 1,000 career, about 3 games away at the current pace.")
+
+    def test_watch_block_lists_games_and_milestones(self):
+        game = {"opp": "MTL", "home": True, "start": dt.datetime(2026, 12, 4, 0, 0, tzinfo=UTC)}
+        w = {"playing": [entry("Star Guy", "WSH", "MTL", True, game["start"])], "idle": [{"name": "Rested"}],
+             "teams": [{"team": "TOR", "game": game}, {"team": "BOS", "game": None}],
+             "milestones": digest.milestone_alerts(self.ms(), {1, 2}, self.TODAY)}
+        text = "\n".join(digest.watch_lines(w))
+        self.assertIn("Star Guy (WSH) vs MTL, 7:00 PM ET", text)
+        self.assertIn("TOR vs MTL, 7:00 PM ET", text)
+        self.assertIn("No game today: Rested, BOS", text)
+        self.assertIn("Fresh reached 500 career goals.", text)
+
+    def test_watchlist_alone_is_enough_for_an_email(self):
+        w = {"milestones": digest.milestone_alerts(self.ms(), {1}, self.TODAY)}
+        subject, body = digest.render(day(size=0), w)
+        self.assertEqual(subject, "NHL watchlist update")
+        self.assertIn("WATCHLIST", body)
+        self.assertIn("Your NHL watchlist for", body)
+
+    def test_an_empty_watchlist_adds_nothing(self):
+        self.assertIsNone(digest.render(day(idle=[{"name": "A"}]), {"milestones": []}))
+
 if __name__ == "__main__":
     unittest.main()

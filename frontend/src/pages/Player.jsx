@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
-import Rankings from '../components/Rankings.jsx'
+import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
 import FantasyStar from '../components/FantasyStar.jsx'
+import WatchButton from '../components/WatchButton.jsx'
 import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
 import { Linemates } from '../components/Lines.jsx'
@@ -15,10 +16,15 @@ import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
 import LuckPanel from '../components/Luck.jsx'
+import Projection from '../components/Projection.jsx'
 import { SkaterForm } from '../components/Form.jsx'
 import { RolePanel } from '../components/Roles.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
 import Flag from '../components/Flag.jsx'
+import Headshot from '../components/Headshot.jsx'
+import PlayerBio from '../components/PlayerBio.jsx'
+import Awards from '../components/Awards.jsx'
+import { describe } from '../glossary.js'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
 const fmtToi = (sec) =>
@@ -57,6 +63,8 @@ export default function Player() {
   const { id } = useParams()
   // Keep the id with the result so navigating between players shows "Loading" without a reset effect.
   const [result, setResult] = useState({ id: null, data: null, error: null })
+  const ranks = useRankings(Number(id))
+  const rank = (stat) => rankNote(ranks?.season?.[stat], 'season')
 
   useEffect(() => {
     fetch(`/api/skaters/${id}`)
@@ -83,7 +91,9 @@ export default function Player() {
   return (
     <main>
       {back}
-      <header>
+      <header className="player-head">
+        <Headshot playerId={p.player_id} name={p.name} />
+        <div>
         <h1>
           <Flag playerId={p.player_id} />{p.name}{' '}
           <span>
@@ -93,69 +103,87 @@ export default function Player() {
             · {p.position}
           </span>
         </h1>
+        <PlayerBio playerId={p.player_id} />
         <p className="header-actions">
           <FantasyStar player={{ id: p.player_id, kind: 'skater', name: p.name }} />
+          <WatchButton kind="player" refId={p.player_id} name={p.name} />
           <Link to={`/compare?ids=${p.player_id}`}>Compare with other players →</Link>
         </p>
+        </div>
       </header>
 
       <Context playerId={p.player_id} />
+      <Projection playerId={p.player_id} />
       <Trophies playerId={p.player_id} />
 
       <section className="tiles">
-        <Tile label="GP" value={p.games_played} />
-        <Tile label="G / A / P" value={`${p.goals} / ${p.assists} / ${p.points}`} />
+        <Tile label="GP" value={p.games_played} rank={rank('games_played')} />
+        <Tile label="Goals" value={p.goals} rank={rank('goals')} />
+        <Tile label="Assists" value={p.assists} rank={rank('assists')} />
+        <Tile label="Points" value={p.points} rank={rank('points')} />
         <Tile label="Point pace" value={fmt1(p.point_pace)} />
         <Tile
           label={`Last ${p.recent_games ?? 0} pace`}
           value={fmt1(p.recent_pace)}
         />
-        <Tile label="+/-" value={p.plus_minus} />
+        <Tile label="+/-" value={p.plus_minus} rank={rank('plus_minus')} />
         <Tile label="TOI / game" value={fmtToi(p.toi_per_game_sec)} />
       </section>
 
       <PageTabs
         tabs={[
           {
-            id: 'season',
-            label: 'This season',
-            content: (
-              <>
-              <SkaterForm games={[...games].reverse()} />
-
-              <RolePanel playerId={p.player_id} />
-
-              <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
-
-              <div className="charts">
-                <PaceChart
-                  games={[...games].reverse()}
-                  seasonGames={games_per_season}
-                  pace={p.point_pace}
-                />
-                <GameBars games={[...games].reverse()} />
-                <DefenseBars games={[...games].reverse()} />
-                <CorsiChart games={[...games].reverse()} />
-              </div>
-              </>
-            ),
-          },
-          {
-            id: 'career',
-            label: 'Career & rankings',
+            id: 'stats',
+            label: 'Stats',
             content: (
               <>
                 <Career playerId={p.player_id} />
+                <Awards playerId={p.player_id} />
                 <Rankings playerId={p.player_id} kind="skater" />
                 <Comparables playerId={p.player_id} />
               </>
             ),
           },
           {
-            id: 'defense',
-            label: 'Defense & possession',
+            id: 'log',
+            label: 'Game log',
             content: (
               <>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="left">Date</th>
+                      <th className="left">Opponent</th>
+                      <th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th><th title={describe('Shots')}>Shots</th><th title={describe('+/-')}>+/-</th><th title={describe('PIM')}>PIM</th><th title={describe('TOI')}>TOI</th><th title={describe('Hits')}>Hits</th><th title={describe('BLK')}>BLK</th><th title={describe('TK')}>TK</th><th title={describe('GV')}>GV</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {games.map((g) => (
+                      <tr key={g.game_id}>
+                        <td className="left">{g.game_date}</td>
+                        <td className="left">{g.is_home ? 'vs' : '@'} {g.opponent}</td>
+                        <td>{g.goals}</td><td>{g.assists}</td><td>{g.points}</td>
+                        <td>{g.shots ?? '–'}</td><td>{g.plus_minus ?? '–'}</td>
+                        <td>{g.pim ?? '–'}</td><td>{fmtToi(g.toi_sec)}</td>
+                        <td>{g.hits ?? '–'}</td><td>{g.blocked_shots ?? '–'}</td>
+                        <td>{g.takeaways ?? '–'}</td><td>{g.giveaways ?? '–'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            ),
+          },
+          {
+            id: 'advanced',
+            label: 'Advanced',
+            content: (
+              <>
+              <RolePanel playerId={p.player_id} />
+
+              <h2>Defensive game</h2>
               <p className="sub">
                 Percentile among {peer_count} {peer_group} with at least {peer_min_gp} GP. Higher bar is
                 better for every stat, including giveaways.
@@ -179,14 +207,7 @@ export default function Player() {
               </section>
 
               <DefenseProfile playerId={p.player_id} />
-              </>
-            ),
-          },
-          {
-            id: 'shots',
-            label: 'Shots & lines',
-            content: (
-              <>
+
               <LuckPanel playerId={p.player_id} />
 
               <TrackingProfile playerId={p.player_id} />
@@ -200,33 +221,23 @@ export default function Player() {
             ),
           },
           {
-            id: 'log',
-            label: 'Game log',
+            id: 'trends',
+            label: 'Trends',
             content: (
               <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th className="left">Date</th>
-                      <th className="left">Opponent</th>
-                      <th>G</th><th>A</th><th>P</th><th>Shots</th><th>+/-</th><th>PIM</th><th>TOI</th><th>Hits</th><th>BLK</th><th>TK</th><th>GV</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {games.map((g) => (
-                      <tr key={g.game_id}>
-                        <td className="left">{g.game_date}</td>
-                        <td className="left">{g.is_home ? 'vs' : '@'} {g.opponent}</td>
-                        <td>{g.goals}</td><td>{g.assists}</td><td>{g.points}</td>
-                        <td>{g.shots ?? '–'}</td><td>{g.plus_minus ?? '–'}</td>
-                        <td>{g.pim ?? '–'}</td><td>{fmtToi(g.toi_sec)}</td>
-                        <td>{g.hits ?? '–'}</td><td>{g.blocked_shots ?? '–'}</td>
-                        <td>{g.takeaways ?? '–'}</td><td>{g.giveaways ?? '–'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <SkaterForm games={[...games].reverse()} />
+
+              <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
+
+              <div className="charts">
+                <PaceChart
+                  games={[...games].reverse()}
+                  seasonGames={games_per_season}
+                  pace={p.point_pace}
+                />
+                <GameBars games={[...games].reverse()} />
+                <DefenseBars games={[...games].reverse()} />
+                <CorsiChart games={[...games].reverse()} />
               </div>
               </>
             ),
@@ -262,11 +273,12 @@ function StatCards({ stats, p, percentiles }) {
   )
 }
 
-function Tile({ label, value }) {
+function Tile({ label, value, rank }) {
   return (
     <div className="tile">
       <span>{label}</span>
       <strong>{value ?? '–'}</strong>
+      {rank && <small className="tile-rank">{rank}</small>}
     </div>
   )
 }

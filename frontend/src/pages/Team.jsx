@@ -5,7 +5,9 @@ import PaceHistory from '../components/PaceHistory.jsx'
 import Schedule from '../components/Schedule.jsx'
 import { TeamShots } from '../components/Shots.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
+import WatchButton from '../components/WatchButton.jsx'
 import { fmt1, fmtPct, fmtToi, STABLE_GP } from '../format.js'
+import { describe } from '../glossary.js'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmtSigned = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
@@ -50,6 +52,7 @@ export default function Team() {
             {t.division} Division · {t.conference} Conference · {ordinal(t.division_rank)} in
             division, {ordinal(t.conference_rank)} in conference, {ordinal(t.league_rank)} overall
           </p>
+          <p className="header-actions"><WatchButton kind="team" refId={t.abbrev} name={t.name} /></p>
         </div>
       </header>
 
@@ -93,9 +96,9 @@ export default function Team() {
           <table>
             <thead>
               <tr>
-                <th className="left">Goalie</th><th>GP</th><th>GS</th><th>W</th><th>L</th><th>OTL</th>
-                <th>SV%</th><th>GAA</th><th>GSAA</th><th>SA/60</th><th>QS%</th><th>SO</th>
-                <th>Recent SV%</th>
+                <th className="left">Goalie</th><th title={describe('GP')}>GP</th><th title={describe('GS')}>GS</th><th title={describe('W')}>W</th><th title={describe('L')}>L</th><th title={describe('OTL')}>OTL</th>
+                <th title={describe('SV%')}>SV%</th><th title={describe('GAA')}>GAA</th><th title={describe('GSAA')}>GSAA</th><th title={describe('SA/60')}>SA/60</th><th title={describe('QS%')}>QS%</th><th title={describe('SO')}>SO</th>
+                <th title={describe('Recent SV%')}>Recent SV%</th>
               </tr>
             </thead>
             <tbody>
@@ -127,9 +130,9 @@ export default function Team() {
         <table>
           <thead>
             <tr>
-              <th className="left">Player</th><th className="left">Pos</th>
-              <th>GP</th><th>G</th><th>A</th><th>P</th><th>Pace</th>
-              <th>+/-</th><th>TOI</th><th>Hits</th><th>BLK</th><th>CF%</th>
+              <th className="left">Player</th><th className="left" title={describe('Pos')}>Pos</th>
+              <th title={describe('GP')}>GP</th><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th><th title={describe('Pace')}>Pace</th>
+              <th title={describe('+/-')}>+/-</th><th title={describe('TOI')}>TOI</th><th title={describe('Hits')}>Hits</th><th title={describe('BLK')}>BLK</th><th title={describe('CF%')}>CF%</th>
             </tr>
           </thead>
           <tbody>

@@ -33,5 +33,20 @@ class CleanQuery(unittest.TestCase):
         self.assertEqual(auth.VIEW_PATHS, {"/skaters", "/goalies", "/alltime", "/alltime/skaters", "/alltime/goalies"})
 
 
+class CleanWatch(unittest.TestCase):
+    def test_players_need_a_numeric_id(self):
+        self.assertEqual(auth.clean_watch(auth.WatchIn(kind="player", ref="8478402", name="  Connor   McDavid ")),
+                         ("player", "8478402", "Connor McDavid"))
+        self.assertIsNone(auth.clean_watch(auth.WatchIn(kind="player", ref="abc", name="x")))
+
+    def test_teams_are_uppercased_abbreviations(self):
+        self.assertEqual(auth.clean_watch(auth.WatchIn(kind="team", ref="tor", name="Toronto")), ("team", "TOR", "Toronto"))
+        self.assertIsNone(auth.clean_watch(auth.WatchIn(kind="team", ref="TORONTO", name="x")))
+
+    def test_other_kinds_and_blank_names_are_rejected(self):
+        self.assertIsNone(auth.clean_watch(auth.WatchIn(kind="coach", ref="1", name="x")))
+        self.assertIsNone(auth.clean_watch(auth.WatchIn(kind="team", ref="TOR", name="   ")))
+
+
 if __name__ == "__main__":
     unittest.main()

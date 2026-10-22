@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TeamLogo from './TeamLogo.jsx'
+import { describe } from '../glossary.js'
 
 const pct = (p) => (p >= 0.995 ? '>99%' : p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`)
 
@@ -37,8 +38,8 @@ export default function PlayoffOdds({ teams }) {
               <table>
                 <thead>
                   <tr>
-                    <th className="left">Team</th><th>GP</th><th>PTS</th>
-                    <th>Projected pts</th><th>Likely range</th><th>Make playoffs</th><th>Win division</th><th>Best record</th>
+                    <th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th><th title={describe('PTS')}>PTS</th>
+                    <th title={describe('Projected pts')}>Projected pts</th><th title={describe('Likely range')}>Likely range</th><th title={describe('Make playoffs')}>Make playoffs</th><th title={describe('Win division')}>Win division</th><th title={describe('Best record')}>Best record</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -11,6 +11,7 @@ const py = (x) => PAD + (100 - x) * S
 
 const KIND_LABEL = { goal: 'Goal', shot: 'Shot on goal', miss: 'Missed', block: 'Blocked' }
 const STRENGTHS = [['all', 'All strengths'], ['ev', 'Even strength'], ['pp', 'Power play'], ['sh', 'Short-handed']]
+const PERIOD_LABEL = { 1: '1st period', 2: '2nd period', 3: '3rd period', 4: 'Overtime' }
 const fmtDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const clock = (sec) => `P${Math.min(4, Math.floor((sec - 1) / 1200) + 1) === 4 ? 'OT' : Math.floor((sec - 1) / 1200) + 1} ${Math.floor(((sec - 1) % 1200 + 1) / 60)}:${String(((sec - 1) % 1200 + 1) % 60).padStart(2, '0')}`
 
@@ -47,11 +48,15 @@ function Rink() {
 export default function ShotMap({ shots, caption }) {
   const [kinds, setKinds] = useState({ goal: true, shot: true, miss: true, block: false })
   const [strength, setStrength] = useState('all')
+  const [period, setPeriod] = useState('all')
   const [hover, setHover] = useState(null)
 
+  // Only the periods these shots span (a single game has three or four; a season of games has all).
+  const periods = useMemo(() => [...new Set(shots.map((s) => Math.min(s.period, 4)))].filter((p) => PERIOD_LABEL[p]).sort(), [shots])
   const visible = useMemo(
-    () => shots.filter((s) => kinds[s.kind] && (strength === 'all' || s.strength === strength)),
-    [shots, kinds, strength],
+    () => shots.filter((s) => kinds[s.kind] && (strength === 'all' || s.strength === strength)
+      && (period === 'all' || Math.min(s.period, 4) === Number(period))),
+    [shots, kinds, strength, period],
   )
   // Draw big/obvious things last so goals sit on top.
   const drawn = useMemo(() => {
@@ -84,6 +89,12 @@ export default function ShotMap({ shots, caption }) {
         <select value={strength} onChange={(e) => setStrength(e.target.value)} aria-label="Strength">
           {STRENGTHS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
+        {periods.length > 1 && (
+          <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Period">
+            <option value="all">All periods</option>
+            {periods.map((p) => <option key={p} value={p}>{PERIOD_LABEL[p]}</option>)}
+          </select>
+        )}
         <span className="muted">
           {visible.length} attempts · {goals} goals · {xgSum.toFixed(1)} xG
         </span>

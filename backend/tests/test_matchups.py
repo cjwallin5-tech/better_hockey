@@ -101,5 +101,30 @@ class Games(unittest.TestCase):
         self.assertGreater(matchups.schedule_summary([1.05] * 4)["index"], matchups.schedule_summary([1.05] * 3)["index"])
 
 
+class RestInMatchups(unittest.TestCase):
+    GAPS = {"tired": -0.3, "edge": 0.3}
+
+    def test_a_tired_teams_skaters_get_a_tougher_game_and_a_rested_teams_a_softer_one(self):
+        self.assertAlmostEqual(matchups.skater_game_ratio(1.0, "tired", self.GAPS, 3.0), 0.9)
+        self.assertAlmostEqual(matchups.skater_game_ratio(1.0, "edge", self.GAPS, 3.0), 1.1)
+
+    def test_normal_and_both_tired_games_are_left_alone(self):
+        for kind in ("normal", "both", None):
+            self.assertEqual(matchups.skater_game_ratio(1.05, kind, self.GAPS, 3.0), 1.05)
+            self.assertEqual(matchups.goalie_game_ratio(0.95, kind, self.GAPS, 3.0), 2 - 0.95)
+
+    def test_a_goalie_facing_a_tired_offense_gets_an_easier_game(self):
+        # our goalie is rested (edge), so the opponent is the tired side: its offense is cut by 0.3 of 3.0 goals
+        self.assertAlmostEqual(matchups.goalie_game_ratio(1.0, "edge", self.GAPS, 3.0), 2 - 0.9)
+        # our goalie is tired, so the opponent's offense is up
+        self.assertAlmostEqual(matchups.goalie_game_ratio(1.0, "tired", self.GAPS, 3.0), 2 - 1.1)
+
+    def test_missing_inputs_do_not_break_the_ratio(self):
+        self.assertIsNone(matchups.skater_game_ratio(None, "tired", self.GAPS, 3.0))
+        self.assertEqual(matchups.skater_game_ratio(1.02, "tired", None, 3.0), 1.02)
+        self.assertEqual(matchups.skater_game_ratio(1.02, "tired", self.GAPS, None), 1.02)
+        self.assertIsNone(matchups.goalie_game_ratio(None, "tired", self.GAPS, 3.0))
+
+
 if __name__ == "__main__":
     unittest.main()

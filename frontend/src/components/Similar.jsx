@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fmt1, fmtToi } from '../format.js'
+import { describe } from '../glossary.js'
 
 export default function Similar({ playerId }) {
   const [result, setResult] = useState({ id: null, data: null, error: null })
@@ -34,9 +35,9 @@ export default function Similar({ playerId }) {
           <table>
             <thead>
               <tr>
-                <th className="left">Player</th><th className="left">Team</th><th className="left">Pos</th>
-                <th>Style match</th><th>GP</th><th>G</th><th>P</th><th>TOI</th>
-                <th>Hits/60</th><th>BLK/60</th><th className="left">What you share</th>
+                <th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th className="left" title={describe('Pos')}>Pos</th>
+                <th title={describe('Style match')}>Style match</th><th title={describe('GP')}>GP</th><th title={describe('G')}>G</th><th title={describe('P')}>P</th><th title={describe('TOI')}>TOI</th>
+                <th title={describe('Hits/60')}>Hits/60</th><th title={describe('BLK/60')}>BLK/60</th><th className="left">What you share</th>
               </tr>
             </thead>
             <tbody>

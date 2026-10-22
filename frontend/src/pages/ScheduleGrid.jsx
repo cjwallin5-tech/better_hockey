@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFantasy } from '../fantasy.js'
+import { describe } from '../glossary.js'
 
 const short = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const dayShort = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -54,7 +55,7 @@ export default function ScheduleGrid() {
         <h1>Schedule grid</h1>
         <p>
           Games each team plays per week (Monday to Sunday). Light weeks (2 or fewer) are shaded amber and heavy weeks (4 or more)
-          green. A dot marks a game on back-to-back nights. Hover a cell for the dates and opponents.
+          green. A dot marks a game on back-to-back nights. Hover a cell for the dates and opponents. <Link to="/rest">How much a back-to-back costs a team →</Link>
         </p>
       </header>
 
@@ -82,7 +83,7 @@ export default function ScheduleGrid() {
         <table>
           <thead>
             <tr>
-              <th className="left">Team</th>
+              <th className="left" title={describe('Team')}>Team</th>
               <th title={`Games over the next ${NEXT} weeks`}>Next {NEXT}</th>
               {data.weeks.map((w, i) => <th key={w.start} title={`${short(w.start)} – ${short(w.end)}`}>{i === 0 ? 'This wk' : short(w.start)}</th>)}
               <th>Total</th>

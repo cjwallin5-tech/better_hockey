@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
+import { describe } from '../glossary.js'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
@@ -35,6 +36,12 @@ function figures(row, goalie) {
     xpoints: row.xpoints_adj ?? row.xpoints,
     goalsDiff: row.diff_adj ?? row.diff,
   }
+}
+
+/** { z, flag, enough } for one luck row, the same figures the badge shows (see tradeIdeas.js). */
+export function luckSummary(row, goalie) {
+  const { z, flag } = figures(row, goalie)
+  return { z, flag, enough: Boolean(row.enough) }
 }
 
 /** The row's own flag: points luck for skaters, goals saved above expected for goalies. Null while the sample is small. */
@@ -98,8 +105,8 @@ function History({ playerId, goalie }) {
           <thead>
             <tr>
               <th className="left">Season</th>
-              {goalie ? <><th>Shots faced</th><th>Goals allowed</th><th>xGA</th><th>GSAx</th></> : <><th>Attempts</th><th>Goals</th><th>xG</th><th>G − xG</th></>}
-              <th>Z</th>
+              {goalie ? <><th title={describe('Shots faced')}>Shots faced</th><th title={describe('Goals allowed')}>Goals allowed</th><th title={describe('xGA')}>xGA</th><th title={describe('GSAx')}>GSAx</th></> : <><th title={describe('Attempts')}>Attempts</th><th>Goals</th><th title={describe('xG')}>xG</th><th title={describe('G − xG')}>G − xG</th></>}
+              <th title={describe('Z')}>Z</th>
             </tr>
           </thead>
           <tbody>

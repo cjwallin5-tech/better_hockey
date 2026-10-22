@@ -473,60 +473,6 @@ export function CorsiChart({ games }) {
 }
 
 /**
- * One bar per season (e.g. career points by year). `rows` are chronological:
- * { label, value, lines: [tooltip detail strings], highlight? }. The highlighted bar is the
- * season in progress.
- */
-export function SeasonBars({ title, rows, valueLabel }) {
-  const [plotRef, W] = useWidth()
-  const PW = W - M.l - M.r
-  const n = rows.length
-  const { top, ticks } = niceAxis(Math.max(...rows.map((r) => r.value), 1), 1)
-  const slot = PW / Math.max(n, 8)
-  const barW = Math.min(slot - 2, 28)
-  const x = (i) => M.l + slot * i + slot / 2
-  const y = (v) => M.t + PH - (v / top) * PH
-  const [idx, cursor] = useGameCursor(n, x, W)
-  const step = Math.ceil(n / 12)
-  const r = idx == null ? null : rows[idx]
-
-  return (
-    <figure className="chart wide">
-      <figcaption><h3>{title}</h3></figcaption>
-      <div className="plot" ref={plotRef}>
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} {...cursor}>
-          <YAxis ticks={ticks} y={y} W={W} />
-          {rows.map((row, i) => (
-            <g key={row.label}>
-              {i === idx && <rect x={x(i) - slot / 2} y={M.t} width={slot} height={PH} className="hover-band" />}
-              {row.value > 0 && (
-                <rect
-                  x={x(i) - barW / 2}
-                  y={y(row.value)}
-                  width={barW}
-                  height={y(0) - y(row.value)}
-                  rx="3"
-                  className="game-bar"
-                  opacity={row.highlight ? 0.55 : 1}
-                />
-              )}
-              {i % step === 0 && <text x={x(i)} y={H - 8} textAnchor="middle" className="axis">{row.label}</text>}
-            </g>
-          ))}
-        </svg>
-        {r && (
-          <Tooltip W={W} x={x(idx)}>
-            <div className="tip-head">{r.season}{r.highlight ? ' (in progress)' : ''}</div>
-            <div className="tip-row"><i className="key solid" /><strong>{r.value}</strong> {valueLabel}</div>
-            {r.lines.map((l) => <div key={l} className="tip-head tip-sub">{l}</div>)}
-          </Tooltip>
-        )}
-      </div>
-    </figure>
-  )
-}
-
-/**
  * Overlaid lines for comparing players on a shared integer x axis (career year or age).
  * series: [{ id, name, slot (1-3), points: [{ x, y }] }]. Names are direct-labelled at line ends.
  */

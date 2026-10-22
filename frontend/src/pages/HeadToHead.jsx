@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
+import { describe } from '../glossary.js'
 
 const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 const RESULT = { W: 'W', OTW: 'W (OT/SO)', OTL: 'L (OT/SO)', L: 'L' }
@@ -62,7 +63,7 @@ function TeamVsTeam({ teams, a, b, setA, setB }) {
           <h2>By season</h2>
           <div className="table-wrap">
             <table>
-              <thead><tr><th className="left">Season</th><th>GP</th><th>{data.a.abbrev} W</th><th>{data.b.abbrev} W</th><th>Goals</th></tr></thead>
+              <thead><tr><th className="left">Season</th><th title={describe('GP')}>GP</th><th>{data.a.abbrev} W</th><th>{data.b.abbrev} W</th><th>Goals</th></tr></thead>
               <tbody>
                 {s.by_season.map((x) => (
                   <tr key={x.season_id}>
@@ -93,31 +94,32 @@ function TeamVsTeam({ teams, a, b, setA, setB }) {
   )
 }
 
-function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam }) {
+function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam, goalie = false }) {
   const [query, setQuery] = useState('')
   const [found, setFound] = useState({ q: '', rows: [] })
-  const { data, error } = useFetch(playerId && team ? `/api/head-to-head/player?player_id=${playerId}&team=${team}` : null)
+  const { data, error } = useFetch(playerId && team ? `/api/head-to-head/${goalie ? 'goalie' : 'player'}?player_id=${playerId}&team=${team}` : null)
 
   useEffect(() => {
     const q = query.trim()
     if (!q) return undefined
     const ctl = new AbortController()
     const t = setTimeout(() => {
-      fetch(`/api/alltime/skater?q=${encodeURIComponent(q)}&limit=8`, { signal: ctl.signal })
+      fetch(`/api/alltime/${goalie ? 'goalie' : 'skater'}?q=${encodeURIComponent(q)}&limit=8`, { signal: ctl.signal })
         .then((r) => r.json())
         .then((d) => setFound({ q, rows: d.rows ?? [] }))
         .catch(() => {})
     }, 200)
     return () => { clearTimeout(t); ctl.abort() }
-  }, [query])
+  }, [query, goalie])
   const matches = query.trim() && found.q === query.trim() ? found.rows : []
   const vs = data?.vs, rest = data?.rest
+  const svp = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
   return (
     <>
       <div className="h2h-picks">
-        <label className="h2h-pick">Player
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={data ? data.player.name : 'Search for a skater…'} />
+        <label className="h2h-pick">{goalie ? 'Goalie' : 'Player'}
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={data ? data.player.name : `Search for a ${goalie ? 'goalie' : 'skater'}…`} />
         </label>
         <span className="muted">vs</span>
         <TeamSelect label="Team" value={team} onChange={setTeam} teams={teams} />
@@ -127,13 +129,13 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam }) {
           {matches.map((m) => (
             <li key={m.player_id}>
               <button type="button" className="link-button" onClick={() => { setPlayer(String(m.player_id)); setQuery('') }}>
-                {m.name} <span className="muted">{m.position}{m.first_season ? ` · debut ${String(m.first_season).slice(0, 4)}` : ''}</span>
+                {m.name} <span className="muted">{goalie ? 'G' : m.position}{m.first_season ? ` · debut ${String(m.first_season).slice(0, 4)}` : ''}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {!playerId || !team ? <p className="status">Search for a skater and pick a team to see how they score against them.</p> : null}
+      {!playerId || !team ? <p className="status">Search for a {goalie ? 'goalie' : 'skater'} and pick a team to see how {goalie ? 'they have played' : 'they score'} against them.</p> : null}
       {error && <p className="status">{error}</p>}
       {data && vs.games === 0 && (
         <p className="status">
@@ -141,7 +143,45 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam }) {
           previous four, so older or retired players may have none.
         </p>
       )}
-      {data && vs.games > 0 && (
+      {data && vs.games > 0 && goalie && (
+        <>
+          <h2><Link to={`/goalie/${data.player.player_id}`}>{data.player.name}</Link> vs. {data.team.name}</h2>
+          <section className="tiles">
+            <div className="tile"><span>Games</span><strong>{vs.games}</strong></div>
+            <div className="tile"><span>SV%</span><strong>{svp(vs.save_pct)}</strong></div>
+            <div className="tile"><span>Goals against / game</span><strong>{fixed(vs.goals_against_per_game)}</strong></div>
+            <div className="tile"><span>SV% vs. everyone else</span><strong>{svp(rest.save_pct)}</strong></div>
+          </section>
+          <p className="sub">
+            Over {data.stored_games} stored games, {data.player.name} stopped {svp(vs.save_pct)} of shots against {data.team.abbrev} and{' '}
+            {svp(rest.save_pct)} against everyone else. {vs.shots_against < 400 ? `Only ${vs.shots_against} shots were faced, so a gap here is more likely noise than a matchup effect.` : ''}{' '}
+            Past seasons are rebuilt from stored shots, so a game with no usable shot data is missing.
+          </p>
+          <h2>By season</h2>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th className="left">Season</th><th title={describe('GP')}>GP</th><th>SA</th><th>GA</th><th title={describe('SV%')}>SV%</th></tr></thead>
+              <tbody>
+                {data.by_season.map((x) => (
+                  <tr key={x.season_id}><td className="left">{seasonLabel(x.season_id)}</td><td>{x.games}</td><td>{x.shots_against}</td><td>{x.goals_against}</td><td>{svp(x.save_pct)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h2>Recent games</h2>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th className="left">Date</th><th>SA</th><th>GA</th><th title={describe('SV%')}>SV%</th></tr></thead>
+              <tbody>
+                {data.recent.map((g) => (
+                  <tr key={g.game_id}><td className="left">{day(g.game_date)}</td><td>{g.shots_against}</td><td>{g.goals_against}</td><td>{svp(g.shots_against ? (g.shots_against - g.goals_against) / g.shots_against : null)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      {data && vs.games > 0 && !goalie && (
         <>
           <h2><Link to={`/player/${data.player.player_id}`}>{data.player.name}</Link> vs. {data.team.name}</h2>
           <section className="tiles">
@@ -157,7 +197,7 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam }) {
           <h2>By season</h2>
           <div className="table-wrap">
             <table>
-              <thead><tr><th className="left">Season</th><th>GP</th><th>G</th><th>A</th><th>P</th><th>P/GP</th></tr></thead>
+              <thead><tr><th className="left">Season</th><th title={describe('GP')}>GP</th><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th><th title={describe('P/GP')}>P/GP</th></tr></thead>
               <tbody>
                 {data.by_season.map((x) => (
                   <tr key={x.season_id}><td className="left">{seasonLabel(x.season_id)}</td><td>{x.games}</td><td>{x.goals}</td><td>{x.assists}</td><td>{x.points}</td><td>{fixed(x.points_per_game)}</td></tr>
@@ -168,7 +208,7 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam }) {
           <h2>Recent games</h2>
           <div className="table-wrap">
             <table>
-              <thead><tr><th className="left">Date</th><th>G</th><th>A</th><th>P</th></tr></thead>
+              <thead><tr><th className="left">Date</th><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th></tr></thead>
               <tbody>
                 {data.recent.map((g) => (
                   <tr key={g.game_id}><td className="left">{day(g.game_date)}</td><td>{g.goals}</td><td>{g.assists}</td><td>{g.goals + g.assists}</td></tr>
@@ -184,7 +224,7 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam }) {
 
 export default function HeadToHead() {
   const [params, setParams] = useSearchParams()
-  const mode = params.get('mode') === 'player' ? 'player' : 'team'
+  const mode = ['player', 'goalie'].includes(params.get('mode')) ? params.get('mode') : 'team'
   const [teams, setTeams] = useState([])
   useEffect(() => {
     fetch('/api/teams').then((r) => r.json()).then((rows) => setTeams([...rows].sort((x, y) => x.name.localeCompare(y.name)))).catch(() => {})
@@ -192,7 +232,10 @@ export default function HeadToHead() {
 
   const update = (patch) => {
     const next = new URLSearchParams(params)
-    for (const [k, v] of Object.entries(patch)) (v ? next.set(k, v) : next.delete(k))
+    for (const [k, v] of Object.entries(patch)) {
+      if (v) next.set(k, v)
+      else next.delete(k)
+    }
     setParams(next, { replace: true })
   }
 
@@ -201,18 +244,19 @@ export default function HeadToHead() {
       <header>
         <h1>Head-to-head</h1>
         <p>
-          How teams, and individual skaters, have done against each other. Covers this season and the previous four; the
+          How teams, skaters and goalies have done against each other. Covers this season and the previous four; the
           Coyotes' games count toward Utah.
         </p>
       </header>
       <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={mode === 'team'} className={mode === 'team' ? 'on' : ''} onClick={() => update({ mode: '' })}>Team vs. team</button>
-        <button role="tab" aria-selected={mode === 'player'} className={mode === 'player' ? 'on' : ''} onClick={() => update({ mode: 'player' })}>Player vs. team</button>
+        <button role="tab" aria-selected={mode === 'team'} className={mode === 'team' ? 'on' : ''} onClick={() => update({ mode: '', p: '' })}>Team vs. team</button>
+        <button role="tab" aria-selected={mode === 'player'} className={mode === 'player' ? 'on' : ''} onClick={() => update({ mode: 'player', p: '' })}>Skater vs. team</button>
+        <button role="tab" aria-selected={mode === 'goalie'} className={mode === 'goalie' ? 'on' : ''} onClick={() => update({ mode: 'goalie', p: '' })}>Goalie vs. team</button>
       </div>
       {mode === 'team' ? (
         <TeamVsTeam teams={teams} a={params.get('a') ?? ''} b={params.get('b') ?? ''} setA={(v) => update({ a: v })} setB={(v) => update({ b: v })} />
       ) : (
-        <PlayerVsTeam teams={teams} playerId={params.get('p') ?? ''} team={params.get('t') ?? ''} setPlayer={(v) => update({ p: v })} setTeam={(v) => update({ t: v })} />
+        <PlayerVsTeam key={mode} goalie={mode === 'goalie'} teams={teams} playerId={params.get('p') ?? ''} team={params.get('t') ?? ''} setPlayer={(v) => update({ p: v })} setTeam={(v) => update({ t: v })} />
       )}
     </main>
   )

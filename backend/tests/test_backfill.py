@@ -60,3 +60,16 @@ class ShotHistRows(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PastSeasonIds(unittest.TestCase):
+    def test_runs_from_the_first_modern_season_up_to_but_not_including_the_current_one(self):
+        ids = ingest.past_season_ids(current=20262027)
+        self.assertEqual(ids[0], 20052006)
+        self.assertEqual(ids[-1], 20252026)
+        self.assertEqual(len(ids), 21)
+        self.assertNotIn(20262027, ids)
+
+    def test_consecutive_ids_are_consecutive_seasons(self):
+        ids = ingest.past_season_ids(current=20262027)
+        self.assertTrue(all(b - a == 10001 for a, b in zip(ids, ids[1:])))

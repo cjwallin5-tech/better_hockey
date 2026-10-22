@@ -59,5 +59,27 @@ class PlayerSummary(unittest.TestCase):
         self.assertEqual(s["rest"]["games"], 5)
 
 
+class GoalieSummary(unittest.TestCase):
+    def rows(self):
+        mk = lambda opp, sa, ga, season=20252026: {"season_id": season, "game_id": 1, "game_date": date(2025, 11, 1),
+                                                   "opponent": opp, "shots_against": sa, "goals_against": ga}
+        return [mk("CGY", 30, 3), mk("CGY", 20, 0, season=20242025), mk("VAN", 25, 2), mk("SEA", 35, 1)]
+
+    def test_line_against_the_team_and_everyone_else(self):
+        s = h2h.goalie_summary(self.rows(), "CGY")
+        self.assertEqual(s["vs"], {"games": 2, "shots_against": 50, "goals_against": 3, "save_pct": 0.94,
+                                   "shots_per_game": 25.0, "goals_against_per_game": 1.5})
+        self.assertEqual((s["rest"]["games"], s["rest"]["save_pct"]), (2, 0.95))
+
+    def test_by_season_split_newest_first(self):
+        by = h2h.goalie_summary(self.rows(), "CGY")["by_season"]
+        self.assertEqual([(x["season_id"], x["games"], x["save_pct"]) for x in by], [(20252026, 1, 0.9), (20242025, 1, 1.0)])
+
+    def test_never_faced_them(self):
+        s = h2h.goalie_summary(self.rows(), "EDM")
+        self.assertEqual((s["vs"]["games"], s["vs"]["save_pct"], s["by_season"]), (0, None, []))
+        self.assertEqual(s["rest"]["games"], 4)
+
+
 if __name__ == "__main__":
     unittest.main()

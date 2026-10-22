@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { describe } from '../glossary.js'
 
 const day = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -92,8 +93,8 @@ export default function Context({ playerId, goalie = false }) {
           <table>
             <thead>
               <tr>
-                <th className="left">Team</th><th className="left">With team</th><th>GP</th>
-                {!goalie && <><th>G</th><th>A</th><th>P</th></>}
+                <th className="left" title={describe('Team')}>Team</th><th className="left">With team</th><th title={describe('GP')}>GP</th>
+                {!goalie && <><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th></>}
               </tr>
             </thead>
             <tbody>

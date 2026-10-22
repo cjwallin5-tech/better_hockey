@@ -3,6 +3,7 @@ import { RollingChart } from './Charts.jsx'
 import { mmss } from './Roles.jsx'
 import { useScoring } from '../fantasy.js'
 import { goalieForm, missingScoring, rollingMean, rollingRatio, skaterForm, windowsFor } from '../rolling.js'
+import { describe } from '../glossary.js'
 
 const TREND_WINDOWS = [3, 5, 10, 20]
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
@@ -64,8 +65,8 @@ export function SkaterForm({ games }) {
           <thead>
             <tr>
               <th className="left" />
-              <th>GP</th><th>G</th><th>A</th><th>P</th><th>P/GP</th><th title="Points per game minus the season rate">vs season</th>
-              <th>S/GP</th><th>TOI</th><th>Hits/GP</th><th>+/-</th>
+              <th title={describe('GP')}>GP</th><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th><th title={describe('P/GP')}>P/GP</th><th title="Points per game minus the season rate">vs season</th>
+              <th title={describe('S/GP')}>S/GP</th><th title={describe('TOI')}>TOI</th><th title={describe('Hits/GP')}>Hits/GP</th><th title={describe('+/-')}>+/-</th>
               {showFantasy && <th title="Fantasy points per game under your league scoring">Fantasy pts/GP</th>}
             </tr>
           </thead>
@@ -134,7 +135,7 @@ export function GoalieForm({ games, leagueSvPct }) {
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th className="left" /><th>GP</th><th>GS</th><th>W</th><th>SV%</th><th>GAA</th><th>GSAA</th><th>Shots/GP</th></tr>
+            <tr><th className="left" /><th title={describe('GP')}>GP</th><th title={describe('GS')}>GS</th><th title={describe('W')}>W</th><th title={describe('SV%')}>SV%</th><th title={describe('GAA')}>GAA</th><th title={describe('GSAA')}>GSAA</th><th title={describe('Shots/GP')}>Shots/GP</th></tr>
           </thead>
           <tbody>
             {row('Season', season)}

@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MatchupTag, pctOff, ratioLabel, useMatchupTeams } from './Matchups.jsx'
+import RestBadge from './RestBadge.jsx'
+import { describe } from '../glossary.js'
 
 const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 
-const ratioFor = (teams, opp, kind) => teams.get(opp)?.[kind === 'goalie' ? 'goalie_ratio' : 'skater_ratio'] ?? null
-const labelFor = (teams, opp, kind) => teams.get(opp)?.[kind === 'goalie' ? 'goalie_label' : 'skater_label'] ?? null
+// A game's own ratio already includes the rest adjustment (see matchups.py); the opponent's season-long rating is the fallback.
+const ratioFor = (teams, g, kind) => g[kind === 'goalie' ? 'goalie_ratio' : 'skater_ratio'] ?? teams.get(g.opponent)?.[kind === 'goalie' ? 'goalie_ratio' : 'skater_ratio'] ?? null
+const labelFor = (teams, g, kind) => g[kind === 'goalie' ? 'goalie_label' : 'skater_label'] ?? teams.get(g.opponent)?.[kind === 'goalie' ? 'goalie_label' : 'skater_label'] ?? null
 
 /** One player's week in a cell: the average matchup over their games, with the sum of how far each is from average. */
 function WeekMatchup({ games, kind, teams }) {
   if (!teams || games.length === 0) return <span className="muted">–</span>
-  const ratios = games.map((g) => ratioFor(teams, g.opponent, kind)).filter((r) => r != null)
+  const ratios = games.map((g) => ratioFor(teams, g, kind)).filter((r) => r != null)
   if (ratios.length === 0) return <span className="muted">–</span>
   const avg = ratios.reduce((t, r) => t + r, 0) / ratios.length
   const index = ratios.reduce((t, r) => t + r - 1, 0)
@@ -64,7 +67,7 @@ export default function FantasyWeek({ players }) {
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th className="left">Player</th><th className="left">Team</th><th>Games</th><th title="How favorable this week's opponents are on average: skaters face defense and goalie, goalies face offense">Week matchup</th><th className="left">Schedule</th></tr>
+            <tr><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th>Games</th><th title="How favorable this week's games are on average: skaters face defense and goalie, goalies face offense, and a back-to-back or a rest edge moves a game by a few percent">Week matchup</th><th className="left">Schedule</th></tr>
           </thead>
           <tbody>
             {rows.map(({ p, w }) => (
@@ -79,7 +82,8 @@ export default function FantasyWeek({ players }) {
                     : w.games.map((g) => (
                       <span key={g.game_id} style={{ marginRight: 10, whiteSpace: 'nowrap' }}>
                         {dayName(g.game_date)} {g.home_game ? 'vs' : '@'} {g.opponent}
-                        {teams && <MatchupTag ratio={ratioFor(teams, g.opponent, p.kind)} label={labelFor(teams, g.opponent, p.kind)} who={p.kind === 'goalie' ? 'goalies' : 'skaters'} />}
+                        <RestBadge kind={g.rest} />
+                        {teams && <MatchupTag ratio={ratioFor(teams, g, p.kind)} label={labelFor(teams, g, p.kind)} who={p.kind === 'goalie' ? 'goalies' : 'skaters'} />}
                       </span>
                     ))}
                 </td>

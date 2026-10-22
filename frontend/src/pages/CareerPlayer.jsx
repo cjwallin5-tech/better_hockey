@@ -5,6 +5,9 @@ import { RankCards } from '../components/Rankings.jsx'
 import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
 import Flag from '../components/Flag.jsx'
+import Headshot from '../components/Headshot.jsx'
+import PlayerBio from '../components/PlayerBio.jsx'
+import Awards from '../components/Awards.jsx'
 
 /**
  * Page for a player with no games in the current season (retired, or between seasons): bio and
@@ -42,15 +45,20 @@ export default function CareerPlayer({ id, goalie }) {
   return (
     <main>
       {back}
-      <header>
+      <header className="player-head">
+        <Headshot playerId={id} name={data.name} />
+        <div>
         <h1>
           <Flag playerId={id} />{data.name} <span>{data.kind === 'goalie' ? 'G' : data.position}{data.hall_of_fame ? ' · Hockey Hall of Fame' : ''}</span>
         </h1>
+        <PlayerBio playerId={id} />
         <p>{status}. No games in the current season, so this page shows career history.</p>
         <p><Link to={`/compare?ids=${id}`}>Compare with other players →</Link></p>
+        </div>
       </header>
 
       <Career playerId={id} />
+      <Awards playerId={id} />
 
       <h2>All-time rankings</h2>
       <p className="sub">

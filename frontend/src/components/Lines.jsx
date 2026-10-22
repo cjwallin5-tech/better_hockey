@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fmtPct } from '../format.js'
+import { describe } from '../glossary.js'
 
 const mins = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
 const pct = (v) => (v == null ? '–' : fmtPct(v))
@@ -30,7 +31,7 @@ export function TeamLines({ abbrev }) {
       <table>
         <thead>
           <tr>
-            <th className="left">{label}</th><th>5v5 TOI</th><th>GP</th><th>CF</th><th>CA</th><th>CF%</th><th>GF</th><th>GA</th>
+            <th className="left">{label}</th><th title={describe('5v5 TOI')}>5v5 TOI</th><th title={describe('GP')}>GP</th><th title={describe('CF')}>CF</th><th title={describe('CA')}>CA</th><th title={describe('CF%')}>CF%</th><th title={describe('GF')}>GF</th><th title={describe('GA')}>GA</th>
           </tr>
         </thead>
         <tbody>
@@ -79,8 +80,8 @@ export function Linemates({ playerId }) {
         <table>
           <thead>
             <tr>
-              <th className="left">Teammate</th><th className="left">Pos</th><th>Together</th><th>GP</th>
-              <th>CF% together</th><th>CF% player apart</th><th>CF% teammate apart</th><th>GF–GA</th>
+              <th className="left">Teammate</th><th className="left" title={describe('Pos')}>Pos</th><th title={describe('Together')}>Together</th><th title={describe('GP')}>GP</th>
+              <th title={describe('CF% together')}>CF% together</th><th title={describe('CF% player apart')}>CF% player apart</th><th title={describe('CF% teammate apart')}>CF% teammate apart</th><th title={describe('GF–GA')}>GF–GA</th>
             </tr>
           </thead>
           <tbody>

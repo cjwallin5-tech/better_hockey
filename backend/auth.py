@@ -62,6 +62,15 @@ CREATE TABLE IF NOT EXISTS saved_view (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, path, name)
 );
+CREATE TABLE IF NOT EXISTS watch_item (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL,
+    ref        TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, kind, ref)
+);
 CREATE TABLE IF NOT EXISTS fantasy_state (
     user_id    BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
     players    JSONB NOT NULL DEFAULT '[]',
@@ -304,6 +313,68 @@ def delete_view(view_id: int, request: Request):
                             (view_id, user["id"])).fetchone()
     if not gone:
         raise HTTPException(404, "View not found")
+    return {"ok": True}
+
+
+# --- Watchlist: players and teams to follow in the daily email, apart from the fantasy roster ---------
+MAX_WATCH = 100
+TEAM_RE = re.compile(r"^[A-Z]{2,3}$")
+
+
+class WatchIn(BaseModel):
+    kind: str  # 'player' | 'team'
+    ref: str   # player id, or team abbreviation
+    name: str
+
+
+def clean_watch(item: WatchIn):
+    """(kind, ref, name) with the ref checked against its kind, or None when it isn't a valid item."""
+    kind, ref = item.kind, item.ref.strip()
+    if kind == "player" and ref.isdigit() and len(ref) <= 10:
+        pass
+    elif kind == "team" and TEAM_RE.match(ref.upper()):
+        ref = ref.upper()
+    else:
+        return None
+    name = " ".join(item.name.split())[:80]
+    return (kind, ref, name) if name else None
+
+
+@router.get("/watchlist")
+def list_watch(request: Request):
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        rows = conn.execute("SELECT kind, ref, name FROM watch_item WHERE user_id = %s ORDER BY created_at",
+                            (user["id"],)).fetchall()
+    return {"items": rows, "limit": MAX_WATCH}
+
+
+@router.post("/watchlist")
+def add_watch(item: WatchIn, request: Request):
+    clean = clean_watch(item)
+    if not clean:
+        raise HTTPException(400, "That can't be watched")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        count = conn.execute("SELECT count(*) AS n FROM watch_item WHERE user_id = %s", (user["id"],)).fetchone()["n"]
+        if count >= MAX_WATCH:
+            raise HTTPException(400, f"You can watch up to {MAX_WATCH} players and teams")
+        conn.execute("INSERT INTO watch_item (user_id, kind, ref, name) VALUES (%s, %s, %s, %s) "
+                     "ON CONFLICT (user_id, kind, ref) DO NOTHING", (user["id"], *clean))
+    return {"ok": True}
+
+
+@router.delete("/watchlist")
+def remove_watch(kind: str, ref: str, request: Request):
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        conn.execute("DELETE FROM watch_item WHERE user_id = %s AND kind = %s AND ref = %s", (user["id"], kind, ref.upper() if kind == "team" else ref))
     return {"ok": True}
 
 

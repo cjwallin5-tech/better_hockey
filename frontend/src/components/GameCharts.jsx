@@ -165,7 +165,7 @@ export function ShiftChart({ game, goals, away, home }) {
               <text x={x(t)} y={H - 8} textAnchor="middle" className="axis">{t / 60}′</text>
             </g>
           ))}
-          {rows.map(([p, extra], i) => {
+          {rows.map(([p], i) => {
             const yy = T + i * ROW + (p.position === 'D' ? GAP : 0)
             return (
               <g key={p.player_id}>

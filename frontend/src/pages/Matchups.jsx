@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TeamLogo from '../components/TeamLogo.jsx'
+import RestBadge from '../components/RestBadge.jsx'
 import { MatchupTag, pctOff } from '../components/Matchups.jsx'
 import { useUrlSync } from '../urlState.js'
+import { describe } from '../glossary.js'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -54,7 +56,7 @@ function Schedule({ days, setDays, who, setWho }) {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th className="left">Team</th><th>Games</th><th title="Sum of (opponent ratio − 1) over the games">Opportunity index</th><th title="Average opponent ratio; above 1 is softer than average">Avg matchup</th><th className="left">Games</th></tr>
+              <tr><th>#</th><th className="left" title={describe('Team')}>Team</th><th>Games</th><th title="Sum of (opponent ratio − 1) over the games">Opportunity index</th><th title="Average opponent ratio; above 1 is softer than average">Avg matchup</th><th className="left">Games</th></tr>
             </thead>
             <tbody>
               {rows.map((t, i) => (
@@ -67,7 +69,7 @@ function Schedule({ days, setDays, who, setWho }) {
                   <td className="left">
                     {t.games.map((g) => (
                       <span key={g.game_id} style={{ marginRight: 10, whiteSpace: 'nowrap' }}>
-                        {dayName(g.date)} {g.home_game ? 'vs' : '@'} {g.opponent} <MatchupTag ratio={g[ratio]} label={g[label]} who={who} />
+                        {dayName(g.date)} {g.home_game ? 'vs' : '@'} {g.opponent} <MatchupTag ratio={g[ratio]} label={g[label]} who={who} /><RestBadge kind={g.rest} />
                       </span>
                     ))}
                   </td>
@@ -112,7 +114,7 @@ function Ratings() {
           <table>
             <thead>
               <tr>
-                <th>#</th><th className="left">Team</th><th>Games</th><th>xGF/G</th><th>xGA/G</th>
+                <th>#</th><th className="left" title={describe('Team')}>Team</th><th>Games</th><th title={describe('xGF/G')}>xGF/G</th><th title={describe('xGA/G')}>xGA/G</th>
                 <th title="Expected goals for vs the league average">Offense</th>
                 <th title="Expected goals against vs the league average; above 0% is a leaky defense">Defense</th>
                 <th title="Expected effect of the goalies in net, weighted by this season's starts; below 0% stops more than average">Goalie</th>
@@ -151,7 +153,7 @@ export default function Matchups() {
         <h1>Matchups</h1>
         <p>
           Which teams have the softest and toughest schedules coming up, and how every team rates as an opponent. Good for
-          deciding who to start or stream, and for breaking ties.
+          deciding who to start or stream, and for breaking ties. A game on the second night of a back-to-back against a rested team is rated lower (and the rested side's higher), because teams score about a quarter of a goal fewer in those; see <Link to="/rest">back-to-backs</Link>.
         </p>
       </header>
       <div className="tabs" role="tablist">

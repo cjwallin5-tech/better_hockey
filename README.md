@@ -96,8 +96,8 @@ and never refreshed, so when a new season starts the one that just finished stop
   chance of missing the net, so on-goal shots alone add up to only about two-thirds of the real total), and past skaters' xG is
   scaled so each season sums to that season's goals; this keeps an average player near zero.
   The same figures show up as a hot/cold badge next to rostered players on the Fantasy page, as a panel on each player and goalie
-  page (Shots tabs), and as a "LUCK CHECK" section in the morning email (`backend/luck_db.py` holds the shared queries).
-- **Recent form** (top of the This season tab on player and goalie pages): the season next to the last 20, 10 and 5 games (or
+  page (Advanced tab), and as a "LUCK CHECK" section in the morning email (`backend/luck_db.py` holds the shared queries).
+- **Recent form** (top of the Trends tab on player and goalie pages): the season next to the last 20, 10 and 5 games (or
   appearances) with a "vs season" column, fantasy points per game under your scoring for skaters, and a rolling points-per-game
   (skaters) or save % (goalies) trend line with a 3, 5, 10 or 20-game window. It is computed in the browser from the game log
   the page already loads (`frontend/src/rolling.js`); windows longer than the games played are hidden. Power-play bonus and
@@ -116,11 +116,26 @@ and never refreshed, so when a new season starts the one that just finished stop
   pulled much harder toward average (his saved goals barely repeat year to year). The Fantasy "This week" tab tags each of your
   players' games soft or tough and shows the week's average. `backend/matchups.py` documents the method; differences between teams
   are modest, so it is a tiebreaker, not a verdict.
-- **Role changes** (a Role panel on the skater page's This season tab; the old `/roles` page, `frontend/src/pages/Roles.jsx`, is no longer linked and
-  `/roles` redirects to Skaters): who has moved up or down the power-play units and who is playing more or less over their last
+- **Role changes** (a Role panel on the skater page's Advanced tab, a "Moving up" tab on Home, and the full list at `/roles`, which is linked from
+  that Home card rather than the menu): who has moved up or down the power-play units and who is playing more or less over their last
   few games compared with earlier this season, from the NHL's per-game ice time by situation (`skater_game_toi`, one request a
   night). A skater's unit comes from their share of the team's power-play time (45%+ is PP1, 15%+ is PP2); `backend/roles.py`
   explains the method and its limits. Rostered skaters get a small badge on the Fantasy page.
+- **Past seasons on Skaters and Goalies**: the Season picker above each leaderboard shows any season since 2005-06. Those seasons are
+  loaded once with `python ingest.py backfill-seasons` from `backend/` (about 20 minutes; it skips seasons already stored, so it is safe to
+  re-run, and takes a list such as `20232024,20242025`). They carry the NHL's full-season totals and rates only: pace, last-N-games form
+  and expected goals need game-by-game data, so those columns are hidden for past seasons. A finished season is never refreshed, so the
+  last nightly run of a season is its final state.
+- **Country flags** on player pages are small PNGs in `frontend/public/flags/` (about 30 KB for all 82 countries, from flagcdn.com), so
+  nothing is fetched from an outside site. A country the NHL lists that has no file there simply shows no flag; add it to
+  `frontend/src/countries.js` and drop the matching `<two-letter code>.png` into that folder.
+- **Trophy winners** (`/trophy`, under More): every NHL trophy with its winners by season (`/trophy/<id>`), linked from the Awards table on
+  each player page. Winners come live from the NHL's records site (cached a day by `backend/trophies.py` and `api.py`). Only the Art Ross
+  and Rocket Richard show stats (the winner's season totals); the other awards are voted or team-based and list winners and teams only.
+- **Game page extras**: "Lines and pairings" lists each team's five-on-five forward lines and defense pairs for the game, most-used first
+  (combinations under a minute are left out), with ice time, shot attempts for and against, CF% and goals. The defense pairs are the rows
+  of `pair_game` where both players are defensemen, since that table holds every two skaters who shared the ice. The shot map (game, team
+  and player pages) has a Period filter (1st, 2nd, 3rd, overtime) next to the strength filter.
 - **Head-to-head** (`/head-to-head`, under More, and linked from every game page): team-vs-team results and a skater's scoring against a
   team, over this season and the previous four (the games we store). Past seasons are paired into opponents by
   `ingest_team_abbrevs`; the Coyotes' games count toward Utah. Goalies aren't covered.

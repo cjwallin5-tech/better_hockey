@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GOALIE_CATEGORIES, SKATER_CATEGORIES } from '../categoryDefs.js'
 import { GROUPS } from '../value.js'
+import { describe } from '../glossary.js'
 
 const rate = (v) => v.toFixed(2)
 const signed = (v, d = 1) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`
@@ -61,7 +62,7 @@ export default function PlayerValues({ data, values, rosterIds, onAdd, categorie
         <table>
           <thead>
             <tr>
-              <th>#</th><th className="left">Player</th><th className="left">Team</th><th className="left">Pos</th><th>GP</th>
+              <th>#</th><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th className="left" title={describe('Pos')}>Pos</th><th title={describe('GP')}>GP</th>
               {!categories && (
                 <>
                   <th title="Fantasy points per game so far">FP/GP</th>
@@ -69,7 +70,7 @@ export default function PlayerValues({ data, values, rosterIds, onAdd, categorie
                   <th title="Expected rate minus the replacement level at the position">vs replacement</th>
                 </>
               )}
-              <th>Games left</th>
+              <th title={describe('Games left')}>Games left</th>
               {categories && (cols
                 ? cols.map((d) => <th key={d.key} title={`${d.label}: z-score${d.sign < 0 ? ' (lower is better, so fewer is positive)' : ''}`}>{d.short}</th>)
                 : <th className="left" title="The categories where the player is furthest above the pool">Strengths (z)</th>)}

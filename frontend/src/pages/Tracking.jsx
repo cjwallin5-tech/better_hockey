@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { useUrlSync } from '../urlState.js'
+import { describe } from '../glossary.js'
 
 const day = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '–')
 const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
@@ -78,9 +79,9 @@ function SkaterBoard({ stat, setStat, season, setSeason, position, setPosition, 
           <table>
             <thead>
               <tr>
-                <th>#</th><th className="left">Player</th><th className="left">Team</th><th className="left">Pos</th>
+                <th>#</th><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th className="left" title={describe('Pos')}>Pos</th>
                 {data.season === 'all' && <th className="left">Season</th>}
-                <th>GP</th><th>{data.label}</th><th>NHL percentile</th>
+                <th title={describe('GP')}>GP</th><th>{data.label}</th><th title={describe('NHL percentile')}>NHL percentile</th>
                 {data.rows.some((r) => r.event_date) && <th className="left">When</th>}
               </tr>
             </thead>
@@ -135,7 +136,7 @@ function GoalieBoard({ stat, setStat, season, setSeason }) {
       {data && data.rows.length > 0 && (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>#</th><th className="left">Goalie</th><th className="left">Team</th><th>{data.label}</th><th>Overall</th><th>High</th><th>Mid</th><th>Long</th><th>Shots</th></tr></thead>
+            <thead><tr><th>#</th><th className="left">Goalie</th><th className="left" title={describe('Team')}>Team</th><th>{data.label}</th><th>Overall</th><th title={describe('High')}>High</th><th title={describe('Mid')}>Mid</th><th title={describe('Long')}>Long</th><th title={describe('Shots')}>Shots</th></tr></thead>
             <tbody>
               {data.rows.map((r, i) => (
                 <tr key={r.player_id}>

@@ -1,5 +1,33 @@
 import { useEffect, useState } from 'react'
 
+// One rankings request per player, shared by the stat tiles and the table below them.
+const cache = new Map()
+function fetchRankings(id) {
+  if (!cache.has(id)) {
+    cache.set(id, fetch(`/api/players/${id}/rankings`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => { cache.delete(id); return null }))
+  }
+  return cache.get(id)
+}
+
+/** The player's rankings ({ season, alltime: { regular, playoffs } }), or null until loaded or when unavailable. */
+export function useRankings(playerId) {
+  const [state, setState] = useState({ id: null, data: null })
+  useEffect(() => {
+    let ignore = false
+    fetchRankings(playerId).then((data) => !ignore && setState({ id: playerId, data }))
+    return () => { ignore = true }
+  }, [playerId])
+  return state.id === playerId ? state.data : null
+}
+
+/** Short caption for a stat tile: 'season' gives '12th of 704', 'alltime' gives '5th all-time'. */
+export function rankNote(r, scope) {
+  if (!r) return undefined
+  return scope === 'season' ? `${ordinal(r.rank)} of ${r.of.toLocaleString()}` : `${ordinal(r.rank)} all-time`
+}
+
 const ordinal = (n) => {
   const v = n % 100
   if (v >= 11 && v <= 13) return `${n}th`
@@ -64,39 +92,44 @@ export function RankCards({ ranks, scope, noun }) {
   )
 }
 
-/** Where a current player ranks this season and where their career ranks among all NHL history. */
+// Stats whose rank already shows on a stat tile (this season on the page's tiles, all-time on the Career tiles).
+const ON_SEASON_TILES = new Set(['games_played', 'goals', 'assists', 'points', 'plus_minus', 'wins', 'shutouts', 'save_pct', 'gaa'])
+const ON_CAREER_TILES = new Set(['games_played', 'goals', 'assists', 'points', 'points_per_game', 'plus_minus', 'pim', 'pp_goals', 'game_winning_goals', 'shots', 'wins', 'shutouts', 'save_pct', 'gaa'])
+
+/** The rankings that have no tile: stats not shown elsewhere on the page, this season next to all-time. */
 export default function Rankings({ playerId, kind }) {
-  const [result, setResult] = useState({ id: null, data: null })
-  const [view, setView] = useState('season')
-
-  useEffect(() => {
-    fetch(`/api/players/${playerId}/rankings`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setResult({ id: playerId, data }))
-      .catch(() => setResult({ id: playerId, data: null }))
-  }, [playerId])
-
-  const d = result.id === playerId ? result.data : null
+  const d = useRankings(playerId)
   if (!d) return null
-  const tabs = [['season', 'This season'], ['regular', 'All-time'], ...(d.alltime.playoffs ? [['playoffs', 'All-time playoffs']] : [])]
-
+  const season = Object.fromEntries(Object.entries(d.season ?? {}).filter(([k]) => !ON_SEASON_TILES.has(k)))
+  const career = Object.fromEntries(Object.entries(d.alltime?.regular ?? {}).filter(([k]) => !ON_CAREER_TILES.has(k)))
+  const stats = [...new Set([...Object.keys(season), ...Object.keys(career)])]
+  if (stats.length === 0) return null
+  const cell = (stat, r, scope) => {
+    if (!r) return <td className="muted">–</td>
+    const [, fmt] = LABELS[stat] ?? [stat, (v) => v]
+    return <td>{fmt(r.value)} <span className="muted">· {rankNote(r, scope)}</span></td>
+  }
   return (
     <section>
-      <h2>Rankings</h2>
+      <h2>More rankings</h2>
       <p className="sub">
-        This season: among every {kind} with a game played. All-time: this career among every {kind} in NHL
-        history. Rate stats only count players with enough games.
+        Among every {kind} with a game played this season, and among every {kind} in NHL history. Rate stats only count
+        players with enough games. Ranks for the other stats are shown on the tiles above.
       </p>
-      <div className="tabs" role="tablist">
-        {tabs.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>{label}</button>
-        ))}
+      <div className="table-wrap">
+        <table className="rank-table">
+          <thead><tr><th className="left">Stat</th><th className="left">This season</th><th className="left">All-time</th></tr></thead>
+          <tbody>
+            {stats.map((stat) => (
+              <tr key={stat}>
+                <td className="left">{(LABELS[stat] ?? [stat])[0]}</td>
+                {cell(stat, season[stat], 'season')}
+                {cell(stat, career[stat], 'alltime')}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <RankCards
-        ranks={view === 'season' ? d.season : d.alltime[view]}
-        scope={view === 'season' ? 'season' : 'alltime'}
-        noun={kind}
-      />
     </section>
   )
 }

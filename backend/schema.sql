@@ -313,6 +313,8 @@ ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS adj_points_per_game REAL;
 -- Abbreviations for the past-season team results, so head-to-head can pair teams with opponents.
 ALTER TABLE team_game_hist ADD COLUMN IF NOT EXISTS team TEXT;
 ALTER TABLE team_game_hist ADD COLUMN IF NOT EXISTS opponent TEXT;
+-- Whether the team was at home, so travel can be worked out (see ingest.ingest_home_flags and fatigue.py).
+ALTER TABLE team_game_hist ADD COLUMN IF NOT EXISTS is_home BOOLEAN;
 
 -- NHL EDGE tracking stats per player and regular season (columns are added from edge.py's column lists).
 CREATE TABLE IF NOT EXISTS edge_skater_season (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { seasonLabel } from '../career.js'
+import { describe } from '../glossary.js'
 
 const ordinal = (n) => {
   const v = n % 100
@@ -61,7 +62,7 @@ export default function TrackingProfile({ playerId }) {
         {all.length > 1 && (
           <div className="table-wrap">
             <table>
-              <thead><tr><th className="left">Season</th><th>SV%</th><th>High</th><th>Mid</th><th>Long</th><th>Games &gt; .900</th></tr></thead>
+              <thead><tr><th className="left">Season</th><th title={describe('SV%')}>SV%</th><th title={describe('High')}>High</th><th title={describe('Mid')}>Mid</th><th title={describe('Long')}>Long</th><th title={describe('Games > .900')}>Games &gt; .900</th></tr></thead>
               <tbody>
                 {all.map((s) => (
                   <tr key={s.season_id}>
@@ -100,8 +101,8 @@ export default function TrackingProfile({ playerId }) {
           <table>
             <thead>
               <tr>
-                <th className="left">Season</th><th>GP</th><th>Top speed</th><th>22+ bursts</th><th>Hardest shot</th>
-                <th>Avg shot</th><th title="Shot attempts of any kind at 90 mph or harder">90+ mph attempts</th><th>Miles / GP</th><th>OZ %</th><th>DZ %</th>
+                <th className="left">Season</th><th title={describe('GP')}>GP</th><th title={describe('Top speed')}>Top speed</th><th title={describe('22+ bursts')}>22+ bursts</th><th title={describe('Hardest shot')}>Hardest shot</th>
+                <th title={describe('Avg shot')}>Avg shot</th><th title="Shot attempts of any kind at 90 mph or harder">90+ mph attempts</th><th title={describe('Miles / GP')}>Miles / GP</th><th title={describe('OZ %')}>OZ %</th><th title={describe('DZ %')}>DZ %</th>
               </tr>
             </thead>
             <tbody>

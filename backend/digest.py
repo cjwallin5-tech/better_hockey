@@ -1,4 +1,5 @@
-"""Daily roster digest: today's games for each rostered player, who's hot, who's missing games.
+"""Daily roster digest: today's games for each rostered player, who's hot, who's missing games, plus a section for
+the players and teams on the user's watchlist (games, hot/cold, role changes, nearby milestones).
 
 Run it each morning (run_digest.sh). Only accounts that turned the digest on (Account page) get it, at
 most once per Eastern-time day. Usage:
@@ -16,6 +17,7 @@ from psycopg.rows import dict_row
 
 import api
 import config
+import fatigue
 import luck_db
 import mail
 import roles_db
@@ -28,8 +30,38 @@ MISSING_GAMES = 2      # team games in a row without playing before we flag it
 LUCK_MAX = 4           # most luck-check lines in one email, biggest gaps first
 ROLE_WINDOW = 5        # games compared with the rest of the season for role changes
 ROLE_MAX = 4           # most role-change lines in one email, biggest moves first
+MILESTONE_SOON = 10    # a watched player this many games (at the current pace) from a career milestone is worth a line
+MILESTONE_RECENT_DAYS = 2  # a milestone reached this recently still gets a line
+MILESTONE_MAX = 6      # most milestone lines in one email
 SEND_ATTEMPTS = 5      # tries per email; waits 30s, 60s, 90s, 120s between them
 SEND_WAIT_SECONDS = 30
+
+
+REST_NOTES = {
+    "tired": "second night of a back-to-back vs a rested team",
+    "edge": "opponent is on the second night of a back-to-back",
+}
+
+
+def rest_note(game):
+    """' - ...' when the game's rest favors one side (see fatigue.py), else an empty string. Teams on the tired side
+    average about 0.4 goals a game worse in our data."""
+    text = REST_NOTES.get(game.get("rest"))
+    return f" - {text}" if text else ""
+
+
+def todays_rest(conn, today):
+    """{team: 'tired' | 'edge'} for today's games where one side played yesterday and the other is rested."""
+    import api   # the rows are built there; imported late so tests of the pure parts don't need the API
+    _, current, _ = api._team_games(conn, with_past=False)
+    rest = fatigue.rest_days(current)
+    out = {}
+    for r in current:
+        if r["game_date"] == today:
+            k = fatigue.kind(rest[r["team"], r["game_id"]], rest.get((r["opponent"], r["game_id"]), fatigue.FIRST_GAME_REST))
+            if k in REST_NOTES:
+                out[r["team"]] = k
+    return out
 
 
 def _mmss(seconds):
@@ -85,10 +117,11 @@ def gather(conn, players):
     games = conn.execute(
         "SELECT game_id, start_time, home, away FROM game WHERE season_id = %s AND game_date = %s ORDER BY start_time",
         (config.SEASON_ID, today)).fetchall()
+    rest = todays_rest(conn, today)
     by_team = {}
     for g in games:
-        by_team[g["home"]] = {"opp": g["away"], "home": True, "start": g["start_time"]}
-        by_team[g["away"]] = {"opp": g["home"], "home": False, "start": g["start_time"]}
+        by_team[g["home"]] = {"opp": g["away"], "home": True, "start": g["start_time"], "rest": rest.get(g["home"])}
+        by_team[g["away"]] = {"opp": g["home"], "home": False, "start": g["start_time"], "rest": rest.get(g["away"])}
 
     # likely starters from the probable-goalies model, for rostered goalies
     likely = {}
@@ -123,6 +156,87 @@ def gather(conn, players):
             "roles": role_alerts(conn, players)}
 
 
+def milestone_alerts(ms, ids, today):
+    """Milestones for these player ids from api.milestones(): reached in the last MILESTONE_RECENT_DAYS days, or
+    within MILESTONE_SOON games at the current pace. Reached ones first, then the nearest. Dicts ready for render()."""
+    out = []
+    for m in ms["reached"]:
+        d = m.get("date")
+        if m["player_id"] in ids and d and 0 <= (today - d).days < MILESTONE_RECENT_DAYS:
+            out.append({"name": m["name"], "label": m["label"], "milestone": m["milestone"], "reached": True, "need": 0})
+    soon = [m for m in ms["upcoming"] if m["player_id"] in ids and m["games_needed"] <= MILESTONE_SOON]
+    soon.sort(key=lambda m: (m["games_needed"], m["remaining"]))
+    for m in soon:
+        out.append({"name": m["name"], "label": m["label"], "milestone": m["milestone"], "reached": False,
+                    "remaining": m["remaining"], "need": m["games_needed"]})
+    return out[:MILESTONE_MAX]
+
+
+def gather_watch(conn, items, roster_ids, ms=None):
+    """items: [{kind: 'player'|'team', ref, name}] from the user's watchlist. Players already on the roster are
+    left to the roster sections. Returns the same pieces as gather() for the watched players, plus `milestones` and
+    `teams` (today's game for each watched team), or None when there is nothing to report on."""
+    ids = {int(i["ref"]): i for i in items if i["kind"] == "player" and int(i["ref"]) not in roster_ids}
+    teams = [i["ref"] for i in items if i["kind"] == "team"]
+    if not ids and not teams:
+        return None
+    skaters, goalies = _roster_rows(conn, set(ids))
+    players = [{"id": i, "kind": "skater" if i in skaters else "goalie", "name": ids[i]["name"]}
+               for i in ids if i in skaters or i in goalies]
+    d = gather(conn, players)
+    d["milestones"] = milestone_alerts(ms, set(ids), d["today"]) if ms and ids else []
+    games = conn.execute("SELECT home, away, start_time FROM game WHERE season_id = %s AND game_date = %s "
+                         "ORDER BY start_time", (config.SEASON_ID, d["today"])).fetchall()
+    by_team = {}
+    for g in games:
+        by_team[g["home"]] = {"opp": g["away"], "home": True, "start": g["start_time"]}
+        by_team[g["away"]] = {"opp": g["home"], "home": False, "start": g["start_time"]}
+    d["teams"] = [{"team": t, "game": by_team.get(t)} for t in teams]
+    return d
+
+
+def milestone_line(a):
+    if a["reached"]:
+        return f"{a['name']} reached {a['milestone']:,} career {a['label'].lower()}."
+    return (f"{a['name']} is {a['remaining']} {a['label'].lower()} from {a['milestone']:,} career, "
+            f"about {a['need']} game{'s' if a['need'] != 1 else ''} away at the current pace.")
+
+
+def _game_line(label, game, kind="skater", start=None):
+    when = game["start"].astimezone(ET).strftime("%-I:%M %p ET") if game["start"] else "time TBD"
+    note = ""
+    if kind == "goalie" and start:
+        prob, confirmed = start
+        note = " - confirmed starter" if confirmed else f" - likely starter ({round(prob * 100)}%, a guess)"
+    elif kind == "goalie":
+        note = " - starter unclear"
+    return f"  {label} {'vs' if game['home'] else '@'} {game['opp']}, {when}{note}{rest_note(game)}"
+
+
+def watch_lines(w):
+    """The WATCHLIST block of the email (a list of lines, empty when there is nothing to say)."""
+    lines = []
+    games = sorted(w.get("playing", []), key=lambda e: e["game"]["start"] or datetime.max.replace(tzinfo=ET))
+    games = [_game_line(f"{e['name']} ({e['team']})", e["game"], e["kind"], e.get("start")) for e in games]
+    games += [_game_line(t["team"], t["game"]) for t in w.get("teams", []) if t["game"]]
+    if games:
+        lines += ["Playing today"] + games
+    off = [e["name"] for e in w.get("idle", [])] + [t["team"] for t in w.get("teams", []) if not t["game"]]
+    if off:
+        lines.append("No game today: " + ", ".join(off))
+    for title, items, fmt in (
+        ("Hot", w.get("hot", []), lambda h: f"{h['name']}: {h['recent_points']} points in the last {h['recent_games']} games "
+                                            f"(a {h['recent_pace']:.0f}-point pace vs {h['pace']:.0f} for the season)"),
+        ("Role changes", w.get("roles", []), role_line),
+        ("Luck check", w.get("luck", []), luck_line),
+        ("Milestones", w.get("milestones", []), milestone_line),
+        ("Watch", w.get("watch", []), str),
+    ):
+        if items:
+            lines += [title] + [f"  {fmt(i)}" for i in items]
+    return lines
+
+
 def role_line(a):
     """One sentence for the role-changes section."""
     parts = []
@@ -149,11 +263,12 @@ def luck_line(a):
             f"(z {a['z']:+.1f}). A bounce back may be coming.")
 
 
-def render(d):
-    """(subject, plain-text body), or None when there is nothing worth an email."""
-    if not (d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles")):
+def render(d, w=None):
+    """(subject, plain-text body), or None when there is nothing worth an email. `w` is gather_watch()'s result."""
+    watch = watch_lines(w) if w else []
+    if not (d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or watch):
         return None
-    lines = [f"Your NHL roster for {d['today']:%A, %B %-d}", ""]
+    lines = [f"Your NHL roster for {d['today']:%A, %B %-d}" if d["roster_size"] else f"Your NHL watchlist for {d['today']:%A, %B %-d}", ""]
     if d["playing"]:
         lines.append(f"TODAY: {len(d['playing'])} of {d['roster_size']} players have a game")
         for e in sorted(d["playing"], key=lambda e: e["game"]["start"] or datetime.max.replace(tzinfo=ET)):
@@ -165,7 +280,7 @@ def render(d):
                 note = " - confirmed starter" if confirmed else f" - likely starter ({round(prob * 100)}%, a guess)"
             elif e["kind"] == "goalie":
                 note = " - starter unclear"
-            lines.append(f"  {e['name']} ({e['team']}) {'vs' if g['home'] else '@'} {g['opp']}, {when}{note}")
+            lines.append(f"  {e['name']} ({e['team']}) {'vs' if g['home'] else '@'} {g['opp']}, {when}{note}{rest_note(g)}")
         lines.append("")
     if d["idle"]:
         lines += ["NO GAME TODAY: " + ", ".join(e["name"] for e in d["idle"]), ""]
@@ -185,16 +300,20 @@ def render(d):
         lines.append("")
     if d["watch"]:
         lines += ["WATCH"] + [f"  {w}" for w in d["watch"]] + [""]
+    if watch:
+        lines += ["WATCHLIST"] + watch + [""]
     lines.append(f"Turn this email off any time: {config.PUBLIC_URL}/account")
-    subject = f"NHL roster: {len(d['playing'])} of {d['roster_size']} play today" if d["playing"] else "NHL roster update"
+    subject = (f"NHL roster: {len(d['playing'])} of {d['roster_size']} play today" if d["playing"]
+               else "NHL roster update" if d["roster_size"] else "NHL watchlist update")
     return subject, "\n".join(lines)
 
 
 def due_users(conn):
     return conn.execute(
-        """SELECT u.id, u.email, f.players, p.last_sent_on
-           FROM digest_pref p JOIN app_user u ON u.id = p.user_id JOIN fantasy_state f ON f.user_id = u.id
-           WHERE p.enabled AND jsonb_array_length(f.players) > 0
+        """SELECT u.id, u.email, coalesce(f.players, '[]'::jsonb) AS players, p.last_sent_on
+           FROM digest_pref p JOIN app_user u ON u.id = p.user_id LEFT JOIN fantasy_state f ON f.user_id = u.id
+           WHERE p.enabled AND (coalesce(jsonb_array_length(f.players), 0) > 0
+                                OR EXISTS (SELECT 1 FROM watch_item w WHERE w.user_id = u.id))
              AND (p.last_sent_on IS NULL OR p.last_sent_on < (now() AT TIME ZONE 'America/New_York')::date)""").fetchall()
 
 
@@ -219,8 +338,13 @@ def main(argv):
             print(out[0] + "\n\n" + out[1] if out else "(nothing to send)")
             return 0
         sent = skipped = 0
+        ms = None  # api.milestones() scans every player, so it runs once and only if someone watches a player
         for u in due_users(conn):
-            out = render(gather(conn, u["players"]))
+            items = conn.execute("SELECT kind, ref, name FROM watch_item WHERE user_id = %s", (u["id"],)).fetchall()
+            if ms is None and any(i["kind"] == "player" for i in items):
+                ms = api.milestones()
+            roster_ids = {p["id"] for p in u["players"]}
+            out = render(gather(conn, u["players"]), gather_watch(conn, items, roster_ids, ms))
             if out is None:
                 skipped += 1
                 continue

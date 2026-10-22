@@ -6,6 +6,7 @@ import SavedViews from '../components/SavedViews.jsx'
 import { fmt1, STABLE_GP } from '../format.js'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
+import { seasonLabel } from '../career.js'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
@@ -17,9 +18,13 @@ const VIEWS = [
   { id: 'splits', label: 'Strength splits', defaultSort: 'ev_save_pct', note: 'Save percentage at even strength (EV), on the penalty kill (PP shots against) and when the team is on the power play (SH shots against).' },
 ]
 
+// Columns built from this season's appearance-by-appearance data, which past seasons don't have.
+const CURRENT_ONLY = new Set(['recent_save_pct', 'recent_gaa', 'recent_gsaa'])
+
 export default function Goalies() {
   const initial = new URLSearchParams(window.location.search)
   const [data, setData] = useState(null)
+  const [season, setSeason] = useState(() => (initial.get('season') ? Number(initial.get('season')) : null)) // null = current
   const [error, setError] = useState(null)
   const [search, setSearch] = useState(() => initial.get('q') ?? '')
   const [minGpInput, setMinGpInput] = useState(() => (initial.get('min_gp') ? Number(initial.get('min_gp')) : null))
@@ -31,18 +36,24 @@ export default function Goalies() {
 
   useUrlSync([
     ['view', viewId, 'overview'], ['sort', sort.key, VIEWS.find((v) => v.id === viewId)?.defaultSort], ['dir', sort.dir, 'desc'],
-    ['q', search, ''], ['min_gp', minGpInput, null],
+    ['season', season, null], ['q', search, ''], ['min_gp', minGpInput, null],
   ])
 
   useEffect(() => {
-    fetch('/api/goalies')
+    let ignore = false
+    fetch(season ? `/api/goalies?season=${season}` : '/api/goalies')
       .then((r) => {
         if (!r.ok) throw new Error(`API returned ${r.status}`)
         return r.json()
       })
-      .then(setData)
-      .catch((e) => setError(e.message))
-  }, [])
+      .then((d) => !ignore && setData(d))
+      .catch((e) => !ignore && setError(e.message))
+    return () => { ignore = true }
+  }, [season])
+
+  // A past season has no appearance-by-appearance data stored, so the last-N columns are left out.
+  const isPast = season != null
+  const onSeason = (id) => { setData(null); setSeason(id) }
 
   const rows = data?.goalies
   const recentWindow = data?.recent_window ?? 5
@@ -86,9 +97,9 @@ export default function Goalies() {
       { key: 'name', label: 'Goalie', text: true },
       { key: 'team', label: 'Team', text: true },
       { key: 'games_played', label: 'GP' },
-      ...stats[viewId],
+      ...stats[viewId].filter((c) => !isPast || !CURRENT_ONLY.has(c.key)),
     ]
-  }, [viewId, recentWindow])
+  }, [viewId, recentWindow, isPast])
 
   const visible = useMemo(() => {
     if (!rows) return []
@@ -127,10 +138,13 @@ export default function Goalies() {
   return (
     <main>
       <header>
-        <h1>Goalie Stats</h1>
-        <p>League-average save percentage this season: {fmtSv(rows[0]?.league_sv_pct)}. L{recentWindow} columns use each goalie's last {recentWindow} appearances.</p>
+        <h1>Goalie Stats <span>{seasonLabel(data.season_id)}</span></h1>
+        <p>
+          League-average save percentage {isPast ? `in ${seasonLabel(data.season_id)}` : 'this season'}: {fmtSv(rows[0]?.league_sv_pct)}.{' '}
+          {isPast ? 'Last-appearances form is only kept for the current season.' : `L${recentWindow} columns use each goalie's last ${recentWindow} appearances.`}
+        </p>
       </header>
-      <SeasonSwitch seasonId={data?.season_id} kind="goalie" />
+      <SeasonSwitch kind="goalie" value={season} onChange={onSeason} />
       <SavedViews path="/goalies" />
       {maxGp < STABLE_GP && (
         <p className="notice">

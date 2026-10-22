@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import ShotMap from '../components/ShotMap.jsx'
 import { CorsiFlow, ShiftChart, XgFlow } from '../components/GameCharts.jsx'
 import { fmtPct, fmtToi } from '../format.js'
+import { describe } from '../glossary.js'
+import GameLines from '../components/GameLines.jsx'
 
 const longDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
@@ -35,7 +37,7 @@ export default function Game() {
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<p className="status">Loading…</p></main>
 
-  const { game: g, teams, goals, skaters, goalies, shots } = data
+  const { game: g, teams, goals, skaters, goalies, shots, lines = [], pairs = [] } = data
   const finished = g.state === 'OFF' || g.state === 'FINAL'
   const sides = [g.away, g.home]
   const score = { [g.away]: g.away_score, [g.home]: g.home_score }
@@ -113,8 +115,8 @@ export default function Game() {
             <table>
               <thead>
                 <tr>
-                  <th className="left">Player</th><th className="left">Pos</th><th>G</th><th>A</th><th>P</th><th>+/-</th>
-                  <th>SOG</th><th>TOI</th><th>Hits</th><th>BLK</th><th>TK</th><th>GV</th>{hasShots && <><th>CF%</th><th>xGF%</th></>}
+                  <th className="left">Player</th><th className="left" title={describe('Pos')}>Pos</th><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th><th title={describe('+/-')}>+/-</th>
+                  <th title={describe('SOG')}>SOG</th><th title={describe('TOI')}>TOI</th><th title={describe('Hits')}>Hits</th><th title={describe('BLK')}>BLK</th><th title={describe('TK')}>TK</th><th title={describe('GV')}>GV</th>{hasShots && <><th title={describe('CF%')}>CF%</th><th title={describe('xGF%')}>xGF%</th></>}
                 </tr>
               </thead>
               <tbody>
@@ -137,7 +139,7 @@ export default function Game() {
           </div>
           <div className="table-wrap" style={{ marginTop: 8 }}>
             <table>
-              <thead><tr><th className="left">Goalie</th><th>Dec</th><th>SA</th><th>SV</th><th>GA</th><th>SV%</th><th>TOI</th></tr></thead>
+              <thead><tr><th className="left">Goalie</th><th title={describe('Dec')}>Dec</th><th title={describe('SA')}>SA</th><th title={describe('SV')}>SV</th><th title={describe('GA')}>GA</th><th title={describe('SV%')}>SV%</th><th title={describe('TOI')}>TOI</th></tr></thead>
               <tbody>
                 {goalies.filter((x) => x.team === team).map((x) => (
                   <tr key={x.player_id}>
@@ -151,6 +153,8 @@ export default function Game() {
           </div>
         </section>
       ))}
+
+      <GameLines lines={lines} pairs={pairs} sides={sides} />
 
       {hasShots && (
         <section>

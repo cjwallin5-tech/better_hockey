@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
-import Rankings from '../components/Rankings.jsx'
+import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
 import FantasyStar from '../components/FantasyStar.jsx'
+import WatchButton from '../components/WatchButton.jsx'
 import { GoalieShots } from '../components/Shots.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
 import LuckPanel from '../components/Luck.jsx'
@@ -14,6 +15,10 @@ import Context from '../components/Context.jsx'
 import { GsaaChart } from '../components/Charts.jsx'
 import { fmt1, fmtToi } from '../format.js'
 import Flag from '../components/Flag.jsx'
+import Headshot from '../components/Headshot.jsx'
+import PlayerBio from '../components/PlayerBio.jsx'
+import Awards from '../components/Awards.jsx'
+import { describe } from '../glossary.js'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
@@ -22,6 +27,8 @@ const fmtSigned = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)
 export default function Goalie() {
   const { id } = useParams()
   const [result, setResult] = useState({ id: null, data: null, error: null })
+  const ranks = useRankings(Number(id))
+  const rank = (stat) => rankNote(ranks?.season?.[stat], 'season')
 
   useEffect(() => {
     fetch(`/api/goalies/${id}`)
@@ -47,7 +54,9 @@ export default function Goalie() {
   return (
     <main>
       {back}
-      <header>
+      <header className="player-head">
+        <Headshot playerId={g.player_id} name={g.name} />
+        <div>
         <h1>
           <Flag playerId={g.player_id} />{g.name}{' '}
           <span>
@@ -57,26 +66,29 @@ export default function Goalie() {
             · G · catches {g.catches}
           </span>
         </h1>
+        <PlayerBio playerId={g.player_id} />
         <p className="header-actions">
           <FantasyStar player={{ id: g.player_id, kind: 'goalie', name: g.name }} />
+          <WatchButton kind="player" refId={g.player_id} name={g.name} />
           <Link to={`/compare?ids=${g.player_id}`}>Compare with other goalies →</Link>
         </p>
+        </div>
       </header>
 
       <Context playerId={g.player_id} goalie />
       <Trophies playerId={g.player_id} />
 
       <section className="tiles">
-        <Tile label="GP / GS" value={`${g.games_played} / ${g.games_started}`} />
-        <Tile label="W-L-OTL" value={`${g.wins}-${g.losses}-${g.ot_losses}`} />
-        <Tile label="Save %" value={fmtSv(g.save_pct)} />
-        <Tile label="GAA" value={fmt2(g.gaa)} />
+        <Tile label="GP / GS" value={`${g.games_played} / ${g.games_started}`} rank={rank('games_played')} />
+        <Tile label="W-L-OTL" value={`${g.wins}-${g.losses}-${g.ot_losses}`} rank={rank('wins')} />
+        <Tile label="Save %" value={fmtSv(g.save_pct)} rank={rank('save_pct')} />
+        <Tile label="GAA" value={fmt2(g.gaa)} rank={rank('gaa')} />
         <Tile label="GSAA" value={fmtSigned(g.gsaa)} />
         <Tile label="GSAA / 60" value={fmtSigned(g.gsaa_per60)} />
         <Tile label="Quality starts" value={`${g.quality_starts ?? '–'} (${fmtSv(g.quality_start_pct)})`} />
         <Tile label="Shots against / 60" value={fmt1(g.shots_against_per60)} />
         <Tile label="Goal support / game" value={fmt2(g.goal_support_avg)} />
-        <Tile label="Shutouts" value={g.shutouts} />
+        <Tile label="Shutouts" value={g.shutouts} rank={rank('shutouts')} />
         <Tile label={`Last ${g.recent_games ?? 0} SV%`} value={fmtSv(g.recent_save_pct)} />
         <Tile label={`Last ${g.recent_games ?? 0} GSAA`} value={fmtSigned(g.recent_gsaa)} />
       </section>
@@ -87,46 +99,13 @@ export default function Goalie() {
       <PageTabs
         tabs={[
           {
-            id: 'season',
-            label: 'This season',
-            content: (
-              <>
-              <GoalieForm games={chrono} leagueSvPct={lg} />
-
-              <div className="charts">
-                <GsaaChart games={chrono} leagueSvPct={lg} />
-                <figure className="chart">
-                  <figcaption><h3>Save % by situation</h3></figcaption>
-                  <div className="splits">
-                    <Split label="Even strength" saves={g.ev_saves} shots={g.ev_shots_against} pct={g.ev_save_pct} />
-                    <Split label="Penalty kill" saves={g.pp_saves} shots={g.pp_shots_against} pct={g.pp_save_pct} />
-                    <Split label="Power play (short-handed shots)" saves={g.sh_saves} shots={g.sh_shots_against} pct={g.sh_save_pct} />
-                  </div>
-                </figure>
-              </div>
-              </>
-            ),
-          },
-          {
-            id: 'career',
-            label: 'Career & rankings',
+            id: 'stats',
+            label: 'Stats',
             content: (
               <>
                 <Career playerId={g.player_id} />
+                <Awards playerId={g.player_id} />
                 <Rankings playerId={g.player_id} kind="goalie" />
-              </>
-            ),
-          },
-          {
-            id: 'shots',
-            label: 'Shots faced',
-            content: (
-              <>
-              <LuckPanel playerId={g.player_id} goalie />
-
-              <TrackingProfile playerId={g.player_id} />
-
-              <GoalieShots playerId={g.player_id} />
               </>
             ),
           },
@@ -139,8 +118,8 @@ export default function Goalie() {
                 <table>
                   <thead>
                     <tr>
-                      <th className="left">Date</th><th className="left">Opponent</th><th>Start</th>
-                      <th>Dec</th><th>SA</th><th>SV</th><th>GA</th><th>SV%</th><th>GSAA</th><th>TOI</th>
+                      <th className="left">Date</th><th className="left">Opponent</th><th title={describe('Start')}>Start</th>
+                      <th title={describe('Dec')}>Dec</th><th title={describe('SA')}>SA</th><th title={describe('SV')}>SV</th><th title={describe('GA')}>GA</th><th title={describe('SV%')}>SV%</th><th title={describe('GSAA')}>GSAA</th><th title={describe('TOI')}>TOI</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -158,6 +137,40 @@ export default function Goalie() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              </>
+            ),
+          },
+          {
+            id: 'advanced',
+            label: 'Advanced',
+            content: (
+              <>
+              <LuckPanel playerId={g.player_id} goalie />
+
+              <TrackingProfile playerId={g.player_id} />
+
+              <GoalieShots playerId={g.player_id} />
+              </>
+            ),
+          },
+          {
+            id: 'trends',
+            label: 'Trends',
+            content: (
+              <>
+              <GoalieForm games={chrono} leagueSvPct={lg} />
+
+              <div className="charts">
+                <GsaaChart games={chrono} leagueSvPct={lg} />
+                <figure className="chart">
+                  <figcaption><h3>Save % by situation</h3></figcaption>
+                  <div className="splits">
+                    <Split label="Even strength" saves={g.ev_saves} shots={g.ev_shots_against} pct={g.ev_save_pct} />
+                    <Split label="Penalty kill" saves={g.pp_saves} shots={g.pp_shots_against} pct={g.pp_save_pct} />
+                    <Split label="Power play (short-handed shots)" saves={g.sh_saves} shots={g.sh_shots_against} pct={g.sh_save_pct} />
+                  </div>
+                </figure>
               </div>
               </>
             ),
@@ -183,11 +196,12 @@ function Split({ label, saves, shots, pct }) {
   )
 }
 
-function Tile({ label, value }) {
+function Tile({ label, value, rank }) {
   return (
     <div className="tile">
       <span>{label}</span>
       <strong>{value ?? '–'}</strong>
+      {rank && <small className="tile-rank">{rank}</small>}
     </div>
   )
 }

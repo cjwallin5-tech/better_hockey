@@ -185,8 +185,6 @@ h2 { margin: 40px 0 8px; font-size: 19px; line-height: 1.3; }
 .headshot { border-radius: 50%; background: var(--card); border: 1px solid var(--line); flex: none; object-fit: cover; }
 .bio-line { margin: 0 0 4px; }
 .bio-line.muted { color: var(--muted); font-size: 13px; }
-.awards { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
-.awards li { padding: 2px 8px; border-radius: 999px; background: var(--accent-bg); color: var(--accent); font-size: 12px; border: 1px solid var(--line); }
 .career-table-title { margin: 20px 0 8px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 .inline-check { font-weight: 400; color: var(--muted); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
 section > .chart { margin-top: 12px; }
@@ -236,8 +234,6 @@ section > .chart { margin-top: 12px; }
 
 .rankcol { width: 48px; color: var(--muted); text-align: right; }
 th.rankcol { cursor: default; }
-.ext { color: var(--muted); font-size: 11px; }
-td.left a:hover .ext { color: var(--accent); }
 .pager { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin: 14px 0; color: var(--muted); }
 .pager button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); cursor: pointer; font: inherit; }
 .pager button:disabled { opacity: 0.4; cursor: default; }
@@ -263,7 +259,6 @@ table.mini tr:last-child td { border-bottom: 0; }
 table.mini .num { text-align: right; white-space: nowrap; padding-left: 10px; font-variant-numeric: tabular-nums; }
 table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; position: static; }
 .team-line { display: flex; align-items: center; gap: 8px; }
-.explore { margin: 0; padding-left: 18px; display: grid; gap: 10px; }
 .card a:hover { color: var(--accent); text-decoration: underline; }
 
 .rink-boards { fill: none; stroke: var(--muted); stroke-width: 2; }
@@ -285,6 +280,8 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .star { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--muted); cursor: pointer; font: inherit; }
 .star:hover { color: var(--text); }
 .star.on { color: var(--text); border-color: var(--series-2); background: color-mix(in srgb, var(--series-2) 14%, var(--card)); }
+.plain-list { list-style: none; padding: 0; margin: 0 0 12px; }
+.plain-list li { padding: 4px 0; }
 .header-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 
 .game-head { margin-bottom: 8px; }
@@ -473,21 +470,21 @@ td.accent { color: var(--text); font-weight: 700; }
 .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 :root[data-theme="dark"] .tabs button.on { background: var(--accent); color: #0a0e14; border-color: var(--accent); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tabs button.on { background: var(--accent); color: #0a0e14; border-color: var(--accent); } }
-.badge, .awards li { border-radius: 2px; font-family: var(--display); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+.badge { border-radius: 2px; font-family: var(--display); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .game-score { font-weight: 700; }
 a:hover { text-decoration: none; }
 td.left a:hover, .card a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .topbar a:hover { text-decoration: none; }
 
 /* The brand is the Home link; the account link sits at the right with the theme toggle */
-.topbar .nav-account { margin-left: auto; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 48px; padding: 0 12px; }
+.topbar .nav-account { margin-left: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 48px; padding: 0 12px; }
 .topbar .theme-toggle { margin-left: 4px; padding: 4px 9px; }
 
 /* Abbreviated headers that carry a tooltip get a dotted underline as a hint */
 thead th[title] { text-decoration: underline dotted var(--muted); text-underline-offset: 4px; }
 
 /* Country flag in a player's page title */
-.flag { display: inline-block; vertical-align: middle; margin: -4px 12px 0 0; border-radius: 2px; box-shadow: 0 0 0 1px var(--line); object-fit: cover; }
+.flag { display: inline-block; height: 22px; width: auto; vertical-align: middle; margin: -4px 12px 0 0; border-radius: 2px; box-shadow: 0 0 0 1px var(--line); }
 
 .icon { vertical-align: -0.15em; flex: none; }
 .star.on .icon { color: var(--series-2); }
@@ -501,3 +498,43 @@ tbody td:first-child { z-index: 1; }
 /* Season switcher: the current season as the selected tab, All-time as a link styled like the other tabs */
 .tabs .tab-link { padding: 8px 14px; border: 1px solid var(--line); border-radius: 3px; background: var(--card); color: var(--muted); font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
 .tabs .tab-link:hover { color: var(--text); }
+
+/* Player page header: the picture stays beside the name on every tab */
+.player-head { display: flex; align-items: center; gap: 20px; margin-bottom: 8px; }
+.player-head > div { min-width: 0; }
+.player-head p { margin-bottom: 0; }
+.headshot-lg { width: 96px; height: 96px; }
+.headshot-blank { display: inline-flex; align-items: center; justify-content: center; background: var(--accent-bg); color: var(--muted); font-family: var(--display); font-size: 30px; font-weight: 700; letter-spacing: .04em; }
+@media (max-width: 600px) { .player-head { gap: 14px; } .headshot-lg { width: 64px; height: 64px; } .headshot-blank { font-size: 22px; } }
+
+.player-bio { margin: 6px 0 10px; }
+.player-bio .bio-line { margin: 0 0 4px; }
+
+/* Rank under a stat tile's number, e.g. '12th of 704' */
+.tile-rank { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.rank-table td, .rank-table th { white-space: nowrap; }
+
+/* Player search in the top bar */
+.global-search { margin-left: auto; align-self: center; flex: none; }
+.global-search input { width: 190px; padding: 7px 12px; border: 1px solid #34445c; border-radius: 3px; background: rgb(255 255 255 / .08); color: #fff; font: inherit; font-size: 14px; }
+.global-search input::placeholder { color: #8d99ab; }
+.global-search input:focus { outline: 2px solid var(--red); outline-offset: 1px; background: rgb(255 255 255 / .14); }
+.search-list { position: fixed; z-index: 30; margin: 0; padding: 4px; list-style: none; background: var(--card); border: 1px solid var(--line); border-radius: 3px; box-shadow: 0 6px 18px rgb(0 0 0 / .25); }
+.search-list button { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 10px; background: none; border: 0; border-radius: 3px; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.search-list button.on { background: var(--accent-bg); }
+.search-list small { color: var(--muted); white-space: nowrap; }
+.search-empty { padding: 8px 10px; color: var(--muted); }
+@media (max-width: 600px) { .global-search input { width: 140px; } }
+
+/* Season picker on the Skaters and Goalies pages */
+.season-pick { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.season-pick select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--card); color: var(--text); font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; }
+
+.awards-table td, .awards-table th { white-space: normal; }
+.awards-table td.left:last-child { min-width: 260px; }
+
+/* Lines and pairings on the game page */
+.game-lines { margin-bottom: 20px; }
+.game-lines h3 { margin: 18px 0 8px; font-size: 16px; }
+.game-lines .table-wrap + .table-wrap { margin-top: 12px; }
+.lines-table td.left { white-space: normal; }

@@ -6,7 +6,7 @@ and prints held-out calibration so the model can be judged before it's used.
 
 Usage: python train_xg.py data/shots_2025.jsonl.gz
 """
-import gzip, json, math, random, sys
+import gzip, json, random, sys
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -15,11 +15,6 @@ from sklearn.metrics import log_loss, roc_auc_score
 import shots
 
 TYPES = ["wrist", "snap", "slap", "backhand", "tip-in", "deflected", "wrap-around", "poke", "bat", "between-legs", "cradle"]
-
-
-def row_features(s):
-    """Feature vector for one shot dict (shared with scoring via shots.xg)."""
-    return shots.features(s)
 
 
 def main(path):

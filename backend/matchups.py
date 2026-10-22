@@ -89,3 +89,28 @@ def schedule_summary(ratios):
     if not ratios:
         return {"games": 0, "avg": None, "index": 0.0}
     return {"games": len(ratios), "avg": sum(ratios) / len(ratios), "index": sum(r - 1 for r in ratios)}
+
+
+MIRROR = {"tired": "edge", "edge": "tired"}   # the opponent's rest situation, seen from the other bench
+
+
+def rest_shift(gaps, kind):
+    """Goals a game a team scores more (+) or fewer (-) than usual in this rest situation; 0 unless tired or edge.
+    gaps: {kind: goals-for gap} from fatigue.effects; a missing figure counts as 0."""
+    return (gaps or {}).get(kind) or 0.0
+
+
+def skater_game_ratio(opp_ratio, own_kind, gaps, goals_pg):
+    """A skater's game ratio (see skater_ratio) scaled by how rest moves their own team's scoring."""
+    if opp_ratio is None or not goals_pg:
+        return opp_ratio
+    return opp_ratio * (1 + rest_shift(gaps, own_kind) / goals_pg)
+
+
+def goalie_game_ratio(opp_off_ratio, own_kind, gaps, goals_pg):
+    """A goalie's game ratio against an offense of opp_off_ratio, scaled by how rest moves that offense's scoring."""
+    if opp_off_ratio is None:
+        return None
+    if not goals_pg:
+        return 2 - opp_off_ratio
+    return 2 - opp_off_ratio * (1 + rest_shift(gaps, MIRROR.get(own_kind, own_kind)) / goals_pg)

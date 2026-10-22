@@ -4,6 +4,7 @@ import { CompareChart } from '../components/Charts.jsx'
 import { ageInSeason, nhlSeasons, seasonGaa, seasonLabel, seasonSvPct } from '../career.js'
 import { fmt1, fmtPct, fmtToi } from '../format.js'
 import { DefenseCompare } from '../components/DefenseProfile.jsx'
+import ShareButtons from '../components/ShareButtons.jsx'
 import { GOALIE_CATS, SKATER_CATS, fantasyPoints, useScoring } from '../fantasy.js'
 
 const MAX_PLAYERS = 3
@@ -232,6 +233,26 @@ export default function Compare() {
         ['Power-play points / 60', (p) => p.season?.pp_points_per60, 'max', fmt1],
       ]
 
+  // Image card: the career table when careers are loaded, else this season's table
+  const cardPlayers = players.some((p) => p.career) ? players.filter((p) => p.career) : players.filter((p) => p.season)
+  const cardRows = (players.some((p) => p.career) ? careerRows : seasonRows).slice(0, 10)
+  const card = cardPlayers.length > 0 && {
+    title: cardPlayers.map((p) => p.name).join(' vs ') || 'Compare',
+    subtitle: players.some((p) => p.career) ? 'NHL career, regular season' : 'This season',
+    columns: cardPlayers.map((p) => lastName(p.name)),
+    rows: cardRows.map(([label, get, best, fmt]) => {
+      const vals = cardPlayers.map((p) => get(p))
+      const nums = vals.filter((v) => v != null && !Number.isNaN(v))
+      const target = best && nums.length > 1 ? (best === 'max' ? Math.max(...nums) : Math.min(...nums)) : null
+      return {
+        label,
+        cells: vals.map((v) => (v == null || Number.isNaN(v) ? '–' : fmt ? fmt(v) : num(v))),
+        best: target == null ? null : vals.findIndex((v) => v === target),
+      }
+    }),
+    footer: 'Stats from the NHL API',
+  }
+
   return (
     <main>
       <header>
@@ -278,6 +299,7 @@ export default function Compare() {
         )}
       </div>
 
+      {card && <ShareButtons card={card} filename="compare.png" />}
       {ids.length === 0 && <p className="status">Search for a {isGoalie ? 'goalie' : 'player'} above to begin.</p>}
       {players.some((p) => p.error) && (
         <p className="notice">

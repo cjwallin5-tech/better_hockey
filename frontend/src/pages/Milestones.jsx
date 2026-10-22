@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { describe } from '../glossary.js'
 
 const day = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -83,8 +84,8 @@ export default function Milestones() {
         <table>
           <thead>
             <tr>
-              <th className="left">Player</th><th className="left">Team</th><th className="left">Milestone</th>
-              <th>Career now</th><th>To go</th><th>Est. games</th><th className="left">When</th>
+              <th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th className="left">Milestone</th>
+              <th title={describe('Career now')}>Career now</th><th title={describe('To go')}>To go</th><th title={describe('Est. games')}>Est. games</th><th className="left">When</th>
             </tr>
           </thead>
           <tbody>
@@ -109,7 +110,7 @@ export default function Milestones() {
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th className="left">Player</th><th className="left">Team</th><th className="left">Milestone</th><th className="left">Date</th><th className="left">Opponent</th></tr>
+            <tr><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th className="left">Milestone</th><th className="left">Date</th><th className="left">Opponent</th></tr>
           </thead>
           <tbody>
             {reached.map((m) => (

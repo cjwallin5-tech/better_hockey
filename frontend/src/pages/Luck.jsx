@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { useUrlSync } from '../urlState.js'
+import { describe } from '../glossary.js'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
@@ -94,14 +95,14 @@ function SkaterBoard({ dir, rank, setRank, vs, setVs, position, setPosition, min
           <table>
             <thead>
               <tr>
-                <th>#</th><th className="left">Player</th><th className="left">Team</th><th className="left">Pos</th>
-                <th>GP</th><th>Points</th><th>xPts</th><th>Pts luck</th><th title="Of the points luck, the part from assists">Assist part</th><th>Pts Z</th>
+                <th>#</th><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th className="left" title={describe('Pos')}>Pos</th>
+                <th title={describe('GP')}>GP</th><th>Points</th><th title={describe('xPts')}>xPts</th><th title={describe('Pts luck')}>Pts luck</th><th title="Of the points luck, the part from assists">Assist part</th><th title={describe('Pts Z')}>Pts Z</th>
                 <th title="Goals minus xG over earlier seasons we have shots for. Positive means a history of finishing above the shots.">Past G − xG</th>
-                <th>Attempts</th><th>Goals</th><th>xG</th><th>G − xG</th><th>Goals Z</th>
-                <th>Sh%</th><th>xSh%</th><th>{data.games}-game pace (G / xG)</th>
+                <th title={describe('Attempts')}>Attempts</th><th>Goals</th><th title={describe('xG')}>xG</th><th title={describe('G − xG')}>G − xG</th><th title={describe('Goals Z')}>Goals Z</th>
+                <th title={describe('Sh%')}>Sh%</th><th title={describe('xSh%')}>xSh%</th><th>{data.games}-game pace (G / xG)</th>
                 <th title="5v5 goals for minus against, compared with the expected goals for minus against, while on the ice">On-ice luck</th>
                 <th title="On-ice shooting % plus save % at 5v5 (NHL figure). 1.000 is average; far above tends to drift back.">PDO</th>
-                <th className="left">Status</th>
+                <th className="left" title={describe('Status')}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -154,9 +155,9 @@ function GoalieBoard({ dir, min, setMin }) {
           <table>
             <thead>
               <tr>
-                <th>#</th><th className="left">Goalie</th><th className="left">Team</th><th>GP</th><th>Shots faced</th>
-                <th>Goals allowed</th><th>xGA</th><th>GSAx</th><th>Per 100 shots</th><th>Z</th><th>Sv%</th><th>xSv%</th>
-                <th className="left">Status</th>
+                <th>#</th><th className="left">Goalie</th><th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th><th title={describe('Shots faced')}>Shots faced</th>
+                <th title={describe('Goals allowed')}>Goals allowed</th><th title={describe('xGA')}>xGA</th><th title={describe('GSAx')}>GSAx</th><th title={describe('Per 100 shots')}>Per 100 shots</th><th title={describe('Z')}>Z</th><th title={describe('Sv%')}>Sv%</th><th title={describe('xSv%')}>xSv%</th>
+                <th className="left" title={describe('Status')}>Status</th>
               </tr>
             </thead>
             <tbody>

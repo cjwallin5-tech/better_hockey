@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CompareChart } from './Charts.jsx'
 import { seasonLabel } from '../career.js'
+import { describe } from '../glossary.js'
 
 const CHART_MATCHES = 2
 const lastName = (name) => name.split(' ').slice(-1)[0]
@@ -71,8 +72,8 @@ export default function Comparables({ playerId }) {
             <table>
               <thead>
                 <tr>
-                  <th className="left">Player</th><th className="left">Pos</th><th>Match</th><th>Seasons compared</th>
-                  <th className="left">Career</th><th>GP</th><th>P</th><th>Peak age</th>
+                  <th className="left">Player</th><th className="left" title={describe('Pos')}>Pos</th><th>Match</th><th>Seasons compared</th>
+                  <th className="left">Career</th><th title={describe('GP')}>GP</th><th title={describe('P')}>P</th><th>Peak age</th>
                   {player.active && <th title="Points after this player's current age, scaled to today's scoring level">Points after</th>}
                 </tr>
               </thead>

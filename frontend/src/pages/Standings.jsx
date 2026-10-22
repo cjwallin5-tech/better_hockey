@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import PlayoffOdds from '../components/PlayoffOdds.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { fmt1, fmtPct, STABLE_GP } from '../format.js'
+import { describe } from '../glossary.js'
 
 const VIEWS = [
   { id: 'division', label: 'Division', rank: 'division_rank', group: (t) => t.division, order: ['Atlantic', 'Metropolitan', 'Central', 'Pacific'] },
@@ -92,10 +93,10 @@ export default function Standings() {
             <table>
               <thead>
                 <tr>
-                  <th className="left">Team</th>
-                  <th>GP</th><th>W</th><th>L</th><th>OTL</th><th>PTS</th><th>P%</th>
-                  <th>Pace ({games})</th><th>GF</th><th>GA</th><th>Diff</th>
-                  <th>PP%</th><th>PK%</th><th>L10</th><th>Strk</th>
+                  <th className="left" title={describe('Team')}>Team</th>
+                  <th title={describe('GP')}>GP</th><th title={describe('W')}>W</th><th title={describe('L')}>L</th><th title={describe('OTL')}>OTL</th><th title={describe('PTS')}>PTS</th><th title={describe('P%')}>P%</th>
+                  <th>Pace ({games})</th><th title={describe('GF')}>GF</th><th title={describe('GA')}>GA</th><th title={describe('Diff')}>Diff</th>
+                  <th title={describe('PP%')}>PP%</th><th title={describe('PK%')}>PK%</th><th title={describe('L10')}>L10</th><th title={describe('Strk')}>Strk</th>
                 </tr>
               </thead>
               <tbody>

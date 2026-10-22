@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MatchupTag } from './Matchups.jsx'
 import { streamingBoard } from '../streaming.js'
+import { describe } from '../glossary.js'
 
 const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const pct = (p) => `${Math.round(p * 100)}%`
@@ -76,7 +77,7 @@ export default function StreamingGoalies({ scoring, categories, rosterIds, onAdd
           <table>
             <thead>
               <tr>
-                <th>#</th><th className="left">Goalie</th><th className="left">Team</th>
+                <th>#</th><th className="left">Goalie</th><th className="left" title={describe('Team')}>Team</th>
                 <th title="Sum of his chances to start each game">Expected starts</th>
                 <th className="left">Games (chance to start)</th>
                 <th title="Expected wins over the window">Exp wins</th><th title="Expected goals against over the window">Exp GA</th>

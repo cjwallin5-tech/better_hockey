@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { GOALIE_CATEGORIES, SKATER_CATEGORIES } from '../categoryDefs.js'
 import { tradeSummary } from '../value.js'
 import { LuckBadge, useLuck } from './Luck.jsx'
 import { RoleBadge, useRoles } from './Roles.jsx'
+import { describe } from '../glossary.js'
+import ShareButtons from './ShareButtons.jsx'
 
 const signedZ = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`
 const signed = (v, d = 0) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`
@@ -49,8 +51,8 @@ function Side({ title, ids, setIds, side, pool, taken, info, luck, roles, roster
           <table>
             <thead>
               {cats
-                ? <tr><th className="left">Player</th><th className="left">Pos</th><th>Games left</th><th title="Total z-score above replacement over the rest of the season">Value</th><th /></tr>
-                : <tr><th className="left">Player</th><th className="left">Pos</th><th>Expected FP/GP</th><th>Games left</th><th>Projected FP</th><th>Value</th><th /></tr>}
+                ? <tr><th className="left">Player</th><th className="left" title={describe('Pos')}>Pos</th><th title={describe('Games left')}>Games left</th><th title="Total z-score above replacement over the rest of the season">Value</th><th /></tr>
+                : <tr><th className="left">Player</th><th className="left" title={describe('Pos')}>Pos</th><th title={describe('Expected FP/GP')}>Expected FP/GP</th><th title={describe('Games left')}>Games left</th><th title={describe('Projected FP')}>Projected FP</th><th title={describe('Value')}>Value</th><th /></tr>}
             </thead>
             <tbody>
               {ids.map((id) => {
@@ -95,8 +97,11 @@ function Side({ title, ids, setIds, side, pool, taken, info, luck, roles, roster
  * to you. Hot/cold badges (luck) and role-change badges show what the raw numbers don't.
  */
 export default function TradeAnalyzer({ data, values, roster, categories }) {
-  const [give, setGive] = useState([])
-  const [get, setGet] = useState([])
+  const [params, setParams] = useSearchParams()
+  const idList = (key) => (params.get(key) ?? '').split(',').map(Number).filter(Boolean)
+  // the picks live in the URL (?give=1,2&get=3) so a trade can be shared; read once, then written back on change
+  const [give, setGive] = useState(() => idList('give'))
+  const [get, setGet] = useState(() => idList('get'))
   const info = useMemo(() => new Map([
     ...data.skaters.map((r) => [r.player_id, { id: r.player_id, kind: 'skater', name: r.name, team: r.team, pos: r.position }]),
     ...data.goalies.map((r) => [r.player_id, { id: r.player_id, kind: 'goalie', name: r.name, team: r.team, pos: 'G' }]),
@@ -104,6 +109,15 @@ export default function TradeAnalyzer({ data, values, roster, categories }) {
   const pool = useMemo(() => [...info.values()], [info])
   const taken = useMemo(() => new Set([...give, ...get]), [give, get])
   const t = useMemo(() => tradeSummary(give, get, values), [give, get, values])
+  useEffect(() => {
+    const next = new URLSearchParams(params)
+    for (const [key, ids] of [['give', give], ['get', get]]) {
+      if (ids.length) next.set(key, ids.join(','))
+      else next.delete(key)
+    }
+    if (next.toString() !== params.toString()) setParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [give, get])
   const luck = useLuck([...give, ...get])
   const roles = useRoles([...give, ...get].filter((id) => info.get(id)?.kind === 'skater'))
   const rosterOptions = roster.filter((p) => info.has(p.id)).map((p) => ({ id: p.id, name: info.get(p.id).name }))
@@ -116,6 +130,29 @@ export default function TradeAnalyzer({ data, values, roster, categories }) {
         .filter((d) => d.key in t.give.z || d.key in t.get.z)
     : []
   const ready = give.length > 0 && get.length > 0
+  const verdict = even
+    ? 'About even'
+    : categories
+      ? (t.net > 0 ? `Gain about ${signedZ(t.net)} of value` : `Give up about ${signedZ(Math.abs(t.net))} of value`)
+      : (t.net > 0 ? `Gain about ${signed(t.net)} points of value` : `Give up about ${signed(Math.abs(t.net))} points of value`)
+  const names = (ids) => ids.map((id) => info.get(id)?.name).filter(Boolean).join(', ')
+  const card = ready && {
+    title: 'Trade check',
+    subtitle: `Give ${names(give)}  |  Get ${names(get)}`,
+    columns: ['You give', 'You get', 'Net'],
+    rows: categories
+      ? catRows.map((d) => {
+          const g = t.give.z[d.key] ?? 0
+          const r = t.get.z[d.key] ?? 0
+          return { label: d.label, cells: [signedZ(g), signedZ(r), signedZ(r - g)], best: r - g >= 0 ? 2 : null }
+        })
+      : [
+          { label: 'Projected points', cells: [t.give.projected.toFixed(0), t.get.projected.toFixed(0), signed(t.netProjected)], best: null },
+          { label: 'Value over the rest of the season', cells: [signed(t.give.value), signed(t.get.value), signed(t.net)], best: 2 },
+        ],
+    verdict,
+    footer: 'Value is over a replacement-level free agent for the rest of the season, under my league settings.',
+  }
   const sizeNote = give.length !== get.length
     ? `You give ${give.length} and get ${get.length}: ${give.length > get.length ? 'the extra open roster spots' : 'the extra players need roster spots, and whoever you drop'} would be filled by a replacement-level pickup, who is worth 0 here, so it is already counted.`
     : null
@@ -148,10 +185,11 @@ export default function TradeAnalyzer({ data, values, roster, categories }) {
           {sizeNote && <><br />{sizeNote}</>}
         </div>
       ) : <p className="status">Add at least one player to each side to compare.</p>}
+      {ready && <ShareButtons card={card} filename="trade-check.png" />}
       {ready && catRows.length > 0 && (
         <div className="table-wrap">
           <table>
-            <thead><tr><th className="left">Category</th><th>You give</th><th>You get</th><th>Net</th></tr></thead>
+            <thead><tr><th className="left">Category</th><th>You give</th><th>You get</th><th title={describe('Net')}>Net</th></tr></thead>
             <tbody>
               {catRows.map((d) => {
                 const give = t.give.z[d.key] ?? 0

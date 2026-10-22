@@ -16,7 +16,6 @@ Method (deliberately simple, and the page says so):
 import math
 import statistics
 from collections import defaultdict
-from datetime import date
 
 MIN_GP = 20
 MIN_SEASONS = 2         # target needs this many qualifying seasons

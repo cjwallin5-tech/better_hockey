@@ -34,7 +34,7 @@ export default function DigestToggle() {
       <h2>Daily roster email</h2>
       <label className="check">
         <input type="checkbox" checked={pref.enabled} onChange={(e) => change(e.target.checked)} />
-        Email me each morning: which of my players have a game today, who's hot, and who's missing games.
+        Email me each morning: which of my players have a game today, who's hot, and who's missing games, plus a section for your watchlist.
       </label>
       {pref.enabled && !pref.email_configured && (
         <p className="muted">

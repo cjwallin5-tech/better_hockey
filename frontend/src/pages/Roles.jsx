@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { mmss, signedMmss } from '../components/Roles.jsx'
 import { useUrlSync } from '../urlState.js'
+import { describe } from '../glossary.js'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -77,9 +78,9 @@ export default function Roles() {
           <table>
             <thead>
               <tr>
-                <th>#</th><th className="left">Player</th><th className="left">Team</th><th className="left">Pos</th><th>GP</th>
-                <th className="left">Power-play unit</th><th>PP time / game</th><th>PP share</th>
-                <th>Even strength / game</th><th>Total / game</th><th className="left">What changed</th>
+                <th>#</th><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th className="left" title={describe('Pos')}>Pos</th><th title={describe('GP')}>GP</th>
+                <th className="left" title={describe('Power-play unit')}>Power-play unit</th><th title={describe('PP time / game')}>PP time / game</th><th title={describe('PP share')}>PP share</th>
+                <th title={describe('Even strength / game')}>Even strength / game</th><th title={describe('Total / game')}>Total / game</th><th className="left">What changed</th>
               </tr>
             </thead>
             <tbody>

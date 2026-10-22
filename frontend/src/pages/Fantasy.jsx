@@ -11,11 +11,13 @@ import { RoleBadge, useRoles } from '../components/Roles.jsx'
 import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints, useFantasy, useLeague, useScoring } from '../fantasy.js'
 import PlayerValues from '../components/PlayerValues.jsx'
 import TradeAnalyzer from '../components/TradeAnalyzer.jsx'
+import TradeIdeas from '../components/TradeIdeas.jsx'
 import StreamingGoalies from '../components/StreamingGoalies.jsx'
 import { GROUPS, cleanLeague, playerValues } from '../value.js'
 import { categoryValues } from '../categories.js'
 import { CATEGORY_PRESETS, GOALIE_CATEGORIES, SKATER_CATEGORIES } from '../categoryDefs.js'
 import { fmt1 } from '../format.js'
+import { describe } from '../glossary.js'
 
 const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
@@ -230,7 +232,7 @@ export default function Fantasy() {
                   <div className="table-wrap">
                     <table>
                       <thead>
-                        <tr><th className="left">Player</th><th className="left">Team</th><th>GP</th><th>G</th><th>A</th><th>P</th>{isCats ? <th title="Value over the rest of the season in your categories (z-scores above replacement)">Value</th> : <><th>Fantasy pts</th><th>Per GP</th></>}<th>Pace</th><th>L10 P</th><th>L10 pace</th><th /></tr>
+                        <tr><th className="left">Player</th><th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th>{isCats ? <th title="Value over the rest of the season in your categories (z-scores above replacement)">Value</th> : <><th title={describe('Fantasy pts')}>Fantasy pts</th><th title={describe('Per GP')}>Per GP</th></>}<th title={describe('Pace')}>Pace</th><th title={describe('L10 P')}>L10 P</th><th title={describe('L10 pace')}>L10 pace</th><th /></tr>
                       </thead>
                       <tbody>
                         {skaterRows.map(({ p, row }) => (
@@ -287,7 +289,7 @@ export default function Fantasy() {
                   <div className="table-wrap">
                     <table>
                       <thead>
-                        <tr><th className="left">Goalie</th><th className="left">Team</th><th>GP</th><th>W</th><th>L</th>{isCats ? <th title="Value over the rest of the season in your categories (z-scores above replacement)">Value</th> : <><th>Fantasy pts</th><th>Per GP</th></>}<th>SV%</th><th>GAA</th><th>GSAA</th><th>Recent SV%</th><th /></tr>
+                        <tr><th className="left">Goalie</th><th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th><th title={describe('W')}>W</th><th title={describe('L')}>L</th>{isCats ? <th title="Value over the rest of the season in your categories (z-scores above replacement)">Value</th> : <><th title={describe('Fantasy pts')}>Fantasy pts</th><th title={describe('Per GP')}>Per GP</th></>}<th title={describe('SV%')}>SV%</th><th title={describe('GAA')}>GAA</th><th title={describe('GSAA')}>GSAA</th><th title={describe('Recent SV%')}>Recent SV%</th><th /></tr>
                       </thead>
                       <tbody>
                         {goalieRows.map(({ p, row }) => (
@@ -362,6 +364,11 @@ export default function Fantasy() {
             id: 'values',
             label: 'Player values',
             content: values ? <PlayerValues data={data} values={values} rosterIds={taken} onAdd={addValued} categories={isCats ? leagueCfg.categories : null} /> : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'ideas',
+            label: 'Trade ideas',
+            content: values ? <TradeIdeas data={data} values={values} roster={list.players} /> : <p className="status">Loading…</p>,
           },
           {
             id: 'trade',

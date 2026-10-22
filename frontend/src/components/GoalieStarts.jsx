@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { describe } from '../glossary.js'
 
 const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const pct = (p) => (p == null ? '–' : `${Math.round(p * 100)}%`)
@@ -37,7 +38,7 @@ export default function GoalieStarts({ players }) {
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th className="left">Goalie</th><th className="left">Team</th><th title="Sum of the start chances below">Expected starts</th><th className="left">Games</th></tr>
+            <tr><th className="left">Goalie</th><th className="left" title={describe('Team')}>Team</th><th title="Sum of the start chances below">Expected starts</th><th className="left">Games</th></tr>
           </thead>
           <tbody>
             {data.goalies.map((g) => (

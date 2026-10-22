@@ -5,6 +5,8 @@ import LiveGames from '../components/LiveGames.jsx'
 import ProbableGoalies from '../components/ProbableGoalies.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { fmt1, fmtToi } from '../format.js'
+import MovingUp from '../components/MovingUp.jsx'
+import { describe } from '../glossary.js'
 
 const longDay = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -156,6 +158,11 @@ export default function Home() {
             ),
           },
           {
+            id: 'rising',
+            label: 'Moving up',
+            content: <div className="home-grid"><MovingUp /></div>,
+          },
+          {
             id: 'pace',
             label: 'Pace leaders',
             content: <div className="home-grid">
@@ -178,7 +185,7 @@ export default function Home() {
           <h2>Goaltending leaders</h2>
           <p className="muted small">By goals saved above average.</p>
           <table className="mini">
-            <thead><tr><th /><th className="num">SV%</th><th className="num">GAA</th><th className="num">GSAA</th></tr></thead>
+            <thead><tr><th /><th className="num" title={describe('SV%')}>SV%</th><th className="num" title={describe('GAA')}>GAA</th><th className="num" title={describe('GSAA')}>GSAA</th></tr></thead>
             <tbody>
               {data.goalies.map((g) => (
                 <tr key={g.player_id}>
