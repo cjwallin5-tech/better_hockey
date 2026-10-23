@@ -17,6 +17,7 @@ import DefenseProfile from '../components/DefenseProfile.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
 import LuckPanel from '../components/Luck.jsx'
 import Projection from '../components/Projection.jsx'
+import Explain from '../components/Explain.jsx'
 import { SkaterForm } from '../components/Form.jsx'
 import { RolePanel } from '../components/Roles.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
@@ -113,6 +114,7 @@ export default function Player() {
       </header>
 
       <Context playerId={p.player_id} />
+      <Explain playerId={p.player_id} />
       <Projection playerId={p.player_id} />
       <Trophies playerId={p.player_id} />
 

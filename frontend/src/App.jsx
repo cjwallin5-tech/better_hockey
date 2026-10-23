@@ -23,6 +23,9 @@ import Account from './pages/Account.jsx'
 import Watchlist from './pages/Watchlist.jsx'
 import Projections from './pages/Projections.jsx'
 import Rest from './pages/Rest.jsx'
+import Prospects from './pages/Prospects.jsx'
+import Prospect from './pages/Prospect.jsx'
+import SpecialTeams from './pages/SpecialTeams.jsx'
 import { initAuth, useAuth } from './auth.js'
 import Fantasy from './pages/Fantasy.jsx'
 import Standings from './pages/Standings.jsx'
@@ -70,6 +73,9 @@ function Pages() {
         <Route path="/trophy/:id" element={<Trophy />} />
         <Route path="/account" element={<Account />} />
         <Route path="/fantasy" element={<Fantasy />} />
+        <Route path="/special-teams" element={<SpecialTeams />} />
+        <Route path="/prospects" element={<Prospects />} />
+        <Route path="/prospect/:id" element={<Prospect />} />
         <Route path="/rest" element={<Rest />} />
         <Route path="/projections" element={<Projections />} />
         <Route path="/watchlist" element={<Watchlist />} />
@@ -95,7 +101,7 @@ export default function App() {
         <NavLink to="/goalies">Goalies</NavLink>
         <NavLink to="/standings">Standings</NavLink>
         <NavLink to="/fantasy">Fantasy</NavLink>
-        <NavMore items={[['/compare', 'Compare'], ['/watchlist', 'Watchlist'], ['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/trophy', 'Trophy winners'], ['/schedule', 'Schedule grid'], ['/rest', 'Back-to-backs'], ['/head-to-head', 'Head-to-head'], ['/tracking', 'Speed & shots'], ['/projections', 'Projections'], ['/luck', 'Luck & regression'], ['/matchups', 'Matchups']]} />
+        <NavMore items={[['/compare', 'Compare'], ['/prospects', 'Prospects'], ['/watchlist', 'Watchlist'], ['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/trophy', 'Trophy winners'], ['/schedule', 'Schedule grid'], ['/rest', 'Back-to-backs'], ['/special-teams', 'Special teams'], ['/head-to-head', 'Head-to-head'], ['/tracking', 'Speed & shots'], ['/projections', 'Projections'], ['/luck', 'Luck & regression'], ['/matchups', 'Matchups']]} />
         <GlobalSearch />
         <NavLink to="/account" className="nav-account">{user ? user.email : 'Log in'}</NavLink>
         <button className="theme-toggle" onClick={toggle} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Switch to light theme' : 'Switch to dark theme'}>

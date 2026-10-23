@@ -135,12 +135,13 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam, goalie = fals
           ))}
         </ul>
       )}
+      {playerId && team && !data && !error ? <p className="status">Loading… the first lookup of a player pulls their older seasons from the NHL.</p> : null}
       {!playerId || !team ? <p className="status">Search for a {goalie ? 'goalie' : 'skater'} and pick a team to see how {goalie ? 'they have played' : 'they score'} against them.</p> : null}
       {error && <p className="status">{error}</p>}
       {data && vs.games === 0 && (
         <p className="status">
-          {data.player.name} has no stored games against {data.team.name}. We keep game-by-game lines for this season and the
-          previous four, so older or retired players may have none.
+          {data.player.name} has no games against {data.team.name} on record since 2005-06. Players whose careers ended earlier
+          have none.
         </p>
       )}
       {data && vs.games > 0 && goalie && (
@@ -155,7 +156,7 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam, goalie = fals
           <p className="sub">
             Over {data.stored_games} stored games, {data.player.name} stopped {svp(vs.save_pct)} of shots against {data.team.abbrev} and{' '}
             {svp(rest.save_pct)} against everyone else. {vs.shots_against < 400 ? `Only ${vs.shots_against} shots were faced, so a gap here is more likely noise than a matchup effect.` : ''}{' '}
-            Past seasons are rebuilt from stored shots, so a game with no usable shot data is missing.
+            Seasons since 2022-23 are rebuilt from stored shots, so a game with no usable shot data is missing; earlier seasons come from the NHL's game logs.
           </p>
           <h2>By season</h2>
           <div className="table-wrap">
@@ -244,8 +245,9 @@ export default function HeadToHead() {
       <header>
         <h1>Head-to-head</h1>
         <p>
-          How teams, skaters and goalies have done against each other. Covers this season and the previous four; the
-          Coyotes' games count toward Utah.
+          How teams, skaters and goalies have done against each other, going back to 2005-06 (the first shootout season). The
+          Coyotes' games count toward Utah and the Thrashers' toward Winnipeg. A player's seasons before 2022-23 are fetched
+          from the NHL the first time you look them up, so that first look can take a few seconds.
         </p>
       </header>
       <div className="tabs" role="tablist">

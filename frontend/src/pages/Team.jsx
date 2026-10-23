@@ -4,6 +4,8 @@ import { TeamLines } from '../components/Lines.jsx'
 import PaceHistory from '../components/PaceHistory.jsx'
 import Schedule from '../components/Schedule.jsx'
 import { TeamShots } from '../components/Shots.jsx'
+import SpecialTeams from '../components/SpecialTeams.jsx'
+import TeamProspects from '../components/TeamProspects.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import WatchButton from '../components/WatchButton.jsx'
 import { fmt1, fmtPct, fmtToi, STABLE_GP } from '../format.js'
@@ -80,6 +82,8 @@ export default function Team() {
 
       <Schedule abbrev={t.abbrev} />
 
+      <SpecialTeams abbrev={t.abbrev} />
+
       <TeamLines abbrev={t.abbrev} />
 
       <TeamShots abbrev={t.abbrev} />
@@ -120,6 +124,8 @@ export default function Team() {
           </table>
         </div>
       )}
+
+      <TeamProspects abbrev={t.abbrev} />
 
       <h2>Roster</h2>
       <p className="sub">

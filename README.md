@@ -136,9 +136,14 @@ and never refreshed, so when a new season starts the one that just finished stop
   (combinations under a minute are left out), with ice time, shot attempts for and against, CF% and goals. The defense pairs are the rows
   of `pair_game` where both players are defensemen, since that table holds every two skaters who shared the ice. The shot map (game, team
   and player pages) has a Period filter (1st, 2nd, 3rd, overtime) next to the strength filter.
-- **Head-to-head** (`/head-to-head`, under More, and linked from every game page): team-vs-team results and a skater's scoring against a
-  team, over this season and the previous four (the games we store). Past seasons are paired into opponents by
-  `ingest_team_abbrevs`; the Coyotes' games count toward Utah. Goalies aren't covered.
+- **Head-to-head** (`/head-to-head`, under More, and linked from every game page): team-vs-team results, a skater's scoring against a
+  team, and a goalie's save percentage against a team, since 2005-06. This season and the previous four come from the games we store
+  (past seasons are paired into opponents by `ingest_team_abbrevs`); earlier seasons come from `game_hist`, each club's season
+  schedule, loaded once by `python ingest.py backfill-games-hist` from `backend/` (resumable; about 540 requests), and from a player's
+  NHL game logs, fetched and stored the first time someone looks that player up (`oldgames.py`, `oldgames_db.py`). The Coyotes' games
+  count toward Utah and the Thrashers' toward Winnipeg. When a new season starts, the oldest stored season falls into the older group
+  and the `backfill-games-hist` command needs another run to pick it up (the lookups for individual players also won't include it until
+  their stored games are refetched).
 - **Saved views**: signed-in users can save the current filters and sort on the skater, goalie and all-time leaderboards under
   a name (up to 30) and reopen them with one click. A view is just the page's URL query string, kept per account.
 - **Era-adjusted scoring**: the All-Time page's "Era-adjusted" view and the Compare page's adjusted charts rescale each season's

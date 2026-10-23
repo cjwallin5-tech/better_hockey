@@ -374,3 +374,78 @@ CREATE TABLE IF NOT EXISTS skater_game_toi (
 );
 CREATE INDEX IF NOT EXISTS skater_game_toi_player ON skater_game_toi (player_id, season_id, game_date DESC);
 CREATE INDEX IF NOT EXISTS skater_game_toi_team ON skater_game_toi (season_id, team, game_date DESC);
+
+-- Players on NHL teams' prospect lists and their season-by-season lines in every league (see prospects.py).
+CREATE TABLE IF NOT EXISTS prospect (
+    player_id     INTEGER PRIMARY KEY,
+    team          TEXT NOT NULL,          -- the NHL team whose list they are on
+    name          TEXT NOT NULL,
+    position      TEXT,
+    shoots        TEXT,
+    birth_date    DATE,
+    birth_country TEXT,
+    height_in     INTEGER,
+    weight_lb     INTEGER,
+    headshot      TEXT,
+    draft_year    INTEGER,
+    draft_round   INTEGER,
+    draft_pick    INTEGER,
+    draft_overall INTEGER,
+    draft_team    TEXT,
+    on_list       BOOLEAN NOT NULL DEFAULT true,   -- false once they leave every team's list (usually: made the NHL)
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS prospect_season (
+    player_id  INTEGER NOT NULL,
+    season_id  INTEGER NOT NULL,
+    game_type  INTEGER NOT NULL,          -- 2 regular season, 3 playoffs
+    league     TEXT NOT NULL,
+    team_name  TEXT NOT NULL,
+    games      INTEGER NOT NULL,
+    goals      INTEGER,
+    assists    INTEGER,
+    points     INTEGER,
+    pim        INTEGER,
+    plus_minus INTEGER,
+    wins       INTEGER,                   -- goalies
+    save_pct   REAL,
+    gaa        REAL,
+    PRIMARY KEY (player_id, season_id, game_type, league, team_name)
+);
+CREATE INDEX IF NOT EXISTS prospect_season_season ON prospect_season (season_id, league);
+
+-- Regular-season games from 2005-06 up to the seasons stored game by game, so head-to-head can reach further back
+-- (see oldgames.py). One row per game, team codes as today's franchises; filled by `python ingest.py backfill-games-hist`.
+CREATE TABLE IF NOT EXISTS game_hist (
+    game_id     BIGINT PRIMARY KEY,
+    season_id   INTEGER NOT NULL,
+    game_date   DATE NOT NULL,
+    home        TEXT NOT NULL,
+    away        TEXT NOT NULL,
+    home_score  INTEGER NOT NULL,
+    away_score  INTEGER NOT NULL,
+    last_period TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS game_hist_teams ON game_hist (home, away);
+CREATE TABLE IF NOT EXISTS game_hist_fetched (   -- club schedules already pulled, so the backfill can resume
+    team       TEXT NOT NULL,
+    season_id  INTEGER NOT NULL,
+    PRIMARY KEY (team, season_id)
+);
+-- A player's older games, fetched from the NHL the first time head-to-head is asked about them.
+CREATE TABLE IF NOT EXISTS player_game_old (
+    player_id     INTEGER NOT NULL,
+    game_id       BIGINT NOT NULL,
+    season_id     INTEGER NOT NULL,
+    game_date     DATE NOT NULL,
+    opponent      TEXT NOT NULL,
+    goals         INTEGER NOT NULL,
+    assists       INTEGER NOT NULL,
+    shots_against INTEGER NOT NULL,
+    goals_against INTEGER NOT NULL,
+    PRIMARY KEY (player_id, game_id)
+);
+CREATE TABLE IF NOT EXISTS player_game_old_fetched (
+    player_id  INTEGER PRIMARY KEY,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -14,6 +14,8 @@ import corsi
 import edge
 import era
 import html_shifts
+import oldgames
+import prospects as prospectlib
 import shots as shotlib
 
 FINAL_STATES = ('OFF', 'FINAL')
@@ -1043,6 +1045,112 @@ def ingest_home_flags(conn):
         time.sleep(1)
 
 
+def ingest_game_hist(conn, seasons=None, limit=None):
+    """Regular-season results from 2005-06 up to the seasons stored game by game (see oldgames.py): each club's season
+    schedule, a request per team-season. Past seasons never change, so each is fetched once and a run cut short resumes."""
+    stored_from = config.SEASON_ID - 40004   # the oldest season team_game_hist has
+    seasons = seasons or [s for s in range(oldgames.FIRST_SEASON, stored_from, 10001) if s != 20042005]
+    seasons = [s for s in seasons if s != 20042005]   # the lockout year had no season
+    teams = [r[0] for r in conn.execute("SELECT abbrev FROM team_season WHERE season_id = %s ORDER BY abbrev", (config.SEASON_ID,))]
+    done = {tuple(r) for r in conn.execute("SELECT team, season_id FROM game_hist_fetched")}
+    jobs = [(t, s) for s in seasons for t in teams if (t, s) not in done]
+    if limit:
+        jobs = jobs[:limit]
+    print(f"game history: {len(jobs)} team-seasons to fetch", flush=True)
+
+    def fetch(job):
+        team, season = job
+        try:
+            return job, get_json(f"{config.WEB_API}/club-schedule-season/{oldgames.code_in_season(team, season)}/{season}")
+        except requests.HTTPError:
+            return job, {}
+
+    started = time.time()
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for n, ((team, season), data) in enumerate(pool.map(fetch, jobs), 1):
+            cur.executemany(
+                """INSERT INTO game_hist (game_id, season_id, game_date, home, away, home_score, away_score, last_period)
+                   VALUES (%(game_id)s, %(season_id)s, %(game_date)s, %(home)s, %(away)s, %(home_score)s, %(away_score)s, %(last_period)s)
+                   ON CONFLICT DO NOTHING""", oldgames.parse_schedule(data))
+            cur.execute("INSERT INTO game_hist_fetched (team, season_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (team, season))
+            if n % 25 == 0:
+                conn.commit()
+                left = (len(jobs) - n) / (n / (time.time() - started)) / 60
+                print(f"  {n}/{len(jobs)} ({left:.0f} min left)", flush=True)
+        conn.commit()
+    total = conn.execute("SELECT count(*) FROM game_hist").fetchone()[0]
+    print(f"game history: {total} games stored", flush=True)
+
+
+PROSPECT_FRESH_HOURS = 18   # a prospect fetched this recently is skipped, so an interrupted run resumes
+
+
+def ingest_prospects(conn):
+    """Every NHL team's prospect list, then each prospect's draft details and season-by-season stats (the nightly run
+    refreshes all of them: a few hundred requests, committed as it goes, and a run cut short resumes where it stopped).
+    Prospects who drop off every list keep their rows with on_list = false."""
+    teams = [r[0] for r in conn.execute("SELECT abbrev FROM team_season WHERE season_id = %s ORDER BY abbrev", (config.SEASON_ID,))]
+    bios = {}
+    for team in teams:
+        try:
+            data = get_json(f"{config.WEB_API}/prospects/{team}")
+        except requests.HTTPError as e:
+            print(f"prospects {team}: {e}", flush=True)
+            continue
+        for p in prospectlib.parse_list(data):
+            bios[p["player_id"]] = {**p, "team": team}
+        time.sleep(0.2)
+    print(f"prospects: {len(bios)} on {len(teams)} teams' lists", flush=True)
+
+    def fetch(pid):
+        try:
+            return pid, get_json(f"{config.WEB_API}/player/{pid}/landing")
+        except requests.HTTPError:
+            return pid, None
+
+    with conn.cursor() as cur:
+        # who is on a list now; everyone else keeps their rows with on_list = false
+        cur.execute("UPDATE prospect SET on_list = (player_id = ANY(%s))", (list(bios),))
+        # a run that was interrupted resumes where it stopped: prospects fetched in the last PROSPECT_FRESH_HOURS are skipped
+        cur.execute("SELECT player_id FROM prospect WHERE updated_at > now() - make_interval(hours => %s)", (PROSPECT_FRESH_HOURS,))
+        fresh = {r[0] for r in cur.fetchall()}
+    todo = [pid for pid in bios if pid not in fresh]
+    print(f"prospects: {len(todo)} to fetch, {len(bios) - len(todo)} fetched recently", flush=True)
+    started = time.time()
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for n, (pid, landing) in enumerate(pool.map(fetch, todo), 1):
+            b = bios[pid]
+            draft, seasons = prospectlib.parse_landing(landing) if landing else (None, [])
+            drafted = tuple(draft[k] for k in ("year", "round", "pick", "overall", "team")) if draft else (None,) * 5
+            cur.execute(
+                """INSERT INTO prospect (player_id, team, name, position, shoots, birth_date, birth_country, height_in, weight_lb,
+                                         headshot, draft_year, draft_round, draft_pick, draft_overall, draft_team, on_list, updated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true,now())
+                   ON CONFLICT (player_id) DO UPDATE SET team = EXCLUDED.team, name = EXCLUDED.name, position = EXCLUDED.position,
+                       shoots = EXCLUDED.shoots, birth_date = EXCLUDED.birth_date, birth_country = EXCLUDED.birth_country,
+                       height_in = EXCLUDED.height_in, weight_lb = EXCLUDED.weight_lb, headshot = EXCLUDED.headshot,
+                       draft_year = coalesce(EXCLUDED.draft_year, prospect.draft_year), draft_round = coalesce(EXCLUDED.draft_round, prospect.draft_round),
+                       draft_pick = coalesce(EXCLUDED.draft_pick, prospect.draft_pick), draft_overall = coalesce(EXCLUDED.draft_overall, prospect.draft_overall),
+                       draft_team = coalesce(EXCLUDED.draft_team, prospect.draft_team), on_list = true, updated_at = now()""",
+                (pid, b["team"], b["name"], b["position"], b["shoots"], b["birth_date"], b["birth_country"], b["height_in"],
+                 b["weight_lb"], b["headshot"], *drafted))
+            cur.executemany(
+                """INSERT INTO prospect_season (player_id, season_id, game_type, league, team_name, games, goals, assists, points,
+                                                pim, plus_minus, wins, save_pct, gaa)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (player_id, season_id, game_type, league, team_name) DO UPDATE SET games = EXCLUDED.games,
+                       goals = EXCLUDED.goals, assists = EXCLUDED.assists, points = EXCLUDED.points, pim = EXCLUDED.pim,
+                       plus_minus = EXCLUDED.plus_minus, wins = EXCLUDED.wins, save_pct = EXCLUDED.save_pct, gaa = EXCLUDED.gaa""",
+                [(pid, s["season_id"], s["game_type"], s["league"] or "", s["team_name"], s["games"], s["goals"], s["assists"],
+                  s["points"], s["pim"], s["plus_minus"], s["wins"], s["save_pct"], s["gaa"]) for s in seasons])
+            if n % 25 == 0:
+                conn.commit()
+                left = (len(todo) - n) / (n / (time.time() - started)) / 60
+                print(f"  {n}/{len(todo)} ({left:.0f} min left)", flush=True)
+        conn.commit()
+    print(f"prospects: stored {len(bios)}", flush=True)
+
+
 EDGE_FIRST_SEASON = 20212022   # the NHL's tracking data starts here
 EDGE_BASE = f"{config.WEB_API}/edge"
 EDGE_REFRESH_WINDOW_HOURS = 30   # keep refreshing a player for this long after his latest game: the NHL's tracking lags the box score
@@ -1293,6 +1401,7 @@ def main():
         ingest_history(conn)
         ingest_team_abbrevs(conn)
         ingest_home_flags(conn)
+        ingest_prospects(conn)
         ingest_edge(conn, [config.SEASON_ID])
 
 
@@ -1311,6 +1420,19 @@ if __name__ == "__main__":
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             backfill_onice(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-games-hist"]:
+        # python ingest.py backfill-games-hist [20052006,20062007,...] [--limit N]   (default: 2005-06 up to the stored seasons)
+        seasons, limit = parse_backfill_args(sys.argv[2:], None)
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            ingest_game_hist(conn, seasons, limit)
+    elif sys.argv[1:2] == ["prospects"]:
+        # python ingest.py prospects   (just the prospect lists and their stats; the nightly run includes it)
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            ingest_prospects(conn)
     elif sys.argv[1:2] == ["backfill-seasons"]:
         # python ingest.py backfill-seasons [20222023,20232024,...]   (default: every season since 2005-06)
         seasons, _ = parse_backfill_args(sys.argv[2:], past_season_ids())

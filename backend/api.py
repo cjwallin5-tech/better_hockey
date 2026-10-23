@@ -1,5 +1,5 @@
 """Read-only JSON API over the ingested stats. Run: uvicorn api:app --reload"""
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import math
 from collections import defaultdict
@@ -16,8 +16,10 @@ import auth
 import config
 import defense
 import era
+import explain_db
 import fatigue
 import headtohead
+import oldgames_db
 import luck
 import luck_db
 import matchups
@@ -26,8 +28,11 @@ import playoff_odds
 import probable_goalies
 import roles
 import roles_db
+import specialteams
+import specialteams_db
 import streaming
 import projections
+import prospects as prospectlib
 import trajectory
 import trophies as trophy_lib
 
@@ -1045,6 +1050,15 @@ SELECT g.season_id, g.game_id, g.game_date,
 FROM game g
 WHERE g.state IN ('OFF', 'FINAL') AND g.home_score IS NOT NULL AND g.season_id = %(season)s
   AND ((g.home = %(a)s AND g.away = %(b)s) OR (g.home = %(b)s AND g.away = %(a)s))
+UNION ALL
+SELECT g.season_id, g.game_id, g.game_date,
+       CASE WHEN g.home = %(a)s THEN g.home_score ELSE g.away_score END,
+       CASE WHEN g.home = %(a)s THEN g.away_score ELSE g.home_score END,
+       CASE WHEN (g.home = %(a)s) = (g.home_score > g.away_score)
+            THEN CASE WHEN g.last_period = 'REG' THEN 'W' ELSE 'OTW' END
+            ELSE CASE WHEN g.last_period = 'REG' THEN 'L' ELSE 'OTL' END END
+FROM game_hist g
+WHERE (g.home = %(a)s AND g.away = %(b)s) OR (g.home = %(b)s AND g.away = %(a)s)
 """
 
 H2H_PLAYER_SQL = """
@@ -1055,6 +1069,8 @@ FROM skater_game_hist h
 JOIN skater_game_onice o ON o.player_id = h.player_id AND o.game_id = h.game_id
 JOIN team_game_hist t ON t.game_id = h.game_id AND t.team = CASE WHEN o.team = 'ARI' THEN 'UTA' ELSE o.team END
 WHERE h.player_id = %(p)s
+UNION ALL
+SELECT season_id, game_id, game_date, opponent, goals, assists FROM player_game_old WHERE player_id = %(p)s
 """
 
 # A goalie's past games come from the stored shots they faced: the opponent is the team of the shooters, and the
@@ -1063,6 +1079,8 @@ WHERE h.player_id = %(p)s
 H2H_GOALIE_SQL = """
 SELECT season_id, game_id, game_date, opponent, shots_against, goals_against FROM goalie_game
 WHERE player_id = %(p)s AND toi_sec > 0
+UNION ALL
+SELECT season_id, game_id, game_date, opponent, shots_against, goals_against FROM player_game_old WHERE player_id = %(p)s
 UNION ALL
 SELECT s.season_id, s.game_id, t.game_date, CASE WHEN o.team = 'ARI' THEN 'UTA' ELSE o.team END,
        count(*) FILTER (WHERE s.kind IN ('shot', 'goal')), count(*) FILTER (WHERE s.kind = 'goal')
@@ -1074,9 +1092,18 @@ GROUP BY s.season_id, s.game_id, t.game_date, o.team
 """
 
 
+def _ensure_old_games(conn, player_id, goalie):
+    """Pulls the player's games from before the stored seasons the first time (see oldgames.py); a NHL outage is a 502."""
+    try:
+        oldgames_db.ensure_player(conn, player_id, goalie)
+    except requests.RequestException:
+        raise HTTPException(502, "The NHL's older game logs are not available right now. Try again in a minute.")
+
+
 @app.get("/api/head-to-head/teams")
 def head_to_head_teams(a: str, b: str):
-    """Results between two teams over the stored seasons (this one and the previous four)."""
+    """Results between two teams since 2005-06: this season and the previous four from the stored game results, earlier
+    ones from the club schedules in game_hist (see oldgames.py)."""
     a, b = a.upper(), b.upper()
     if a == b:
         raise HTTPException(400, "Pick two different teams")
@@ -1109,6 +1136,7 @@ def head_to_head_player(player_id: int, team: str):
                              (config.SEASON_ID, team)).fetchone()
         if not tname:
             raise HTTPException(404, "Team not found")
+        _ensure_old_games(conn, player_id, goalie=False)
         rows = conn.execute(H2H_PLAYER_SQL, {"p": player_id}).fetchall()
     out = headtohead.player_summary(rows, team)
     games = sorted((r for r in rows if r["opponent"] == team), key=lambda r: (r["game_date"], r["game_id"]), reverse=True)
@@ -1130,6 +1158,7 @@ def head_to_head_goalie(player_id: int, team: str):
                              (config.SEASON_ID, team)).fetchone()
         if not tname:
             raise HTTPException(404, "Team not found")
+        _ensure_old_games(conn, player_id, goalie=True)
         rows = conn.execute(H2H_GOALIE_SQL, {"p": player_id}).fetchall()
     out = headtohead.goalie_summary(rows, team)
     games = sorted((r for r in rows if r["opponent"] == team), key=lambda r: (r["game_date"], r["game_id"]), reverse=True)
@@ -2428,6 +2457,189 @@ def matchup_schedule(days: int = 7):
             "label_at": matchups.LABEL_AT, "teams": out}
 
 
+# --- Special teams ----------------------------------------------------------------------------------
+def _special_team_table(conn, last):
+    """Every team's special-teams figures with league ranks (1 = best), plus PP% and PK% from the standings."""
+    rows = specialteams_db.team_rows(conn, config.SEASON_ID, last)
+    names = {r["abbrev"]: r for r in conn.execute(
+        "SELECT abbrev, name, pp_pct, pk_pct, logo_url, logo_dark_url FROM team_season WHERE season_id = %s", (config.SEASON_ID,))}
+    for r in rows:
+        n = names.get(r["team"], {})
+        r.update(name=n.get("name", r["team"]), pp_pct=n.get("pp_pct"), pk_pct=n.get("pk_pct"),
+                 logo_url=n.get("logo_url"), logo_dark_url=n.get("logo_dark_url"))
+    for key, high in (("pp_xgf60", True), ("pp_gf60", True), ("pp_pct", True), ("pp_toi_pg", True),
+                      ("pk_xga60", False), ("pk_ga60", False), ("pk_pct", True), ("pk_toi_pg", False)):
+        specialteams.rank_by(rows, key, high)
+    rows.sort(key=lambda r: r["team"])
+    return rows
+
+
+@app.get("/api/special-teams")
+def special_teams(last: int = 0):
+    """Every team's power play and penalty kill: time per game, expected goals and goals per 60 minutes, and the NHL's
+    PP% and PK%, each ranked. last limits it to each team's most recent N games (0 = the season so far). See specialteams.py."""
+    last = max(0, min(last, 82))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        rows = _special_team_table(conn, last)
+    return {"season": config.SEASON_ID, "last": last, "teams": rows}
+
+
+@app.get("/api/teams/{abbrev}/special-teams")
+def team_special_teams(abbrev: str, last: int = 0):
+    """One team's power-play and penalty-kill units (inferred from ice time, see specialteams.py) next to its special-teams
+    figures and their league ranks."""
+    abbrev = abbrev.upper()
+    last = max(0, min(last, 82))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        table = _special_team_table(conn, last)
+        line = next((r for r in table if r["team"] == abbrev), None)
+        if not line:
+            raise HTTPException(404, "No special-teams data for that team yet")
+        players = specialteams_db.team_players(conn, config.SEASON_ID, abbrev, last)
+    return {"season": config.SEASON_ID, "last": last, "team": line, "league_teams": len(table),
+            "thresholds": {"pp1": specialteams.PP1_SHARE, "pp2": specialteams.PP2_SHARE, "pk1": specialteams.PK1_SHARE,
+                           "pk2": specialteams.PK2_SHARE, "min_games": specialteams.MIN_GAMES},
+            "power_play": specialteams.power_play_units(players), "penalty_kill": specialteams.penalty_kill_units(players)}
+
+
+# --- Prospects ----------------------------------------------------------------------------------
+PROSPECT_SORTS = {"points_per_game", "points", "goals", "assists", "games", "age", "draft", "name", "save_pct"}
+
+
+def _prospect_row(p, line, today):
+    """One prospect as the API returns them: bio, draft, and this season's line in the league they played most in."""
+    pts = prospectlib.points_per_game(line)
+    return {"player_id": p["player_id"], "name": p["name"], "team": p["team"], "position": p["position"], "shoots": p["shoots"],
+            "age": prospectlib.age_on(p["birth_date"], today), "birth_country": p["birth_country"],
+            "height_in": p["height_in"], "weight_lb": p["weight_lb"], "headshot": p["headshot"],
+            "draft": {"year": p["draft_year"], "round": p["draft_round"], "pick": p["draft_pick"], "overall": p["draft_overall"],
+                      "team": p["draft_team"]} if p["draft_year"] else None,
+            "league": line["league"] if line else None, "club": line["team_name"] if line else None,
+            "games": line["games"] if line else 0, "goals": line["goals"] if line else None,
+            "assists": line["assists"] if line else None, "points": line["points"] if line else None,
+            "points_per_game": pts, "wins": line["wins"] if line else None,
+            "save_pct": line["save_pct"] if line else None, "gaa": line["gaa"] if line else None}
+
+
+@app.get("/api/prospects")
+def prospects_list(team: str = "", position: str = "", league: str = "", q: str = "", sort: str = "points_per_game",
+                   min_games: int = 5, limit: int = 100):
+    """Players on NHL teams' prospect lists with this season's line in the league they played most in (junior, college,
+    European or minor league). position is C, L, R, D, F (forwards) or G; sort is one of PROSPECT_SORTS (age and draft
+    run lowest first). See prospects.py."""
+    if sort not in PROSPECT_SORTS:
+        raise HTTPException(400, f"sort must be one of {', '.join(sorted(PROSPECT_SORTS))}")
+    limit = max(1, min(limit, 500))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        people = conn.execute("SELECT * FROM prospect WHERE on_list").fetchall()
+        lines = defaultdict(list)
+        for r in conn.execute("SELECT * FROM prospect_season WHERE season_id = %s AND game_type = 2", (config.SEASON_ID,)):
+            lines[r["player_id"]].append({**r, "season_id": r["season_id"]})
+    rows = [_prospect_row(p, prospectlib.current_line(lines.get(p["player_id"], []), config.SEASON_ID), today) for p in people]
+    leagues = sorted({r["league"] for r in rows if r["league"]})
+    team, league, needle = team.upper(), league.upper(), q.strip().lower()
+    out = []
+    for r in rows:
+        if team and r["team"] != team or league and (r["league"] or "").upper() != league:
+            continue
+        if position == "F" and r["position"] == "G" or position in ("C", "L", "R", "D", "G") and r["position"] != position:
+            continue
+        if needle and needle not in r["name"].lower():
+            continue
+        if r["games"] < min_games and not needle:
+            continue
+        out.append(r)
+    key = {"age": lambda r: (r["age"] is None, r["age"] or 0), "draft": lambda r: (r["draft"] is None, (r["draft"] or {}).get("overall") or 0),
+           "name": lambda r: r["name"]}.get(sort, lambda r: (r[sort] is None, -(r[sort] or 0)))
+    out.sort(key=lambda r: (key(r), r["name"]))
+    return {"season": config.SEASON_ID, "total": len(out), "leagues": leagues, "rows": out[:limit]}
+
+
+@app.get("/api/prospects/{player_id}")
+def prospect_detail(player_id: int):
+    """A prospect's bio, draft details and every season's line in every league they've played in."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        p = conn.execute("SELECT * FROM prospect WHERE player_id = %s", (player_id,)).fetchone()
+        if not p:
+            raise HTTPException(404, "No prospect with that id")
+        seasons = conn.execute(
+            """SELECT season_id, game_type, league, team_name, games, goals, assists, points, pim, plus_minus, wins, save_pct, gaa
+               FROM prospect_season WHERE player_id = %s ORDER BY season_id DESC, game_type, games DESC""", (player_id,)).fetchall()
+    line = prospectlib.current_line(seasons, config.SEASON_ID)
+    return {**_prospect_row(p, line, today), "on_list": p["on_list"], "birth_date": p["birth_date"],
+            "seasons": [{**s, "points_per_game": prospectlib.points_per_game(s)} for s in seasons]}
+
+
+# The upcoming draft class: NHL Central Scouting's rankings. They carry no player ids, so there are no stats here.
+DRAFT_CATEGORIES = {1: "North American skaters", 2: "International skaters", 3: "North American goalies", 4: "International goalies"}
+_draft_cache = {}   # category -> (fetched at, response)
+DRAFT_TTL = 6 * 3600
+
+
+def _draft_rankings_raw(category, upcoming):
+    """The NHL's rankings response for the upcoming draft if it has published them, else for the latest class it has."""
+    r = requests.get(f"{config.WEB_API}/draft/rankings/{upcoming}/{category}", timeout=15)
+    if r.status_code == 200:
+        return r.json()
+    latest = requests.get(f"{config.WEB_API}/draft/rankings/now", timeout=15).json()
+    if category == 1:
+        return latest
+    return requests.get(f"{config.WEB_API}/draft/rankings/{latest['draftYear']}/{category}", timeout=15).json()
+
+
+@app.get("/api/draft/rankings")
+def draft_rankings(category: int = 1):
+    """Central Scouting's rankings for the upcoming draft (category 1 NA skaters, 2 international skaters, 3 NA goalies,
+    4 international goalies), cached for six hours. `already_drafted` is true when the NHL has not yet published rankings
+    for the next draft and these are last June's class."""
+    if category not in DRAFT_CATEGORIES:
+        raise HTTPException(400, "category must be 1, 2, 3 or 4")
+    hit = _draft_cache.get(category)
+    today = datetime.now(timezone.utc).date()
+    upcoming = today.year if today.month <= 6 else today.year + 1   # the draft is in June
+    if not hit or time.time() - hit[0] > DRAFT_TTL:
+        try:
+            raw = _draft_rankings_raw(category, upcoming)
+            rows = raw["rankings"]
+        except (requests.RequestException, ValueError, KeyError):
+            if hit:
+                raw, rows = hit[1]
+            else:
+                raise HTTPException(502, "The NHL rankings are not available right now")
+        else:
+            _draft_cache[category] = (time.time(), (raw, rows))
+            hit = _draft_cache[category]
+    raw, rows = hit[1]
+    out = []
+    for r in rows:
+        born = date.fromisoformat(r["birthDate"]) if r.get("birthDate") else None
+        out.append({"rank": r.get("finalRank") or r.get("midtermRank"), "midterm_rank": r.get("midtermRank"),
+                    "final_rank": r.get("finalRank"), "name": f"{r.get('firstName', '')} {r.get('lastName', '')}".strip(),
+                    "position": r.get("positionCode"), "shoots": r.get("shootsCatches"),
+                    "club": r.get("lastAmateurClub"), "league": r.get("lastAmateurLeague"),
+                    "age": prospectlib.age_on(born, today), "height_in": r.get("heightInInches"), "weight_lb": r.get("weightInPounds"),
+                    "birth_country": r.get("birthCountry")})
+    out.sort(key=lambda r: (r["rank"] is None, r["rank"] or 0, r["name"]))
+    year = raw.get("draftYear")
+    # the NHL keeps serving last June's class until it publishes the next one: say so rather than call it upcoming
+    return {"draft_year": year, "upcoming_year": upcoming, "already_drafted": bool(year and year < upcoming),
+            "category": category, "categories": DRAFT_CATEGORIES, "rows": out}
+
+
+# --- What changed ------------------------------------------------------------------------------
+@app.get("/api/skaters/{player_id}/explain")
+def skater_explain(player_id: int):
+    """The biggest things behind a skater's season so far: luck against real changes in shot volume, shot quality, ice time
+    and role, priced in goals or points over a full season (see explain.py)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        out = explain_db.explanation(conn, player_id)
+    if out is None:
+        raise HTTPException(404, "No games this season for that skater")
+    return out
+
+
 # --- Role changes ---------------------------------------------------------------------------------
 @app.get("/api/roles/changes")
 def role_changes(window: int = 5, kind: str = "all", dir: str = "up", position: str = "", limit: int = 50):
@@ -2695,3 +2907,4 @@ def records():
             key=lambda p: -p["pace"])[:5]
         out[stat] = {"record": best, "top_ten": [r for r in recs if r["stat"] == stat], "on_pace": paces}
     return {"records": out, "min_gp": min_gp, "games_per_season": config.GAMES_PER_SEASON}
+

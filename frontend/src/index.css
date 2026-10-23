@@ -538,3 +538,6 @@ tbody td:first-child { z-index: 1; }
 .game-lines h3 { margin: 18px 0 8px; font-size: 16px; }
 .game-lines .table-wrap + .table-wrap { margin-top: 12px; }
 .lines-table td.left { white-space: normal; }
+
+.findings { list-style: none; padding: 0; margin: 0 0 12px; }
+.findings .finding { padding: 6px 0; border-bottom: 1px solid var(--line); }
