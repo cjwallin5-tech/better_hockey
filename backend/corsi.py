@@ -170,3 +170,34 @@ def game_lines(plays, shift_rows, roster_spots):
                 row = trios[(team, *fwds)]
                 row[1] += cf; row[2] += ca; row[3] += gf; row[4] += ga
     return {"toi": dict(toi), "pairs": dict(pairs), "trios": dict(trios)}
+
+
+def group_xg(shots, shift_rows, roster_spots):
+    """5v5 expected goals for and against for every pair of skaters and every forward trio that shared the ice, in one game.
+
+    The same on-ice rule as game_lines, with each attempt's xG (shots: rows with time_sec, team_id, situation and xg, as
+    from shots.extract_shots; attempts with no xG, such as blocked ones and empty nets, are left out) credited to every
+    group of the shooting side's skaters on the ice, and against the other side's. Returns
+    {"pairs": {(team_id, a, b): [xgf, xga]}, "trios": {(team_id, a, b, c): [xgf, xga]}} with ids sorted within a key.
+    """
+    pos = {r["playerId"]: r.get("positionCode") for r in roster_spots}
+    shifts, team_of = parse_shifts(shift_rows)
+    skaters = {pid: spans for pid, spans in shifts.items() if pos.get(pid) in ("C", "L", "R", "D")}
+    pairs = defaultdict(lambda: [0.0, 0.0])
+    trios = defaultdict(lambda: [0.0, 0.0])
+    for r in shots:
+        if r["xg"] is None or r["situation"] != FIVE_ON_FIVE:
+            continue
+        by_team = defaultdict(list)
+        for pid, spans in skaters.items():
+            if on_ice(spans, r["time_sec"]):
+                by_team[team_of[pid]].append(pid)
+        for team, members in by_team.items():
+            members.sort()
+            side = 0 if team == r["team_id"] else 1
+            for a, b in combinations(members, 2):
+                pairs[(team, a, b)][side] += r["xg"]
+            fwds = [p for p in members if pos.get(p) != "D"]
+            if len(fwds) == 3:
+                trios[(team, *fwds)][side] += r["xg"]
+    return {"pairs": dict(pairs), "trios": dict(trios)}

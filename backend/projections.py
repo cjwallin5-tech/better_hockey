@@ -85,3 +85,29 @@ def project(r, prior, averages, factor, team_left, team_played):
         "low_points": now + low, "high_points": now + high,
         "has_record": bool(prior),
     }
+
+
+def goalie_final(now, games):
+    """One goalie's projected finish: what he has now plus the expected rest of the season.
+
+    now: his season row (games_started, wins, losses, ot_losses, saves, shots_against, goals_against, shutouts; None counts
+    as 0). games: his remaining games from the streaming plan, each with the chance he starts it and the line a start there
+    is worth (streaming.py). The rest is the sum of those lines weighted by the start chance; no range is given because the
+    start count comes from recent usage and cannot see injuries or trades."""
+    have = lambda k: now.get(k) or 0
+    rest = {"starts": 0.0, "win": 0.0, "loss": 0.0, "otl": 0.0, "saves": 0.0, "shots": 0.0, "ga": 0.0, "shutout": 0.0}
+    for g in games:
+        p = g.get("probability") or 0.0
+        rest["starts"] += p
+        for k in rest:
+            if k != "starts":
+                rest[k] += p * (g["line"].get(k) or 0.0)
+    return {
+        "games_played": have("games_played"), "starts": have("games_started"), "wins": have("wins"), "saves": have("saves"),
+        "goals_against": have("goals_against"), "shutouts": have("shutouts"),
+        "rest_starts": rest["starts"], "rest_wins": rest["win"], "rest_saves": rest["saves"], "rest_goals_against": rest["ga"],
+        "rest_shutouts": rest["shutout"],
+        "final_starts": have("games_started") + rest["starts"], "final_wins": have("wins") + rest["win"],
+        "final_saves": have("saves") + rest["saves"], "final_goals_against": have("goals_against") + rest["ga"],
+        "final_shutouts": have("shutouts") + rest["shutout"],
+    }

@@ -72,3 +72,77 @@ def points_per_game(row):
     if not row or not row.get("games") or row.get("points") is None:
         return None
     return row["points"] / row["games"]
+
+
+# --- Watched prospects in the morning email ---------------------------------------------------------------------
+RECENT_DAYS = 3        # a change in a prospect's games total this recent is "lately"
+COMPARE_MIN_GAMES = 10  # games needed in both seasons (same league) to compare a points-per-game rate with last season's
+COMPARE_GAP = 0.15     # points per game apart before the comparison is worth saying
+
+
+def recent_change(line, now):
+    """What a prospect's season line gained the last time the nightly refresh saw it move: {games, points, days_ago}, or None.
+
+    The stored data is season totals, so this is a difference between two refreshes, not a fixed window: usually the last
+    game or few. line: a prospect_season row with prev_games, prev_points and changed_at (a tz-aware datetime, or None)."""
+    if not line or line.get("changed_at") is None or line.get("prev_games") is None or line.get("games") is None:
+        return None
+    games = line["games"] - line["prev_games"]
+    days = (now - line["changed_at"]).days
+    if games <= 0 or days > RECENT_DAYS:
+        return None
+    points = None
+    if line.get("points") is not None and line.get("prev_points") is not None:
+        points = line["points"] - line["prev_points"]
+    return {"games": games, "points": points, "days_ago": days}
+
+
+def prior_rate(seasons, season_id, league):
+    """Points per game in the same league the season before `season_id`, when there were enough games to mean something."""
+    prev = [s for s in seasons if s["season_id"] == season_id - 10001 and s["game_type"] == 2 and s["league"] == league]
+    row = max(prev, key=lambda s: s["games"], default=None)
+    return points_per_game(row) if row and row["games"] >= COMPARE_MIN_GAMES else None
+
+
+def alert(p, line, seasons, now, season_id):
+    """One watched prospect, ready for the email. p: the prospect row; line: this season's current line (current_line) or
+    None; seasons: all their prospect_season rows. Skater lines carry a rate comparison with last season in the same league."""
+    goalie = p["position"] == "G"
+    out = {"name": p["name"], "team": p["team"], "position": p["position"], "goalie": goalie, "league": None, "games": 0,
+           "goals": None, "assists": None, "points": None, "wins": None, "save_pct": None, "gaa": None,
+           "ppg": None, "prior_ppg": None, "change": None}
+    if line:
+        out.update(league=line["league"], games=line["games"], goals=line["goals"], assists=line["assists"], points=line["points"],
+                   wins=line["wins"], save_pct=line["save_pct"], gaa=line["gaa"], ppg=points_per_game(line),
+                   change=recent_change(line, now))
+        if not goalie:
+            out["prior_ppg"] = prior_rate(seasons, season_id, line["league"])
+    return out
+
+
+def alert_line(a):
+    """One sentence for a prospect in the email."""
+    who = f"{a['name']} ({a['team']} prospect, {a['position']})"
+    if a["games"] == 0:
+        return f"{who} has no games on record this season yet."
+    league = f" in the {a['league']}" if a["league"] else ""
+    if a["goalie"]:
+        sv = f", {a['save_pct']:.3f} save percentage" if a["save_pct"] is not None else ""
+        wins = f", {a['wins']} wins" if a["wins"] is not None else ""
+        text = f"{who}: {a['games']} games{league}{wins}{sv}."
+    else:
+        text = f"{who}: {a['goals']}-{a['assists']}-{a['points']} in {a['games']} games{league} ({a['ppg']:.2f} points a game)."
+    c = a.get("change")
+    if c:
+        when = "since the last update" if c["days_ago"] == 0 else f"over the last {c['days_ago'] + 1} days"
+        gained = f", {c['points']} point{'s' if c['points'] != 1 else ''}" if c["points"] is not None and not a["goalie"] else ""
+        text += f" Lately: {c['games']} game{'s' if c['games'] != 1 else ''}{gained} {when}."
+    if a.get("prior_ppg") is not None and a["ppg"] is not None and abs(a["ppg"] - a["prior_ppg"]) >= COMPARE_GAP:
+        text += f" {'Up' if a['ppg'] > a['prior_ppg'] else 'Down'} from {a['prior_ppg']:.2f} a game last season."
+    return text
+
+
+def called_up_line(name, team, nhl_games, points, goalie=False):
+    """One sentence for a watched prospect who now has NHL games this season."""
+    stat = f"{nhl_games} NHL game{'s' if nhl_games != 1 else ''}" + ("" if goalie or points is None else f", {points} point{'s' if points != 1 else ''}")
+    return f"{name} has reached the NHL with {team}: {stat} so far. He is now followed like any other player."

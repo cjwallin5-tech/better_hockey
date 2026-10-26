@@ -8,6 +8,7 @@ import SpecialTeams from '../components/SpecialTeams.jsx'
 import TeamProspects from '../components/TeamProspects.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import WatchButton from '../components/WatchButton.jsx'
+import FavoriteButton from '../components/FavoriteButton.jsx'
 import { fmt1, fmtPct, fmtToi, STABLE_GP } from '../format.js'
 import { describe } from '../glossary.js'
 
@@ -54,7 +55,7 @@ export default function Team() {
             {t.division} Division · {t.conference} Conference · {ordinal(t.division_rank)} in
             division, {ordinal(t.conference_rank)} in conference, {ordinal(t.league_rank)} overall
           </p>
-          <p className="header-actions"><WatchButton kind="team" refId={t.abbrev} name={t.name} /></p>
+          <p className="header-actions"><WatchButton kind="team" refId={t.abbrev} name={t.name} /> <FavoriteButton abbrev={t.abbrev} /></p>
         </div>
       </header>
 

@@ -97,3 +97,33 @@ class OnIceXg(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GroupXg(unittest.TestCase):
+    """Home team 10 has forwards 1, 2, 3 and defenseman 4 on the ice from 0:10 to 1:00; away team 20 has forwards 5, 6, 7."""
+    ROSTER = [{"playerId": p, "positionCode": c} for p, c in ((1, "C"), (2, "L"), (3, "R"), (4, "D"), (5, "C"), (6, "L"), (7, "R"))]
+    SHIFTS = [shift(p, 10, "00:10", "01:00") for p in (1, 2, 3, 4)] + [shift(p, 20, "00:10", "01:00") for p in (5, 6, 7)]
+
+    def shot(self, team_id, second, xg, situation="1551"):
+        return {"time_sec": second, "team_id": team_id, "situation": situation, "xg": xg}
+
+    def test_pairs_and_the_forward_trio_share_the_chances_for_and_against(self):
+        out = corsi.group_xg([self.shot(10, 30, 0.2), self.shot(20, 40, 0.1)], self.SHIFTS, self.ROSTER)
+        self.assertEqual(out["pairs"][(10, 1, 2)], [0.2, 0.1])
+        self.assertEqual(out["pairs"][(10, 1, 4)], [0.2, 0.1])
+        self.assertEqual(out["pairs"][(20, 5, 6)], [0.1, 0.2])      # the other side's view is reversed
+        self.assertEqual(out["trios"][(10, 1, 2, 3)], [0.2, 0.1])
+        self.assertEqual(out["trios"][(20, 5, 6, 7)], [0.1, 0.2])
+        self.assertNotIn((10, 1, 5), out["pairs"])                    # teammates only
+
+    def test_only_five_on_five_attempts_with_an_xg_and_only_while_on_the_ice(self):
+        shots = [self.shot(10, 30, None), self.shot(10, 30, 0.3, situation="1451"), self.shot(10, 5, 0.4)]
+        out = corsi.group_xg(shots, self.SHIFTS, self.ROSTER)
+        self.assertEqual(out, {"pairs": {}, "trios": {}})
+
+    def test_a_trio_needs_exactly_three_forwards(self):
+        roster = self.ROSTER + [{"playerId": 8, "positionCode": "D"}]
+        shifts = self.SHIFTS[:2] + [shift(4, 10, "00:10", "01:00"), shift(8, 10, "00:10", "01:00")]   # two forwards and two defensemen
+        out = corsi.group_xg([self.shot(10, 30, 0.2)], shifts, roster)
+        self.assertEqual(out["trios"], {})
+        self.assertEqual(out["pairs"][(10, 4, 8)], [0.2, 0.0])

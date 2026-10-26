@@ -65,6 +65,27 @@ class Render(unittest.TestCase):
         self.assertEqual(subject, "NHL roster update")
 
 
+class ProspectBlock(unittest.TestCase):
+    def test_prospects_and_call_ups_appear_in_the_watchlist_block(self):
+        w = {"playing": [], "idle": [], "teams": [], "prospects": [{
+            "name": "A Prospect", "team": "EDM", "position": "C", "goalie": False, "league": "OHL", "games": 20, "goals": 10,
+            "assists": 14, "points": 24, "wins": None, "save_pct": None, "gaa": None, "ppg": 1.2, "prior_ppg": None, "change": None}],
+            "called_up": ["B Prospect has reached the NHL with TOR: 2 NHL games, 1 point so far. He is now followed like any other player."]}
+        lines = digest.watch_lines(w)
+        self.assertIn("Prospects", lines)
+        self.assertTrue(any("A Prospect (EDM prospect, C): 10-14-24 in 20 games in the OHL" in l for l in lines))
+        self.assertIn("Reached the NHL", lines)
+
+    def test_a_prospect_only_watchlist_is_enough_for_an_email(self):
+        w = {"playing": [], "idle": [], "teams": [], "prospects": [{
+            "name": "A Prospect", "team": "EDM", "position": "C", "goalie": False, "league": None, "games": 0, "goals": None,
+            "assists": None, "points": None, "wins": None, "save_pct": None, "gaa": None, "ppg": None, "prior_ppg": None, "change": None}]}
+        d = {"today": dt.date(2026, 12, 3), "roster_size": 0, "playing": [], "idle": [], "hot": [], "watch": []}
+        out = digest.render(d, w)
+        self.assertIsNotNone(out)
+        self.assertIn("no games on record this season yet", out[1])
+
+
 class SendRetry(unittest.TestCase):
     def test_retries_until_the_network_is_back(self):
         waits = []

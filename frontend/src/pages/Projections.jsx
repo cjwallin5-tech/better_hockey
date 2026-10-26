@@ -5,52 +5,108 @@ import { describe } from '../glossary.js'
 
 const n0 = (v) => Math.round(v)
 const POSITIONS = [['', 'All skaters'], ['F', 'Forwards'], ['C', 'Centers'], ['L', 'Left wings'], ['R', 'Right wings'], ['D', 'Defensemen']]
+const GOALIE_SORTS = [['final_wins', 'Projected wins'], ['final_saves', 'Projected saves'], ['final_shutouts', 'Projected shutouts'], ['final_starts', 'Projected starts'], ['rest_starts', 'Starts still to come']]
 const SORTS = [['final_points', 'Projected points'], ['final_goals', 'Projected goals'], ['final_assists', 'Projected assists'], ['rest_points', 'Points still to come']]
 
 export default function Projections() {
   const initial = new URLSearchParams(window.location.search)
+  const [kind, setKind] = useState(initial.get('kind') === 'goalies' ? 'goalies' : 'skaters')
+  const goalies = kind === 'goalies'
   const [position, setPosition] = useState(initial.get('position') ?? '')
-  const [sort, setSort] = useState(initial.get('sort') ?? 'final_points')
-  useUrlSync([['position', position, ''], ['sort', sort, 'final_points']])
+  const [sort, setSort] = useState(initial.get('sort') ?? (goalies ? 'final_wins' : 'final_points'))
+  useUrlSync([['kind', kind, 'skaters'], ['position', goalies ? '' : position, ''], ['sort', sort, goalies ? 'final_wins' : 'final_points']])
   const [state, setState] = useState({ key: null, data: null, error: null })
-  const key = `${position}|${sort}`
+  const key = `${kind}|${position}|${sort}`
+
+  const switchKind = (next) => {
+    setKind(next)
+    setSort(next === 'goalies' ? 'final_wins' : 'final_points')
+  }
 
   useEffect(() => {
     let ignore = false
-    fetch(`/api/projections?position=${position}&sort=${sort}&min_games=3&limit=100`)
+    const url = kind === 'goalies'
+      ? `/api/projections/goalies?sort=${sort}&min_games=3&limit=100`
+      : `/api/projections?position=${position}&sort=${sort}&min_games=3&limit=100`
+    fetch(url)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`API returned ${r.status}`))))
       .then((data) => !ignore && setState({ key, data, error: null }))
       .catch((error) => !ignore && setState({ key, data: null, error: error.message }))
     return () => { ignore = true }
-  }, [position, sort, key])
+  }, [kind, position, sort, key])
   const { data, error } = state.key === key ? state : { data: null, error: null }
 
   return (
     <main>
       <header>
         <h1>Season projections</h1>
+        {goalies ? (
+          <p>
+            Where each goalie's wins, saves, shutouts and goals against are headed. The rest of the season is his chance to start
+            each remaining game of his team (from how the team has been using its goalies) times what a start in that game is worth,
+            from the two teams' strength. Results barely repeat from year to year for goalies, so the team's strength does the work
+            here rather than the goalie's own record. The start counts assume recent usage continues: injuries, trades and a
+            backup taking over are not predicted, and there is no range.
+          </p>
+        ) : (
         <p>
           Where each skater's points, goals and assists are headed. Early-season rates are pulled toward the player's last
           two seasons and shot quality (expected goals) gets some credit, then applied to the games the team has left. The
           range is where the finish lands 80% of the time if no one gets hurt. In backtests over past seasons, pulling an early rate toward the player's record cut the error by about 40% against
           extrapolating the season so far (0.14 against 0.25 points a game); the expected-goals credit added about 1% on top.
         </p>
+        )}
       </header>
       <div className="h2h-picks">
-        <label className="h2h-pick">Position
-          <select value={position} onChange={(e) => setPosition(e.target.value)}>
-            {POSITIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        <label className="h2h-pick">Show
+          <select value={kind} onChange={(e) => switchKind(e.target.value)}>
+            <option value="skaters">Skaters</option>
+            <option value="goalies">Goalies</option>
           </select>
         </label>
+        {!goalies && (
+          <label className="h2h-pick">Position
+            <select value={position} onChange={(e) => setPosition(e.target.value)}>
+              {POSITIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+        )}
         <label className="h2h-pick">Rank by
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            {SORTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {(goalies ? GOALIE_SORTS : SORTS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
       </div>
       {error && <p className="status">{error}</p>}
       {!data && !error && <p className="status">Loading…</p>}
-      {data && (
+      {data && goalies && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th className="left">Goalie</th><th className="left" title={describe('Team')}>Team</th>
+                <th title="Games started so far">GS</th><th title="Wins so far">W</th>
+                <th title="Starts the goalie is expected to get for the rest of the season">Starts left</th>
+                <th title="Projected wins at the end of the season">Proj. W</th>
+                <th title="Projected saves at the end of the season">Proj. SV</th>
+                <th title="Projected goals against at the end of the season">Proj. GA</th>
+                <th title="Projected shutouts at the end of the season">Proj. SO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.rows.map((r) => (
+                <tr key={r.player_id}>
+                  <td className="left"><Link to={`/goalie/${r.player_id}`}>{r.name}</Link></td>
+                  <td className="left">{r.team}</td><td>{r.starts}</td><td>{r.wins}</td><td>{n0(r.rest_starts)}</td>
+                  <td className="accent">{n0(r.final_wins)}</td><td>{n0(r.final_saves)}</td>
+                  <td>{n0(r.final_goals_against)}</td><td>{r.final_shutouts.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {data && !goalies && (
         <div className="table-wrap">
           <table>
             <thead>

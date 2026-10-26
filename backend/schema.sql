@@ -209,6 +209,12 @@ CREATE TABLE IF NOT EXISTS pair_game (
     PRIMARY KEY (game_id, team, p1, p2)
 );
 CREATE INDEX IF NOT EXISTS pair_game_p2 ON pair_game (p2);
+-- 5v5 expected goals for and against while the pair (or forward line) was on the ice together (see corsi.group_xg);
+-- NULL for games processed before these columns existed.
+ALTER TABLE pair_game ADD COLUMN IF NOT EXISTS xgf REAL;
+ALTER TABLE pair_game ADD COLUMN IF NOT EXISTS xga REAL;
+ALTER TABLE line_game ADD COLUMN IF NOT EXISTS xgf REAL;
+ALTER TABLE line_game ADD COLUMN IF NOT EXISTS xga REAL;
 ALTER TABLE skater_game_onice ADD COLUMN IF NOT EXISTS toi_5v5_sec INTEGER;
 -- Bumped when the on-ice computation gains outputs, so old games get recomputed.
 ALTER TABLE game_shift_status ADD COLUMN IF NOT EXISTS lines_version INTEGER NOT NULL DEFAULT 0;
@@ -413,6 +419,11 @@ CREATE TABLE IF NOT EXISTS prospect_season (
     PRIMARY KEY (player_id, season_id, game_type, league, team_name)
 );
 CREATE INDEX IF NOT EXISTS prospect_season_season ON prospect_season (season_id, league);
+-- What a season line was before its latest change (the games total moved), and when: the stored data is season totals, not game
+-- logs, so this is how the digest says what a watched prospect did lately (see prospects.recent_change).
+ALTER TABLE prospect_season ADD COLUMN IF NOT EXISTS prev_games INTEGER;
+ALTER TABLE prospect_season ADD COLUMN IF NOT EXISTS prev_points INTEGER;
+ALTER TABLE prospect_season ADD COLUMN IF NOT EXISTS changed_at TIMESTAMPTZ;
 
 -- Regular-season games from 2005-06 up to the seasons stored game by game, so head-to-head can reach further back
 -- (see oldgames.py). One row per game, team codes as today's franchises; filled by `python ingest.py backfill-games-hist`.

@@ -3,7 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import FantasyWeek from '../components/FantasyWeek.jsx'
 import GoalieStarts from '../components/GoalieStarts.jsx'
-import Pickups from '../components/Pickups.jsx'
+import WaiverWire from '../components/WaiverWire.jsx'
+import LineupOptimizer from '../components/LineupOptimizer.jsx'
+import MatchupProjector from '../components/MatchupProjector.jsx'
+import DraftHelper from '../components/DraftHelper.jsx'
 import { useAuth } from '../auth.js'
 import RosterTools from '../components/RosterTools.jsx'
 import { LuckBadge, useLuck } from '../components/Luck.jsx'
@@ -343,15 +346,30 @@ export default function Fantasy() {
             content: list.players.length > 0 ? <><GoalieStarts players={list.players} /><FantasyWeek players={list.players} /></> : <p className="status">Add players to see their games this week.</p>,
           },
           {
+            id: 'lineup',
+            label: 'Lineup optimizer',
+            content: values ? <LineupOptimizer players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'versus',
+            label: 'Matchup projector',
+            content: values && data ? <MatchupProjector data={data} players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'draft',
+            label: 'Draft helper',
+            content: values && data ? <DraftHelper data={data} values={values} league={leagueCfg} roster={list.players} /> : <p className="status">Loading…</p>,
+          },
+          {
             id: 'pickups',
-            label: 'Pickup ideas',
+            label: 'Waiver wire',
             content: data ? (
               <>
                 <div className="tabs" role="tablist">
                   <button role="tab" aria-selected={kind === 'skater'} className={kind === 'skater' ? 'on' : ''} onClick={() => setKind('skater')}>Skaters</button>
                   <button role="tab" aria-selected={kind === 'goalie'} className={kind === 'goalie' ? 'on' : ''} onClick={() => setKind('goalie')}>Goalies</button>
                 </div>
-                <Pickups data={data} kind={kind} rosterIds={taken} scoring={scoring} values={isCats ? values : null} onAdd={add} />
+                <WaiverWire data={data} kind={kind} values={values} rosterIds={taken} league={leagueCfg} onAdd={addValued} />
               </>
             ) : <p className="status">Loading…</p>,
           },

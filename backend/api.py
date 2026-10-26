@@ -13,6 +13,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 import auth
+import chemistry
 import config
 import defense
 import era
@@ -31,6 +32,8 @@ import roles_db
 import specialteams
 import specialteams_db
 import streaming
+import teamlog
+import tonight
 import projections
 import prospects as prospectlib
 import trajectory
@@ -587,6 +590,9 @@ def defense_profile(player_id: int):
             "onice_career": defense.onice_career(onice["rows"].get(player_id, []))}
 
 
+GOALIE_PROJECTION_DAYS = 200   # longer than any season, so the window runs to the last game
+
+
 def _goalie_plans(teams, days):
     """Start-probability plans for the given teams' games over the next `days` days (today first, Eastern).
 
@@ -678,7 +684,11 @@ def streaming_goalies(days: int = 7):
     """Every goalie with a chance to start in the next `days` days: for each game his chance to start and what a start
     there is expected to be worth (win, loss and overtime-loss chances, saves, goals against, shutout chance), from the
     two teams' ratings. The Fantasy page turns these into points or category value under your league. See streaming.py."""
-    days = max(1, min(days, 14))
+    return _streaming_plan(max(1, min(days, 14)))
+
+
+def _streaming_plan(days):
+    """streaming_goalies' answer for a window of `days` days (also used for the rest of the season, see projections)."""
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         teams, league = matchups_db.team_table(conn, config.SEASON_ID)
         goalies = conn.execute(
@@ -1391,6 +1401,88 @@ def probable_goalies_endpoint(date: str | None = None):
         confirmed = _confirmed_starters(g)
         out.append({**g, "away_goalies": side(g["away"], confirmed), "home_goalies": side(g["home"], confirmed)})
     return {"date": day, "repeat_rate": round(p_repeat, 3), "games": out}
+
+
+@app.get("/api/tonight")
+def tonight_endpoint(date: str | None = None, ids: str = "", teams: str = ""):
+    """A day's games (default today, Eastern), each with why it might be worth watching: how even the teams are, expected
+    goals, the playoff race, the best scorers, the likely goalies, rest, and how many of your players (ids) or followed
+    teams (teams) are in it. `score` and `reasons` come from tonight.py; the page sorts by them."""
+    try:
+        wanted = [int(i) for i in ids.split(",") if i.strip()][:300]
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    followed = {t.strip().upper() for t in teams.split(",") if t.strip()}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        if date is None:
+            day = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        else:
+            try:
+                day = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+        games = conn.execute(
+            "SELECT game_id, start_time, state, home, away FROM game WHERE season_id = %s AND game_date = %s "
+            "ORDER BY start_time, game_id", (config.SEASON_ID, day)).fetchall()
+        ratings, league = matchups_db.team_table(conn, config.SEASON_ID)
+        skaters = conn.execute(
+            "SELECT player_id, name, team, games_played, points FROM skater_season WHERE season_id = %s AND games_played > 0",
+            (config.SEASON_ID,)).fetchall()
+        goalies = conn.execute(
+            "SELECT player_id, name, team FROM goalie_season WHERE season_id = %s AND player_id = ANY(%s)",
+            (config.SEASON_ID, wanted)).fetchall() if wanted else []
+        _, kinds = _rest_context(conn)
+    by_team = {t["team"]: t for t in ratings}
+    try:
+        odds = {t["abbrev"]: t["make_playoffs"] for t in playoff_odds_endpoint()["teams"]}
+    except HTTPException:
+        odds = {}
+    try:
+        starters = {g["game_id"]: g for g in probable_goalies_endpoint(str(day))["games"]}
+    except HTTPException:
+        starters = {}
+
+    stars, yours_by_team = {}, {}
+    for r in skaters:
+        team = (r["team"] or "").split(",")[-1]
+        if r["games_played"] >= 5:
+            stars.setdefault(team, []).append({"player_id": r["player_id"], "name": r["name"], "points": r["points"],
+                                               "games_played": r["games_played"], "ppg": r["points"] / r["games_played"]})
+        if r["player_id"] in wanted:
+            yours_by_team.setdefault(team, []).append({"player_id": r["player_id"], "name": r["name"], "kind": "skater"})
+    for r in goalies:
+        yours_by_team.setdefault((r["team"] or "").split(",")[-1], []).append({"player_id": r["player_id"], "name": r["name"], "kind": "goalie"})
+    for team in stars:
+        stars[team].sort(key=lambda s: (-s["ppg"], s["name"]))
+
+    def goalie(side):
+        top = (side["candidates"] or [None])[0]
+        return {"team": side["team"], "confirmed": side["confirmed"], "back_to_back": side["back_to_back"],
+                "name": top["name"] if top else None, "player_id": top["player_id"] if top else None,
+                "probability": top["probability"] if top else None}
+
+    out = []
+    for g in games:
+        h, a = by_team.get(g["home"]), by_team.get(g["away"])
+        win, total = tonight.matchup(h, a, league)
+        top = sorted((stars.get(g["home"], [])[:1] + stars.get(g["away"], [])[:1]), key=lambda s: -s["ppg"])
+        yours = yours_by_team.get(g["home"], []) + yours_by_team.get(g["away"], [])
+        starter = starters.get(g["game_id"])
+        graded = tonight.score_game(win, total, 2 * league["goals_pg"] if league else None,
+                                    [odds.get(g["home"]), odds.get(g["away"])], top[0] if top else None,
+                                    [y["name"] for y in yours], sorted(followed & {g["home"], g["away"]}))
+        out.append({
+            "game_id": g["game_id"], "start_time": g["start_time"], "state": g["state"], "home": g["home"], "away": g["away"],
+            "home_info": {k: h[k] for k in ("name", "logo_url", "logo_dark_url")} if h else None,
+            "away_info": {k: a[k] for k in ("name", "logo_url", "logo_dark_url")} if a else None,
+            "home_win": win, "expected_goals": total,
+            "odds": {"home": odds.get(g["home"]), "away": odds.get(g["away"])},
+            "stars": {"home": stars.get(g["home"], [])[:2], "away": stars.get(g["away"], [])[:2]},
+            "goalies": {"home": goalie(starter["home_goalies"]), "away": goalie(starter["away_goalies"])} if starter else None,
+            "rest": {"home": kinds.get((g["home"], g["game_id"])), "away": kinds.get((g["away"], g["game_id"]))},
+            "yours": yours, "followed": sorted(followed & {g["home"], g["away"]}), **graded,
+        })
+    return {"date": day, "games": out}
 
 
 # --- Live scores --------------------------------------------------------------------------------
@@ -2113,12 +2205,12 @@ def team_lines(abbrev: str, limit: int = 12):
             "SELECT player_id, name, position FROM skater_season WHERE season_id = %s", (config.SEASON_ID,))}
         fwd = conn.execute(
             """SELECT p1, p2, p3, sum(toi_sec) AS toi, count(*) AS games, sum(cf) AS cf, sum(ca) AS ca,
-                      sum(gf) AS gf, sum(ga) AS ga
+                      sum(gf) AS gf, sum(ga) AS ga, sum(xgf)::float AS xgf, sum(xga)::float AS xga, count(xgf) = count(*) AS has_xg
                FROM line_game WHERE team = %s GROUP BY p1, p2, p3 ORDER BY sum(toi_sec) DESC LIMIT %s""",
             (abbrev, limit)).fetchall()
         pairs = conn.execute(
             """SELECT p1, p2, sum(toi_sec) AS toi, count(*) AS games, sum(cf) AS cf, sum(ca) AS ca,
-                      sum(gf) AS gf, sum(ga) AS ga
+                      sum(gf) AS gf, sum(ga) AS ga, sum(xgf)::float AS xgf, sum(xga)::float AS xga, count(xgf) = count(*) AS has_xg
                FROM pair_game WHERE team = %s GROUP BY p1, p2 ORDER BY sum(toi_sec) DESC""",
             (abbrev,)).fetchall()
     def player(pid):
@@ -2129,7 +2221,9 @@ def team_lines(abbrev: str, limit: int = 12):
         total = row["cf"] + row["ca"]
         return {"players": [player(i) for i in ids], "toi_sec": row["toi"], "games": row["games"],
                 "cf": row["cf"], "ca": row["ca"], "cf_pct": round(row["cf"] / total, 4) if total else None,
-                "gf": row["gf"], "ga": row["ga"]}
+                "gf": row["gf"], "ga": row["ga"],
+                "xgf": row["xgf"] if row["has_xg"] else None, "xga": row["xga"] if row["has_xg"] else None,
+                "xg_pct": round(chemistry.share(row["xgf"], row["xga"]), 4) if row["has_xg"] and chemistry.share(row["xgf"], row["xga"]) is not None else None}
     return {
         "forwards": [shape(r, (r["p1"], r["p2"], r["p3"])) for r in fwd],
         "defense": [shape(r, (r["p1"], r["p2"])) for r in d_pairs],
@@ -2138,39 +2232,57 @@ def team_lines(abbrev: str, limit: int = 12):
 
 @app.get("/api/skaters/{player_id}/linemates")
 def linemates(player_id: int, limit: int = 10):
-    """Who this player spends 5v5 time with, and how each of them does together vs apart."""
+    """Who this player spends 5v5 time with, and how each of them does together vs apart: shot-attempt share (Corsi) and, where
+    stored, expected goals per 60 and share, with a chemistry verdict that accounts for how much data is behind it
+    (chemistry.py). Rows are the most-used partners first. Only games with expected goals stored on the pair rows count, on both
+    the together and the apart side, so the two compare like for like."""
+    limit = max(1, min(limit, 30))
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         names = {r["player_id"]: (r["name"], r["position"], r["team"]) for r in conn.execute(
             "SELECT player_id, name, position, team FROM skater_season WHERE season_id = %s", (config.SEASON_ID,))}
         totals = {r["player_id"]: r for r in conn.execute(
-            """SELECT player_id, sum(cf) AS cf, sum(ca) AS ca, sum(toi_5v5_sec) AS toi
-               FROM skater_game_onice WHERE season_id = %s GROUP BY player_id""", (config.SEASON_ID,))}
+            """SELECT player_id, sum(cf) AS cf, sum(ca) AS ca, sum(toi_5v5_sec) AS toi, sum(xgf)::float AS xgf, sum(xga)::float AS xga
+               FROM skater_game_onice WHERE season_id = %s
+                 AND game_id IN (SELECT game_id FROM game_shift_status WHERE lines_version >= %s) GROUP BY player_id""",
+            (config.SEASON_ID, chemistry.XG_LINES_VERSION))}
         rows = conn.execute(
             """SELECT CASE WHEN p1 = %(p)s THEN p2 ELSE p1 END AS partner,
                       sum(toi_sec) AS toi, count(*) AS games, sum(cf) AS cf, sum(ca) AS ca,
-                      sum(gf) AS gf, sum(ga) AS ga
-               FROM pair_game WHERE p1 = %(p)s OR p2 = %(p)s
+                      sum(gf) AS gf, sum(ga) AS ga, sum(xgf)::float AS xgf, sum(xga)::float AS xga,
+                      count(xgf) = count(*) AS has_xg
+               FROM pair_game WHERE (p1 = %(p)s OR p2 = %(p)s)
+                 AND game_id IN (SELECT game_id FROM game_shift_status WHERE lines_version >= %(v)s)
                GROUP BY 1 ORDER BY sum(toi_sec) DESC LIMIT %(limit)s""",
-            {"p": player_id, "limit": limit}).fetchall()
+            {"p": player_id, "limit": limit, "v": chemistry.XG_LINES_VERSION}).fetchall()
     me = totals.get(player_id)
     out = []
     for r in rows:
-        partner = totals.get(r["partner"])
-        together = r["cf"] + r["ca"]
-        def apart_pct(t):
-            if not t:
-                return None
-            cf, ca = t["cf"] - r["cf"], t["ca"] - r["ca"]
-            return round(cf / (cf + ca), 4) if cf + ca > 0 else None
+        together = {"toi": r["toi"], "cf": r["cf"], "ca": r["ca"],
+                    "xgf": r["xgf"] if r["has_xg"] else None, "xga": r["xga"] if r["has_xg"] else None}
+        view = chemistry.pair_view(together, me, totals.get(r["partner"]))
         n = names.get(r["partner"], (str(r["partner"]), None, None))
         out.append({
             "player_id": r["partner"], "name": n[0], "position": n[1], "team": n[2],
-            "toi_sec": r["toi"], "games": r["games"],
-            "cf_pct_together": round(r["cf"] / together, 4) if together else None,
-            "cf_pct_player_apart": apart_pct(me), "cf_pct_partner_apart": apart_pct(partner),
-            "gf": r["gf"], "ga": r["ga"],
+            "toi_sec": r["toi"], "games": r["games"], "gf": r["gf"], "ga": r["ga"],
+            # the original Corsi columns, kept as they were
+            "cf_pct_together": round(view["cf_share_together"], 4) if view["cf_share_together"] is not None else None,
+            "cf_pct_player_apart": _apart_pct(me, r),
+            "cf_pct_partner_apart": _apart_pct(totals.get(r["partner"]), r),
+            **view,
         })
-    return {"toi_5v5_sec": me["toi"] if me else None, "linemates": out}
+    best, worst = chemistry.best_and_worst(out)
+    return {"toi_5v5_sec": me["toi"] if me else None, "linemates": out,
+            "min_together_sec": chemistry.MIN_TOGETHER_SEC,
+            "best": {"player_id": best["player_id"], "name": best["name"]} if best else None,
+            "worst": {"player_id": worst["player_id"], "name": worst["name"]} if worst else None}
+
+
+def _apart_pct(total, together):
+    """Corsi share of a player's 5v5 time without this partner, or None when it can't be worked out."""
+    if not total or total["cf"] is None or total["ca"] is None:
+        return None
+    cf, ca = total["cf"] - together["cf"], total["ca"] - together["ca"]
+    return round(cf / (cf + ca), 4) if cf + ca > 0 else None
 
 
 # --- Shots and expected goals -------------------------------------------------------------------
@@ -2402,6 +2514,34 @@ def projections_endpoint(position: str = "", ids: str = "", min_games: int = 1, 
             "rows": out[:limit]}
 
 
+@app.get("/api/projections/goalies")
+def projections_goalies(ids: str = "", min_games: int = 1, sort: str = "final_wins", limit: int = 100):
+    """Where each goalie's wins, saves, goals against and shutouts are headed by the end of the season: what he has now
+    plus the expected starts left (the chance he starts each remaining game of his team) times what a start in each of
+    those games is worth, from the two teams' ratings. See streaming.py and projections.goalie_final. No range is given:
+    the start count is a guess from recent usage and says nothing about injuries or trades."""
+    try:
+        wanted = {int(x) for x in ids.split(",") if x.strip()}
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    if sort not in ("final_wins", "final_saves", "final_shutouts", "rest_starts", "final_starts"):
+        raise HTTPException(400, "sort must be final_wins, final_saves, final_shutouts, rest_starts or final_starts")
+    limit = max(1, min(limit, 1000))
+    plan = _streaming_plan(GOALIE_PROJECTION_DAYS)
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        now = {r["player_id"]: r for r in conn.execute(
+            """SELECT player_id, name, team, games_played, games_started, wins, losses, ot_losses, saves, shots_against,
+                      goals_against, shutouts FROM goalie_season WHERE season_id = %s""", (config.SEASON_ID,)).fetchall()}
+    out = []
+    for g in plan["goalies"]:
+        r = now.get(g["player_id"])
+        if not r or (r["games_played"] or 0) < min_games or (wanted and g["player_id"] not in wanted):
+            continue
+        out.append({"player_id": g["player_id"], "name": g["name"], "team": g["team"], **projections.goalie_final(r, g["games"])})
+    out.sort(key=lambda x: (-x[sort], x["name"]))
+    return {"season": config.SEASON_ID, "total": len(out), "rows": out[:limit]}
+
+
 # --- Matchup quality ------------------------------------------------------------------------------
 @app.get("/api/matchups/teams")
 def matchup_teams():
@@ -2529,7 +2669,7 @@ def prospects_list(team: str = "", position: str = "", league: str = "", q: str 
     run lowest first). See prospects.py."""
     if sort not in PROSPECT_SORTS:
         raise HTTPException(400, f"sort must be one of {', '.join(sorted(PROSPECT_SORTS))}")
-    limit = max(1, min(limit, 500))
+    limit = max(1, min(limit, 1000))
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
         people = conn.execute("SELECT * FROM prospect WHERE on_list").fetchall()
@@ -2830,6 +2970,47 @@ def team_schedule(abbrev: str):
         us, them = (r["home_score"], r["away_score"]) if r["home"] == abbrev else (r["away_score"], r["home_score"])
         r["result"] = "W" if us > them else ("L" if r["last_period"] == "REG" else "OTL")
     return {"results": list(reversed(done))[:10], "upcoming": todo[:10]}
+
+
+@app.get("/api/teams/{abbrev}/game-log")
+def team_game_log(abbrev: str):
+    """A team's finished games this season, oldest first, each with the score next to what the shots said (expected goals,
+    attempts, power-play chances), plus the season summary, a rolling 5-game picture and the team's top scorers with their
+    recent form. See teamlog.py."""
+    abbrev = abbrev.upper()
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        info = conn.execute(
+            """SELECT abbrev, name, common_name, logo_url, logo_dark_url, wins, losses, ot_losses, points, games_played
+               FROM team_season WHERE season_id = %s AND abbrev = %s""", (config.SEASON_ID, abbrev)).fetchone()
+        if not info:
+            raise HTTPException(404, "Team not found")
+        games = conn.execute(
+            """SELECT game_id, game_date, home, away, home_score, away_score, last_period FROM game
+               WHERE season_id = %s AND (home = %s OR away = %s) AND state IN ('OFF', 'FINAL')
+               ORDER BY game_date, game_id""", (config.SEASON_ID, abbrev, abbrev)).fetchall()
+        # this team's shot totals for and against in each game: one pass over the shots of games it played in
+        totals = {r["game_id"]: r for r in conn.execute(
+            """SELECT game_id,
+                      coalesce(sum(xg) FILTER (WHERE team = %(t)s), 0)::float AS xgf,
+                      coalesce(sum(xg) FILTER (WHERE opponent = %(t)s), 0)::float AS xga,
+                      count(*) FILTER (WHERE team = %(t)s) AS cf, count(*) FILTER (WHERE opponent = %(t)s) AS ca,
+                      count(*) FILTER (WHERE team = %(t)s AND kind IN ('shot', 'goal')) AS sf,
+                      count(*) FILTER (WHERE opponent = %(t)s AND kind IN ('shot', 'goal')) AS sa,
+                      coalesce(sum(xg) FILTER (WHERE team = %(t)s AND strength = 'pp'), 0)::float AS pp_xgf,
+                      coalesce(sum(xg) FILTER (WHERE opponent = %(t)s AND strength = 'pp'), 0)::float AS pk_xga
+               FROM shot WHERE season_id = %(s)s AND (team = %(t)s OR opponent = %(t)s) GROUP BY game_id""",
+            {"t": abbrev, "s": config.SEASON_ID})}
+        skaters = conn.execute(SKATERS_SQL, {
+            "season": config.SEASON_ID, "window": config.RECENT_WINDOW, "games": config.GAMES_PER_SEASON}).fetchall()
+    rows = [teamlog.game_row(g, abbrev, totals.get(g["game_id"])) for g in games]
+    mine = sorted((r for r in skaters if abbrev in (r["team"] or "").split(",") and r["games_played"]),
+                  key=lambda r: (-r["points"], r["games_played"]))[:8]
+    players = [{"player_id": r["player_id"], "name": r["name"], "position": r["position"], "games_played": r["games_played"],
+                "points": r["points"], "point_pace": r["point_pace"], "recent_games": r["recent_games"],
+                "recent_points": r["recent_points"], "recent_pace": r["recent_pace"], "form": teamlog.player_form(r)}
+               for r in mine]
+    return {"team": info, "games": rows, "summary": teamlog.summary(rows), "rolling": teamlog.rolling(rows),
+            "window": teamlog.ROLL, "players": players}
 
 
 # --- Pace history -------------------------------------------------------------------------------

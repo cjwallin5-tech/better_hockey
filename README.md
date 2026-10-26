@@ -71,6 +71,52 @@ and never refreshed, so when a new season starts the one that just finished stop
   rate is pulled toward the average by a weight that depends on how noisy it is (shutouts and plus/minus far more than shots and
   hits), and z-scores are measured against the spread of real outcomes so a mostly-luck category can't dominate. Those per-stat
   weights come from reasoning about noise, not a backtest (only goals, assists and points could be backtested).
+- **Waiver wire** (Fantasy → Waiver wire): players not on your roster, sorted by value over the rest of the season in your league, or by
+  hottest recent form, biggest role jump (`/api/roles/changes`), buy-low (points below what the shots support, `/api/luck/*`) or games
+  in the next 7 days (`/api/matchups/schedule`). Filters for position, name and hurt players; "Likely available only" hides the top
+  `teams x slots` players per position by value, since the site can't see who is owned in your league. Logic in `frontend/src/waiver.js`.
+- **Lineup optimizer** (Fantasy → Lineup optimizer): the best start/sit for each of the next 7 days under your scoring (or categories) and
+  slots, either changing daily or locked for the week. A skater's game is scored by their per-game rate moved by the opponent's matchup
+  rating (`/api/fantasy/week`), a goalie's by his chance to start times what a start there is worth (`/api/streaming/goalies`). Positions are
+  filled independently (no UTIL slot). It can't see injuries beyond an "out N" badge. Logic in `frontend/src/lineup.js`.
+- **Matchup projector** (Fantasy → Matchup projector): your next 7 days against another team in your league. You enter their roster (search
+  or paste names; kept in this browser only, since the site can't see other teams), both teams get their best lineup from the optimizer,
+  and the gap between the totals against a rough weekly-swing estimate gives a win chance (`frontend/src/h2h.js`). The swing model
+  (skater variance 1.5 per point from the projection backtest, goalie starts 0.6 sd) is not fitted to fantasy results. Points leagues only.
+- **Draft helper** (Fantasy → Draft helper): every player with a value ranked over the rest of the season in your league (points or
+  categories) on one scale across positions, grouped into tiers (a new tier where the value drops 8% of the position's spread), with the
+  cliff after each position's top tier. You mark each pick as yours or taken by hand; it tracks snake or straight order and your next
+  picks, your open starting slots, the best player left and the best at a position you need. A Keepers table prices your roster by the
+  round each would cost: surplus over the value of the player who typically goes mid-round, best surpluses up to your limit marked keep.
+  State is kept in this browser only. Logic in `frontend/src/draft.js`. It only knows players with a game played this season.
+- **What to watch** (`/tonight`, nav "Tonight"): a day's games ranked by how worth watching they are, with the reasons: how even the two
+  teams are (the matchup ratings and the streaming win model), expected goals, whether both teams are in the playoff race, a star
+  scorer, and how many of your fantasy roster and watchlist players (or followed teams) play. Each card also lists the likely goalies, rest
+  and top scorers. Weights in `backend/tonight.py` are judgment calls, not fitted. Early in a season playoff odds are near 50% for most
+  teams, so stakes barely separates games until the standings spread out.
+- **My team** (`/my-team`, nav "My team"; "Make this my team" on any team page): the team you follow, game by game. Each finished game shows
+  the score next to what the stored shots said (expected goals for and against and their share, attempt share, shots on goal, power-play xG
+  created and killed-penalty xG against), a rolling 5-game chart of xG share (the play) against goal share (the results), and a note on
+  whether results are ahead of, behind or in line with the play (`backend/teamlog.py`, 5 points apart counts as ahead or behind). It also
+  lists the top scorers with a hot/cold tag from their recent pace, the upcoming schedule and special teams. The favorite team is kept in
+  this browser only.
+- **Prospects on the watchlist** (Watch button on a prospect page, Prospects group on `/watchlist`): a watched prospect gets a line in the
+  morning email's watchlist section: this season's line in the league they play in, how the points-per-game rate compares with last season
+  in the same league (when it moved by 0.15 or more), and what changed lately. The stored prospect data is season totals, not game logs, so
+  "lately" is the difference between the last two nightly refreshes that saw the games total move (`prev_games`, `prev_points`, `changed_at`
+  on `prospect_season`, kept for 3 days), usually the last game or few; it starts filling in from the first prospect refresh after the
+  columns exist. A prospect who reaches the NHL gets a "Reached the NHL" line and is then followed like any other watched player. No
+  hot/cold flag: leagues aren't comparable and there is no per-game history to judge a streak against (`backend/prospects.py`).
+- **Linemate chemistry** (player page → Linemates & chemistry; team page lines show xGF%): whether the team gets a bigger share of the good
+  chances with two skaters together than each gets apart. The pair and forward-line tables now keep 5v5 expected goals for and against
+  (`xgf`, `xga`, filled by `corsi.group_xg` during the on-ice ingest; `LINES_VERSION` 3 makes the next ingest recompute every game, or
+  run `ingest.ingest_onice` once). The lift is xG share together minus the pooled xG share apart, with a z-score from the attempts behind
+  each and a verdict (clear or slight boost or drag, or no clear effect) only after 30 minutes together (`backend/chemistry.py`). The
+  noise estimate treats attempts as even coin flips, so it is a floor, and time apart is usually with other linemates, opponents and zone
+  starts, so a verdict is a clue, not proof of fit. Until a game's xG is stored the page falls back to the shot-attempt (Corsi) lift.
+- **Goalie projections** (Projections → Show: Goalies, `/api/projections/goalies`): wins, saves, goals against and shutouts at season's end =
+  what he has plus his expected starts left (the streaming start-chance model run to the last game) times the per-start value from the
+  two teams' ratings. No range, and recent usage is assumed to continue (a backup who takes over is not predicted). Not backtested.
 - **Accounts** (`/account`): optional email + password sign-in (scrypt-hashed, HttpOnly cookie session) that syncs the fantasy
   roster and scoring across devices. Tables are created automatically when the API starts (`backend/auth.py`).
   **Password reset** emails a single-use link (valid 1 hour) over SMTP. Set `SMTP_HOST`, `SMTP_PORT` (587, STARTTLS),
@@ -158,7 +204,9 @@ and never refreshed, so when a new season starts the one that just finished stop
   cases), anchoring on any start the NHL boxscore already shows. Still an inference; `probable_goalies.py` documents the model.
 - **Daily roster email**: signed-in users can turn it on from the Account page. `backend/digest.py` emails today's games for
   each rostered player (with a likely-starter guess for goalies), who's hot and who's missing games, role changes (power-play
-  moves and ice-time shifts over the last 5 games) and a luck check, at most once per Eastern
+  moves and ice-time shifts over the last 5 games), sell-high ideas (your skaters and goalies scoring well above what their
+  shots predict, judged against their own finishing history), buy-low ideas (good players not on your roster scoring below it,
+  watchlist players first; `backend/tradewatch.py`) and a luck check for your cold players, at most once per Eastern
   day, using the same SMTP settings as password reset. Preview without sending: `.venv/bin/python digest.py --dry`, or
   `--preview 8478402,8480069` for a list of player ids. To send every morning, follow the steps at the top of `backend/com.hockeystats.digest.plist.example` (a launchd template with
   the SMTP settings and an 8:00 AM schedule; logs in `backend/logs/digest.log`).

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { CountryFlag } from '../components/Flag.jsx'
 import Headshot from '../components/Headshot.jsx'
+import WatchButton from '../components/WatchButton.jsx'
 import { Line, draftText, height, ppg, svp } from '../components/ProspectBits.jsx'
 
 export default function Prospect() {
@@ -35,6 +36,7 @@ export default function Prospect() {
               {' · '}Age {p.age ?? '–'} · {height(p.height_in)}, {p.weight_lb ?? '–'} lb · Shoots {p.shoots ?? '–'} · {draftText(p.draft)}
             </p>
             <p>This season: <Line p={p} /> {p.league && <span className="muted">({p.league}, {p.club})</span>}</p>
+            <p className="header-actions"><WatchButton kind="prospect" refId={p.player_id} name={p.name} /></p>
           </div>
         </div>
       </header>

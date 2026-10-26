@@ -330,7 +330,7 @@ class WatchIn(BaseModel):
 def clean_watch(item: WatchIn):
     """(kind, ref, name) with the ref checked against its kind, or None when it isn't a valid item."""
     kind, ref = item.kind, item.ref.strip()
-    if kind == "player" and ref.isdigit() and len(ref) <= 10:
+    if kind in ("player", "prospect") and ref.isdigit() and len(ref) <= 10:
         pass
     elif kind == "team" and TEAM_RE.match(ref.upper()):
         ref = ref.upper()
@@ -362,7 +362,7 @@ def add_watch(item: WatchIn, request: Request):
             raise HTTPException(401, "Not signed in")
         count = conn.execute("SELECT count(*) AS n FROM watch_item WHERE user_id = %s", (user["id"],)).fetchone()["n"]
         if count >= MAX_WATCH:
-            raise HTTPException(400, f"You can watch up to {MAX_WATCH} players and teams")
+            raise HTTPException(400, f"You can watch up to {MAX_WATCH} players, prospects and teams")
         conn.execute("INSERT INTO watch_item (user_id, kind, ref, name) VALUES (%s, %s, %s, %s) "
                      "ON CONFLICT (user_id, kind, ref) DO NOTHING", (user["id"], *clean))
     return {"ok": True}

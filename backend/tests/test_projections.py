@@ -75,5 +75,30 @@ class LeagueFigures(unittest.TestCase):
         self.assertAlmostEqual(out["D"][1], 0.5)
 
 
+
+class GoalieFinal(unittest.TestCase):
+    NOW = {"games_played": 10, "games_started": 9, "wins": 5, "saves": 250, "goals_against": 25, "shutouts": 1}
+
+    def game(self, p, win=0.5, saves=25.0, ga=2.5, shutout=0.08):
+        return {"probability": p, "line": {"win": win, "loss": 0.4, "otl": 0.1, "saves": saves, "shots": saves + ga, "ga": ga, "shutout": shutout}}
+
+    def test_rest_is_each_games_line_weighted_by_the_chance_he_starts_it(self):
+        out = pj.goalie_final(self.NOW, [self.game(1.0), self.game(0.5, win=0.6)])
+        self.assertAlmostEqual(out["rest_starts"], 1.5)
+        self.assertAlmostEqual(out["rest_wins"], 0.5 + 0.5 * 0.6)
+        self.assertAlmostEqual(out["rest_saves"], 25 + 12.5)
+
+    def test_final_is_what_he_has_plus_the_rest(self):
+        out = pj.goalie_final(self.NOW, [self.game(1.0)])
+        self.assertAlmostEqual(out["final_wins"], 5.5)
+        self.assertAlmostEqual(out["final_starts"], 10)
+        self.assertAlmostEqual(out["final_goals_against"], 27.5)
+
+    def test_no_games_left_or_missing_stats_project_nothing_more(self):
+        out = pj.goalie_final({"games_played": 3, "wins": None}, [])
+        self.assertEqual(out["rest_starts"], 0)
+        self.assertEqual(out["final_wins"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

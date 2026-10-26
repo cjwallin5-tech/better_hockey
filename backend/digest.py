@@ -1,5 +1,8 @@
 """Daily roster digest: today's games for each rostered player, who's hot, who's missing games, plus a section for
-the players and teams on the user's watchlist (games, hot/cold, role changes, nearby milestones).
+the players, prospects and teams on the user's watchlist (games, hot/cold, role changes, nearby milestones, how a prospect's
+season is going and when one reaches the NHL). Rostered players who are
+scoring above what their shots predict come up as sell-high ideas, and good players elsewhere scoring below it as buy-low
+ideas (tradewatch.py); the rest of the roster's luck flags stay in the luck check.
 
 Run it each morning (run_digest.sh). Only accounts that turned the digest on (Account page) get it, at
 most once per Eastern-time day. Usage:
@@ -20,7 +23,9 @@ import config
 import fatigue
 import luck_db
 import mail
+import prospects
 import roles_db
+import tradewatch
 
 ET = ZoneInfo("America/New_York")
 HOT_MIN_GAMES = 5      # recent games needed before a hot streak means anything
@@ -82,17 +87,25 @@ def role_alerts(conn, players):
              "ev_base": r["ev_base"], "ev": r["ev"]} for r in lines[:ROLE_MAX]]
 
 
-def luck_alerts(conn, players):
-    """Rostered players running well above or below what their shots predict (flagged by luck.py, with enough of a
-    sample to mean something), biggest gaps first. Each is a dict ready for render()."""
-    ids = [p["id"] for p in players]
+def league_luck(conn):
+    """Luck rows for every skater and goalie, fetched once per run and shared by every user's email."""
+    return {"skaters": luck_db.skater_rows(conn, config.SEASON_ID, config.GAMES_PER_SEASON),
+            "goalies": luck_db.goalie_rows(conn, config.SEASON_ID)}
+
+
+def luck_alerts(league, players, hot=True, cold=True):
+    """Players running well above or below what their shots predict (flagged by luck.py, with enough of a sample to
+    mean something), biggest gaps first. `league` is league_luck(); hot and cold choose which directions to keep.
+    Each is a dict ready for render()."""
+    ids = {p["id"] for p in players}
+    keep = {f for f, on in (("hot", hot), ("cold", cold)) if on}
     out = []
-    for r in luck_db.skater_rows(conn, config.SEASON_ID, config.GAMES_PER_SEASON, ids=ids):
-        if r["enough"] and r["points_flag_adj"] in ("hot", "cold"):  # judged against the player's own history
+    for r in league["skaters"]:
+        if r["player_id"] in ids and r["enough"] and r["points_flag_adj"] in keep:  # judged against the player's own history
             out.append({"name": r["name"], "kind": "skater", "flag": r["points_flag_adj"], "z": r["points_z_adj"],
                         "actual": r["points"], "expected": r["xpoints_adj"]})
-    for r in luck_db.goalie_rows(conn, config.SEASON_ID, ids=ids):
-        if r["enough"] and r["flag"] in ("hot", "cold"):
+    for r in league["goalies"]:
+        if r["player_id"] in ids and r["enough"] and r["flag"] in keep:
             out.append({"name": r["name"], "kind": "goalie", "flag": r["flag"], "z": r["z"],
                         "actual": r["goals"], "expected": r["xga"]})
     out.sort(key=lambda a: abs(a["z"]), reverse=True)
@@ -108,8 +121,12 @@ def _roster_rows(conn, ids):
     return skaters, goalies
 
 
-def gather(conn, players):
-    """players: [{id, kind, name}] -> what today's email is made of."""
+def gather(conn, players, league=None, roster=True, watched=frozenset()):
+    """players: [{id, kind, name}] -> what today's email is made of. `league` is league_luck() (fetched here when
+    omitted). roster=True is the user's own team: hot players there become sell-high lines and the league's cold
+    stars not on the team become buy-low lines (`watched` ids come first); otherwise (watchlist players) every luck
+    flag stays in the luck check."""
+    league = league or league_luck(conn)
     players = list({p["id"]: p for p in players}.values())
     ids = {p["id"] for p in players}
     skaters, goalies = _roster_rows(conn, ids)
@@ -151,9 +168,13 @@ def gather(conn, players):
             elif row["traded"]:
                 watch.append(f"{row['name']} has played for more than one team this season ({row['team']}).")
     hot.sort(key=lambda h: h["recent_pace"] - h["pace"], reverse=True)
-    return {"today": today, "roster_size": len(playing) + len(idle), "playing": playing, "idle": idle,
-            "hot": hot[:HOT_MAX], "watch": watch, "luck": luck_alerts(conn, players),
-            "roles": role_alerts(conn, players)}
+    out = {"today": today, "roster_size": len(playing) + len(idle), "playing": playing, "idle": idle,
+           "hot": hot[:HOT_MAX], "watch": watch, "roles": role_alerts(conn, players),
+           "luck": luck_alerts(league, players, hot=not roster), "sell": [], "buy": []}
+    if roster:
+        out["sell"] = tradewatch.sell_high(league["skaters"], league["goalies"], ids, config.GAMES_PER_SEASON)
+        out["buy"] = tradewatch.buy_low(league["skaters"], ids, config.GAMES_PER_SEASON, watched)
+    return out
 
 
 def milestone_alerts(ms, ids, today):
@@ -172,19 +193,52 @@ def milestone_alerts(ms, ids, today):
     return out[:MILESTONE_MAX]
 
 
-def gather_watch(conn, items, roster_ids, ms=None):
-    """items: [{kind: 'player'|'team', ref, name}] from the user's watchlist. Players already on the roster are
-    left to the roster sections. Returns the same pieces as gather() for the watched players, plus `milestones` and
-    `teams` (today's game for each watched team), or None when there is nothing to report on."""
-    ids = {int(i["ref"]): i for i in items if i["kind"] == "player" and int(i["ref"]) not in roster_ids}
-    teams = [i["ref"] for i in items if i["kind"] == "team"]
-    if not ids and not teams:
-        return None
+def prospect_alerts(conn, ids):
+    """Watched prospects who are still prospects: this season's line, what changed lately and how it compares with last
+    season (see prospects.py). Prospects who have reached the NHL are split out: ({ids...}, [alert dicts])."""
+    if not ids:
+        return set(), []
     skaters, goalies = _roster_rows(conn, set(ids))
-    players = [{"id": i, "kind": "skater" if i in skaters else "goalie", "name": ids[i]["name"]}
-               for i in ids if i in skaters or i in goalies]
-    d = gather(conn, players)
+    in_nhl = set(skaters) | set(goalies)
+    people = conn.execute("SELECT * FROM prospect WHERE player_id = ANY(%s)", (list(ids),)).fetchall()
+    seasons = {}
+    for r in conn.execute("SELECT * FROM prospect_season WHERE player_id = ANY(%s) AND game_type = 2", (list(ids),)):
+        seasons.setdefault(r["player_id"], []).append(r)
+    now = datetime.now(ET)
+    out = []
+    for p in people:
+        if p["player_id"] in in_nhl:
+            continue
+        mine = seasons.get(p["player_id"], [])
+        out.append(prospects.alert(p, prospects.current_line(mine, config.SEASON_ID), mine, now, config.SEASON_ID))
+    # recent movers first, then by name
+    out.sort(key=lambda a: (a["change"] is None, a["name"]))
+    return in_nhl, out
+
+
+def gather_watch(conn, items, roster_ids, ms=None, league=None):
+    """items: [{kind: 'player'|'prospect'|'team', ref, name}] from the user's watchlist. Players already on the roster are
+    left to the roster sections. A watched prospect who has since reached the NHL is followed like a player, with a line
+    saying so. Returns the same pieces as gather() for the watched players, plus `milestones`, `prospects` and `teams`
+    (today's game for each watched team), or None when there is nothing to report on."""
+    ids = {int(i["ref"]): i for i in items if i["kind"] == "player" and int(i["ref"]) not in roster_ids}
+    prospect_ids = {int(i["ref"]): i for i in items if i["kind"] == "prospect" and int(i["ref"]) not in roster_ids}
+    teams = [i["ref"] for i in items if i["kind"] == "team"]
+    if not ids and not teams and not prospect_ids:
+        return None
+    in_nhl, prospect_list = prospect_alerts(conn, set(prospect_ids))
+    called_up = {i: prospect_ids[i] for i in in_nhl if i not in ids}
+    skaters, goalies = _roster_rows(conn, set(ids) | set(called_up))
+    names = {**called_up, **ids}
+    players = [{"id": i, "kind": "skater" if i in skaters else "goalie", "name": names[i]["name"]}
+               for i in names if i in skaters or i in goalies]
+    d = gather(conn, players, league, roster=False)
     d["milestones"] = milestone_alerts(ms, set(ids), d["today"]) if ms and ids else []
+    d["prospects"] = prospect_list
+    d["called_up"] = [prospects.called_up_line((skaters.get(i) or goalies[i])["name"], ((skaters.get(i) or goalies[i])["team"] or "").split(",")[-1],
+                                               (skaters.get(i) or goalies[i])["games_played"], (skaters.get(i) or {}).get("points"),
+                                               goalie=i in goalies and i not in skaters)
+                      for i in called_up if i in skaters or i in goalies]
     games = conn.execute("SELECT home, away, start_time FROM game WHERE season_id = %s AND game_date = %s "
                          "ORDER BY start_time", (config.SEASON_ID, d["today"])).fetchall()
     by_team = {}
@@ -230,6 +284,8 @@ def watch_lines(w):
         ("Role changes", w.get("roles", []), role_line),
         ("Luck check", w.get("luck", []), luck_line),
         ("Milestones", w.get("milestones", []), milestone_line),
+        ("Prospects", w.get("prospects", []), prospects.alert_line),
+        ("Reached the NHL", w.get("called_up", []), str),
         ("Watch", w.get("watch", []), str),
     ):
         if items:
@@ -266,7 +322,7 @@ def luck_line(a):
 def render(d, w=None):
     """(subject, plain-text body), or None when there is nothing worth an email. `w` is gather_watch()'s result."""
     watch = watch_lines(w) if w else []
-    if not (d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or watch):
+    if not (d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or d.get("sell") or d.get("buy") or watch):
         return None
     lines = [f"Your NHL roster for {d['today']:%A, %B %-d}" if d["roster_size"] else f"Your NHL watchlist for {d['today']:%A, %B %-d}", ""]
     if d["playing"]:
@@ -293,6 +349,14 @@ def render(d, w=None):
     if d.get("roles"):
         lines.append("ROLE CHANGES (ice time is the earliest sign of a new role)")
         lines += [f"  {role_line(a)}" for a in d["roles"]]
+        lines.append("")
+    if d.get("sell"):
+        lines.append("SELL HIGH (scoring above what the shots say; early in the season these swing a lot)")
+        lines += [f"  {tradewatch.sell_line(a)}" for a in d["sell"]]
+        lines.append("")
+    if d.get("buy"):
+        lines.append("BUY LOW (good players scoring below what the shots say; we can't see who is available in your league)")
+        lines += [f"  {tradewatch.buy_line(a)}" for a in d["buy"]]
         lines.append("")
     if d.get("luck"):
         lines.append("LUCK CHECK (results vs. what the shots say; early in the season these swing a lot)")
@@ -338,13 +402,16 @@ def main(argv):
             print(out[0] + "\n\n" + out[1] if out else "(nothing to send)")
             return 0
         sent = skipped = 0
+        league = None  # luck rows for every player: one query set shared by all the emails
         ms = None  # api.milestones() scans every player, so it runs once and only if someone watches a player
         for u in due_users(conn):
             items = conn.execute("SELECT kind, ref, name FROM watch_item WHERE user_id = %s", (u["id"],)).fetchall()
             if ms is None and any(i["kind"] == "player" for i in items):
                 ms = api.milestones()
             roster_ids = {p["id"] for p in u["players"]}
-            out = render(gather(conn, u["players"]), gather_watch(conn, items, roster_ids, ms))
+            league = league or league_luck(conn)
+            watched = {int(i["ref"]) for i in items if i["kind"] == "player"}
+            out = render(gather(conn, u["players"], league, watched=watched), gather_watch(conn, items, roster_ids, ms, league))
             if out is None:
                 skipped += 1
                 continue

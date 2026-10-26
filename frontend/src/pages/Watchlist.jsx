@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import DigestToggle from '../components/DigestToggle.jsx'
 import { useWatchlist } from '../watchlist.js'
 
-/** Players and teams followed in the daily email. Add from here, or with the Watch button on a player or team page. */
+/** Players, prospects and teams followed in the daily email. Add from here, or with the Watch button on a player or team page. */
 export default function Watchlist() {
   const { signedIn, status, items, limit, error, toggle } = useWatchlist()
   const [pool, setPool] = useState(null) // everything that can be watched
@@ -13,9 +13,11 @@ export default function Watchlist() {
     if (!signedIn) return
     Promise.all([
       fetch('/api/skaters').then((r) => r.json()), fetch('/api/goalies').then((r) => r.json()), fetch('/api/teams').then((r) => r.json()),
-    ]).then(([skaters, goalies, teams]) => setPool([
+      fetch('/api/prospects?min_games=0&limit=1000&sort=name').then((r) => (r.ok ? r.json() : { rows: [] })).catch(() => ({ rows: [] })),
+    ]).then(([skaters, goalies, teams, prospects]) => setPool([
       ...skaters.map((r) => ({ kind: 'player', ref: String(r.player_id), name: r.name, detail: `${r.team} · ${r.position}`, path: `/player/${r.player_id}` })),
       ...goalies.goalies.map((r) => ({ kind: 'player', ref: String(r.player_id), name: r.name, detail: `${r.team} · G`, path: `/goalie/${r.player_id}` })),
+      ...prospects.rows.map((r) => ({ kind: 'prospect', ref: String(r.player_id), name: r.name, detail: `${r.team} prospect · ${r.position}`, path: `/prospect/${r.player_id}` })),
       ...teams.map((t) => ({ kind: 'team', ref: t.abbrev, name: t.name, detail: t.abbrev, path: `/team/${t.abbrev}` })),
     ])).catch(() => setPool([]))
   }, [signedIn])
@@ -31,7 +33,7 @@ export default function Watchlist() {
   if (!signedIn) {
     return (
       <main>
-        <header><h1>Watchlist</h1><p>Follow players and teams outside your fantasy roster and get a section about them in the morning email.</p></header>
+        <header><h1>Watchlist</h1><p>Follow players, prospects and teams outside your fantasy roster and get a section about them in the morning email.</p></header>
         <p className="status"><Link to="/account">Log in</Link> to keep a watchlist.</p>
       </main>
     )
@@ -57,13 +59,14 @@ export default function Watchlist() {
       <header>
         <h1>Watchlist</h1>
         <p>
-          Follow players and teams outside your fantasy roster. The morning email gets a Watchlist section with their games
-          today, who is hot or cold, role changes and career milestones that are close or just reached.
+          Follow players, prospects and teams outside your fantasy roster. The morning email gets a Watchlist section with their games
+          today, who is hot or cold, role changes and career milestones that are close or just reached. For a prospect it says how
+          their season is going and what changed lately, and tells you when one reaches the NHL.
         </p>
       </header>
       <div className="picker">
         <div className="search-box">
-          <input type="search" placeholder="Add a player or team…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input type="search" placeholder="Add a player, prospect or team…" value={query} onChange={(e) => setQuery(e.target.value)} />
           {matches.length > 0 && (
             <ul className="results">
               {matches.map((m) => (
@@ -80,6 +83,7 @@ export default function Watchlist() {
       {status === 'loading' && <p className="status">Loading…</p>}
       {status === 'ready' && items.length === 0 && <p className="status">Nothing yet. Search above, or use the Watch button on a player or team page.</p>}
       {list('player', 'Players')}
+      {list('prospect', 'Prospects')}
       {list('team', 'Teams')}
       <DigestToggle />
     </main>

@@ -607,7 +607,7 @@ def box_rows(game_id, box):
     return rows
 
 
-LINES_VERSION = 2  # bump when the on-ice computation gains new outputs
+LINES_VERSION = 3  # bump when the on-ice computation gains new outputs (3: expected goals on the pair and line tables)
 MIN_SHIFT_COVERAGE = 0.95  # below this, a game's shift data is treated as unusable
 
 
@@ -678,6 +678,19 @@ def store_shots(cur, game_id, pbp, shift_rows, skater_ids):
     cur.executemany(
         "UPDATE skater_game_onice SET xgf = %s, xga = %s WHERE player_id = %s AND game_id = %s",
         [(v[0], v[1], pid, game_id) for pid, v in onice.items()],
+    )
+    # the pair and line rows were just written by store_lines; add the expected goals shared by each group
+    groups = corsi.group_xg(rows, shift_rows, pbp["rosterSpots"])
+    # a group that shared the ice without a single 5v5 attempt with an xG has no entry above: that is 0 xG, not unknown
+    cur.execute("UPDATE pair_game SET xgf = 0, xga = 0 WHERE game_id = %s", (game_id,))
+    cur.execute("UPDATE line_game SET xgf = 0, xga = 0 WHERE game_id = %s", (game_id,))
+    cur.executemany(
+        "UPDATE pair_game SET xgf = %s, xga = %s WHERE game_id = %s AND team = %s AND p1 = %s AND p2 = %s",
+        [(v[0], v[1], game_id, abbrev[k[0]], k[1], k[2]) for k, v in groups["pairs"].items()],
+    )
+    cur.executemany(
+        "UPDATE line_game SET xgf = %s, xga = %s WHERE game_id = %s AND team = %s AND p1 = %s AND p2 = %s AND p3 = %s",
+        [(v[0], v[1], game_id, abbrev[k[0]], k[1], k[2], k[3]) for k, v in groups["trios"].items()],
     )
 
 
@@ -1138,7 +1151,11 @@ def ingest_prospects(conn):
                 """INSERT INTO prospect_season (player_id, season_id, game_type, league, team_name, games, goals, assists, points,
                                                 pim, plus_minus, wins, save_pct, gaa)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                   ON CONFLICT (player_id, season_id, game_type, league, team_name) DO UPDATE SET games = EXCLUDED.games,
+                   ON CONFLICT (player_id, season_id, game_type, league, team_name) DO UPDATE SET
+                       prev_games = CASE WHEN EXCLUDED.games <> prospect_season.games THEN prospect_season.games ELSE prospect_season.prev_games END,
+                       prev_points = CASE WHEN EXCLUDED.games <> prospect_season.games THEN prospect_season.points ELSE prospect_season.prev_points END,
+                       changed_at = CASE WHEN EXCLUDED.games <> prospect_season.games THEN now() ELSE prospect_season.changed_at END,
+                       games = EXCLUDED.games,
                        goals = EXCLUDED.goals, assists = EXCLUDED.assists, points = EXCLUDED.points, pim = EXCLUDED.pim,
                        plus_minus = EXCLUDED.plus_minus, wins = EXCLUDED.wins, save_pct = EXCLUDED.save_pct, gaa = EXCLUDED.gaa""",
                 [(pid, s["season_id"], s["game_type"], s["league"] or "", s["team_name"], s["games"], s["goals"], s["assists"],

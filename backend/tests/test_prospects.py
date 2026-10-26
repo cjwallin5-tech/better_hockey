@@ -64,3 +64,72 @@ class Lines(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+from datetime import datetime, timezone, timedelta
+
+NOW = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+
+
+def pline(games=20, points=24, prev_games=18, prev_points=22, days_ago=0, league="OHL", **kw):
+    return {"season_id": 20262027, "game_type": 2, "league": league, "games": games, "goals": 10, "assists": None if points is None else points - 10,
+            "points": points, "wins": None, "save_pct": None, "gaa": None, "prev_games": prev_games, "prev_points": prev_points,
+            "changed_at": NOW - timedelta(days=days_ago) if days_ago is not None else None, **kw}
+
+
+class RecentChange(unittest.TestCase):
+    def test_games_and_points_since_the_last_move(self):
+        self.assertEqual(pr.recent_change(pline(), NOW), {"games": 2, "points": 2, "days_ago": 0})
+
+    def test_a_stale_or_missing_change_is_nothing(self):
+        self.assertIsNone(pr.recent_change(pline(days_ago=5), NOW))
+        self.assertIsNone(pr.recent_change(pline(days_ago=None), NOW))
+        self.assertIsNone(pr.recent_change(pline(prev_games=None), NOW))
+        self.assertIsNone(pr.recent_change(pline(games=18, prev_games=18), NOW))
+        self.assertIsNone(pr.recent_change(None, NOW))
+
+    def test_a_goalie_or_unscored_row_has_no_point_change(self):
+        self.assertIsNone(pr.recent_change(pline(points=None), NOW)["points"])
+
+
+PROSPECT = {"name": "A Prospect", "team": "EDM", "position": "C"}
+
+
+class Alert(unittest.TestCase):
+    def test_prior_rate_needs_the_same_league_and_enough_games(self):
+        seasons = [{"season_id": 20252026, "game_type": 2, "league": "OHL", "games": 60, "points": 45},
+                   {"season_id": 20252026, "game_type": 2, "league": "AHL", "games": 5, "points": 9}]
+        self.assertAlmostEqual(pr.prior_rate(seasons, 20262027, "OHL"), 0.75)
+        self.assertIsNone(pr.prior_rate(seasons, 20262027, "AHL"))     # too few games
+        self.assertIsNone(pr.prior_rate(seasons, 20262027, "WHL"))     # a different league
+
+    def test_a_skater_line_with_a_recent_change_and_a_comparison(self):
+        seasons = [{"season_id": 20252026, "game_type": 2, "league": "OHL", "games": 60, "points": 30}]
+        a = pr.alert(PROSPECT, pline(), seasons, NOW, 20262027)
+        text = pr.alert_line(a)
+        self.assertIn("A Prospect (EDM prospect, C): 10-14-24 in 20 games in the OHL (1.20 points a game).", text)
+        self.assertIn("Lately: 2 games, 2 points since the last update.", text)
+        self.assertIn("Up from 0.50 a game last season.", text)
+
+    def test_a_small_change_in_rate_is_not_mentioned(self):
+        seasons = [{"season_id": 20252026, "game_type": 2, "league": "OHL", "games": 60, "points": 70}]   # 1.17 vs 1.20
+        self.assertNotIn("last season", pr.alert_line(pr.alert(PROSPECT, pline(), seasons, NOW, 20262027)))
+
+    def test_no_games_yet(self):
+        self.assertIn("no games on record this season yet", pr.alert_line(pr.alert(PROSPECT, None, [], NOW, 20262027)))
+
+    def test_goalies_get_wins_and_save_percentage(self):
+        g = {"name": "G Prospect", "team": "BOS", "position": "G"}
+        line = pline(games=12, points=None, wins=7, save_pct=0.917, gaa=2.4, prev_games=10, prev_points=None)
+        text = pr.alert_line(pr.alert(g, line, [], NOW, 20262027))
+        self.assertIn("12 games in the OHL, 7 wins, 0.917 save percentage.", text)
+        self.assertIn("Lately: 2 games since the last update.", text)
+
+    def test_days_ago_wording(self):
+        a = pr.alert(PROSPECT, pline(days_ago=2), [], NOW, 20262027)
+        self.assertIn("over the last 3 days", pr.alert_line(a))
+
+    def test_called_up(self):
+        self.assertEqual(pr.called_up_line("A Prospect", "EDM", 4, 3),
+                         "A Prospect has reached the NHL with EDM: 4 NHL games, 3 points so far. He is now followed like any other player.")
+        self.assertIn("1 NHL game, 1 point so far", pr.called_up_line("B", "EDM", 1, 1))

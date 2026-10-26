@@ -22,6 +22,8 @@ import TrophyIndex from './pages/TrophyIndex.jsx'
 import Account from './pages/Account.jsx'
 import Watchlist from './pages/Watchlist.jsx'
 import Projections from './pages/Projections.jsx'
+import Tonight from './pages/Tonight.jsx'
+import MyTeam from './pages/MyTeam.jsx'
 import Rest from './pages/Rest.jsx'
 import Prospects from './pages/Prospects.jsx'
 import Prospect from './pages/Prospect.jsx'
@@ -78,6 +80,8 @@ function Pages() {
         <Route path="/prospect/:id" element={<Prospect />} />
         <Route path="/rest" element={<Rest />} />
         <Route path="/projections" element={<Projections />} />
+        <Route path="/tonight" element={<Tonight />} />
+        <Route path="/my-team" element={<MyTeam />} />
         <Route path="/watchlist" element={<Watchlist />} />
         <Route path="/trophies" element={<TrophyRaces />} />
         <Route path="/compare" element={<Compare />} />
@@ -101,6 +105,8 @@ export default function App() {
         <NavLink to="/goalies">Goalies</NavLink>
         <NavLink to="/standings">Standings</NavLink>
         <NavLink to="/fantasy">Fantasy</NavLink>
+        <NavLink to="/tonight">Tonight</NavLink>
+        <NavLink to="/my-team">My team</NavLink>
         <NavMore items={[['/compare', 'Compare'], ['/prospects', 'Prospects'], ['/watchlist', 'Watchlist'], ['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/trophy', 'Trophy winners'], ['/schedule', 'Schedule grid'], ['/rest', 'Back-to-backs'], ['/special-teams', 'Special teams'], ['/head-to-head', 'Head-to-head'], ['/tracking', 'Speed & shots'], ['/projections', 'Projections'], ['/luck', 'Luck & regression'], ['/matchups', 'Matchups']]} />
         <GlobalSearch />
         <NavLink to="/account" className="nav-account">{user ? user.email : 'Log in'}</NavLink>

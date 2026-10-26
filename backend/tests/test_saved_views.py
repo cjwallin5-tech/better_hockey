@@ -38,6 +38,8 @@ class CleanWatch(unittest.TestCase):
         self.assertEqual(auth.clean_watch(auth.WatchIn(kind="player", ref="8478402", name="  Connor   McDavid ")),
                          ("player", "8478402", "Connor McDavid"))
         self.assertIsNone(auth.clean_watch(auth.WatchIn(kind="player", ref="abc", name="x")))
+        self.assertEqual(auth.clean_watch(auth.WatchIn(kind="prospect", ref="8485034", name="Joel Svensson")), ("prospect", "8485034", "Joel Svensson"))
+        self.assertIsNone(auth.clean_watch(auth.WatchIn(kind="prospect", ref="abc", name="x")))
 
     def test_teams_are_uppercased_abbreviations(self):
         self.assertEqual(auth.clean_watch(auth.WatchIn(kind="team", ref="tor", name="Toronto")), ("team", "TOR", "Toronto"))
