@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import probable_goalies as pg
 
@@ -19,7 +20,17 @@ class RepeatRate(unittest.TestCase):
         self.assertAlmostEqual(pg.repeat_rate(100, 50), 53 / 120)
 
 
+def raw_model(case):
+    """Run a test class against the shares before the confidence correction (SHRINK 0), so the weighting rules are tested on their own."""
+    patcher = mock.patch.object(pg, "SHRINK", 0.0)
+    patcher.start()
+    case.addCleanup(patcher.stop)
+
+
 class Predict(unittest.TestCase):
+    def setUp(self):
+        raw_model(self)
+
     def test_no_history_gives_no_candidates(self):
         self.assertEqual(pg.predict([], False), [])
 
@@ -41,17 +52,50 @@ class Predict(unittest.TestCase):
         self.assertAlmostEqual(p[2] + p[3], 0.9, places=2)
         self.assertGreater(p[3], p[2])  # C started twice, B once
 
-    def test_a_lone_goalie_has_nobody_to_rest_him(self):
-        self.assertEqual(probs(pg.predict([(1, "A"), (1, "A")], True)), {1: 1.0})
+    def test_a_lone_known_goalie_is_not_certain_there_is_an_unseen_backup(self):
+        # rested: the rule of succession for k straight starts
+        self.assertAlmostEqual(probs(pg.predict([(1, "A")] * 3, False))[1], 4 / 5, places=3)
+        self.assertAlmostEqual(probs(pg.predict([(1, "A")] * 9, False))[1], 10 / 11, places=3)
+        # second night of a back-to-back: only as likely to go again as the repeat rate says
+        self.assertAlmostEqual(probs(pg.predict([(1, "A")] * 3, True, p_repeat=0.2))[1], 0.2, places=3)
 
     def test_only_the_last_window_games_count(self):
         recent = [(1, "A")] * pg.WINDOW + [(2, "B")] * 5
         out = pg.predict(recent, False)
-        self.assertEqual(probs(out), {1: 1.0})
+        self.assertEqual(list(probs(out)), [1])                       # B's older starts are outside the window
+        self.assertAlmostEqual(probs(out)[1], (pg.WINDOW + 1) / (pg.WINDOW + 2), places=3)
         self.assertEqual(out[0]["starts"], pg.WINDOW)
 
 
+class Calibrate(unittest.TestCase):
+    def test_shares_are_pulled_toward_an_even_split_and_still_add_up_to_one(self):
+        out = pg.calibrate({1: 0.9, 2: 0.1})
+        self.assertAlmostEqual(out[1], 0.8 * 0.9 + 0.2 * 0.5)
+        self.assertAlmostEqual(out[2], 0.8 * 0.1 + 0.2 * 0.5)
+        self.assertAlmostEqual(sum(out.values()), 1.0)
+
+    def test_it_never_changes_who_is_most_likely(self):
+        raw = {1: 0.5, 2: 0.3, 3: 0.2}
+        out = pg.calibrate(raw)
+        self.assertEqual(sorted(out, key=out.get), sorted(raw, key=raw.get))
+
+    def test_a_lone_goalie_stays_certain_and_a_high_share_is_lowered(self):
+        self.assertEqual(pg.calibrate({1: 1.0}), {1: 1.0})
+        with mock.patch.object(pg, "SHRINK", 0.0):
+            raw_top = probs(pg.predict([(1, "A")] * 9 + [(2, "B")], False))[1]
+        self.assertLess(probs(pg.predict([(1, "A")] * 9 + [(2, "B")], False))[1], raw_top)
+
+    def test_predict_applies_it_by_default(self):
+        out = probs(pg.predict([(1, "A"), (2, "B")], False))
+        raw = {1: 1 / 1.85, 2: 0.85 / 1.85}
+        self.assertAlmostEqual(out[1], (1 - pg.SHRINK) * raw[1] + pg.SHRINK / 2, places=3)
+        self.assertAlmostEqual(sum(out.values()), 1.0, places=2)
+
+
 class NextDistribution(unittest.TestCase):
+    def setUp(self):
+        raw_model(self)
+
     RECENT = [(1, "A"), (2, "B"), (1, "A"), (1, "A"), (2, "B"), (1, "A")]
 
     def test_empty_history(self):
@@ -61,6 +105,15 @@ class NextDistribution(unittest.TestCase):
         d = pg.next_distribution(self.RECENT, {1: 1.0}, True, 0.1, prepend=False)
         self.assertEqual({k: round(v, 3) for k, v in d.items()},
                          {k: round(v, 3) for k, v in probs(pg.predict(self.RECENT, True, 0.1)).items()})
+
+    def test_a_lone_goalies_chain_does_not_shrink_to_nothing(self):
+        d = {1: 1.0}
+        seen = []
+        for _ in range(8):
+            d = pg.next_distribution([(1, "A")] * 4, d, False, 0.1)
+            seen.append(d[1])
+        # each step is the rule of succession for the 4 starts plus the one just assumed (6/7), not that figure compounding
+        self.assertTrue(all(abs(x - 6 / 7) < 1e-3 for x in seen), seen)
 
     def test_probabilities_always_sum_to_one(self):
         d = pg.next_distribution(self.RECENT, {1: 1.0}, True, 0.1, prepend=False)

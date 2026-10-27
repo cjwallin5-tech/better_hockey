@@ -7,16 +7,28 @@ EVEN = {"off_ratio": 1.0, "def_ratio": 1.0}
 
 
 class Matchup(unittest.TestCase):
-    def test_even_teams_are_a_coin_flip_with_an_average_game(self):
+    def test_even_teams_give_the_home_team_the_long_run_home_edge_and_an_average_game(self):
         win, total = tn.matchup(EVEN, EVEN, LEAGUE)
-        self.assertAlmostEqual(win, 0.5)
+        self.assertAlmostEqual(win, tn.HOME_WIN_RATE)
         self.assertAlmostEqual(total, 6.0)
+
+    def test_home_ice_is_the_same_edge_for_the_visitors_view(self):
+        win, _ = tn.matchup(EVEN, EVEN, LEAGUE)
+        self.assertAlmostEqual((1 - win) + win, 1.0)
+        self.assertGreater(win, 0.5)
 
     def test_the_stronger_side_is_favored_and_a_better_offense_means_more_goals(self):
         strong = {"off_ratio": 1.2, "def_ratio": 0.9}
         win, total = tn.matchup(strong, EVEN, LEAGUE)
-        self.assertGreater(win, 0.5)
+        self.assertGreater(win, tn.HOME_WIN_RATE)
         self.assertGreater(total, 6.0)
+
+    def test_a_visiting_favorite_can_still_be_favored_and_home_ice_narrows_the_gap(self):
+        strong = {"off_ratio": 1.2, "def_ratio": 0.9}
+        win_when_visiting, _ = tn.matchup(EVEN, strong, LEAGUE)
+        win_when_home, _ = tn.matchup(strong, EVEN, LEAGUE)
+        self.assertLess(win_when_visiting, 0.5)                       # the visitors are strong enough
+        self.assertGreater(win_when_home, 1 - win_when_visiting)      # and the same matchup is better for them at home
 
     def test_missing_ratings_give_nothing(self):
         self.assertEqual(tn.matchup(None, EVEN, LEAGUE), (None, None))

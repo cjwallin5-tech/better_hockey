@@ -29,12 +29,13 @@ export function roleSize(row) {
  * Candidate rows for one kind of player.
  *  values: Map id -> { value, group, groupRank, gp, team }   roles: Map id -> row from /api/roles/changes
  *  luck: Map id -> { z, flag, enough }   schedule: Map team -> { games, ratio } for the coming week
- *  Returns rows { id, name, team, position, group, value, groupRank, owned, hurt, gamesOut, form, pace, role,
+ *  taken: Map id -> team name for players on other teams in your league (null with no league); filters.hideTaken drops them.
+ *  Returns rows { id, name, team, position, group, value, groupRank, owned, ownedBy, hurt, gamesOut, form, pace, role,
  *  roleSize, luck, games, ratio, likelyOwned }, filtered and sorted.
  */
-export function waiverRows({ kind, players, values, roles, luck, schedule, roster, league = DEFAULT_LEAGUE, filters = {}, sort = 'value' }) {
+export function waiverRows({ kind, players, values, roles, luck, schedule, roster, league = DEFAULT_LEAGUE, taken = null, filters = {}, sort = 'value' }) {
   const cfg = cleanLeague(league)
-  const { position = 'all', likelyAvailable = false, hideHurt = false, search = '', minGp = 1 } = filters
+  const { position = 'all', likelyAvailable = false, hideHurt = false, search = '', minGp = 1, hideTaken = false } = filters
   const q = search.trim().toLowerCase()
   const rows = []
   for (const p of players ?? []) {
@@ -45,8 +46,10 @@ export function waiverRows({ kind, players, values, roles, luck, schedule, roste
     if (q && !p.name.toLowerCase().includes(q)) continue
     const hurt = (p.games_out ?? 0) >= HURT_GAMES
     if (hideHurt && hurt) continue
-    // the best players in each position are probably owned in a league of this size
-    const likelyOwned = v.groupRank <= cfg.teams * cfg.slots[v.group]
+    // with a league, who is taken is known; without one the best players at each position are probably owned in a league of this size
+    const ownedBy = taken?.get(p.player_id) ?? null
+    if (hideTaken && ownedBy) continue
+    const likelyOwned = !taken && v.groupRank <= cfg.teams * cfg.slots[v.group]
     if (likelyAvailable && likelyOwned) continue
     const goalie = kind === 'goalie'
     const form = goalie ? p.recent_gsaa ?? null : p.recent_pace ?? null
@@ -56,7 +59,7 @@ export function waiverRows({ kind, players, values, roles, luck, schedule, roste
     const sched = schedule.get(teamAbbrev(p.team))
     rows.push({
       id: p.player_id, name: p.name, team: teamAbbrev(p.team), position: goalie ? 'G' : p.position, group: v.group,
-      value: v.value, groupRank: v.groupRank, gp: p.games_played, owned: false, hurt, gamesOut: p.games_out ?? 0,
+      value: v.value, groupRank: v.groupRank, gp: p.games_played, owned: false, ownedBy, hurt, gamesOut: p.games_out ?? 0,
       form, pace, hot: !goalie && form != null && pace != null && pace > 0 && form >= pace * HOT_FORM_RATIO,
       role, roleSize: roleSize(role),
       luck: l && l.enough ? l : null,

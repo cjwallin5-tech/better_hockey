@@ -8,12 +8,14 @@ import LineupOptimizer from '../components/LineupOptimizer.jsx'
 import MatchupProjector from '../components/MatchupProjector.jsx'
 import DraftHelper from '../components/DraftHelper.jsx'
 import { useAuth } from '../auth.js'
+import { refresh as refreshLeagues, setActive as setActiveLeague, takenByOthers, useLeagues } from '../leagues.js'
 import RosterTools from '../components/RosterTools.jsx'
 import { LuckBadge, useLuck } from '../components/Luck.jsx'
 import { RoleBadge, useRoles } from '../components/Roles.jsx'
 import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints, useFantasy, useLeague, useScoring } from '../fantasy.js'
 import PlayerValues from '../components/PlayerValues.jsx'
 import TradeAnalyzer from '../components/TradeAnalyzer.jsx'
+import TradePartners from '../components/TradePartners.jsx'
 import TradeIdeas from '../components/TradeIdeas.jsx'
 import StreamingGoalies from '../components/StreamingGoalies.jsx'
 import { GROUPS, cleanLeague, playerValues } from '../value.js'
@@ -124,12 +126,21 @@ export default function Fantasy() {
   const { list, togglePlayer, replacePlayers } = useFantasy()
   const [params, setParams] = useSearchParams()
   const { user, sync } = useAuth()
+  const leagues = useLeagues()
+  const leagueTaken = useMemo(() => takenByOthers(leagues.active), [leagues.active])
+  useEffect(() => { if (user) refreshLeagues() }, [user])   // other members' rosters change, so reload them when you come here
   const { scoring, setScoring } = useScoring()
   const { league, setLeague } = useLeague()
   const [extras, setExtras] = useState(null) // games left per team and each skater's record, for player values
   const [data, setData] = useState(null)
   const [kind, setKind] = useState('skater')
   const [query, setQuery] = useState('')
+  const playerInfo = useMemo(() => {
+    const m = new Map()
+    for (const r of data?.skaters ?? []) m.set(r.player_id, { name: r.name, team: r.team, position: r.position, kind: 'skater' })
+    for (const r of data?.goalies ?? []) m.set(r.player_id, { name: r.name, team: r.team, position: 'G', kind: 'goalie' })
+    return m
+  }, [data])
   const luck = useLuck(list.players.map((p) => p.id))
   const roles = useRoles(list.players.filter((p) => p.kind === 'skater').map((p) => p.id))
 
@@ -212,6 +223,22 @@ export default function Fantasy() {
           )}
         </div>
       </div>
+
+      {leagues.signedIn && (
+        <p className="sub">
+          {leagues.leagues.length > 0 ? (
+            <>
+              League:{' '}
+              <select value={leagues.activeId ?? ''} onChange={(e) => setActiveLeague(e.target.value ? Number(e.target.value) : null)} aria-label="Active league">
+                <option value="">None</option>
+                {leagues.leagues.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>{' '}
+              {leagues.active ? <>Other teams' rosters make the waiver wire exact. <Link to={`/league/${leagues.active.id}`}>Open league</Link>.</> : null}{' '}
+              <Link to="/leagues">All leagues</Link>
+            </>
+          ) : <>Playing in a league with friends? <Link to="/leagues">Start or join one</Link> so the waiver wire knows who is available.</>}
+        </p>
+      )}
 
       {sync === 'conflict' && <p className="notice">Your account has a different roster than this browser. <Link to="/account">Choose which to keep →</Link></p>}
 
@@ -353,7 +380,7 @@ export default function Fantasy() {
           {
             id: 'versus',
             label: 'Matchup projector',
-            content: values && data ? <MatchupProjector data={data} players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <p className="status">Loading…</p>,
+            content: values && data ? <MatchupProjector data={data} players={list.players} values={values} scoring={scoring} league={leagueCfg} leagueTeams={(leagues.active?.teams ?? []).filter((t) => !t.mine)} leagueName={leagues.active?.name} /> : <p className="status">Loading…</p>,
           },
           {
             id: 'draft',
@@ -369,7 +396,7 @@ export default function Fantasy() {
                   <button role="tab" aria-selected={kind === 'skater'} className={kind === 'skater' ? 'on' : ''} onClick={() => setKind('skater')}>Skaters</button>
                   <button role="tab" aria-selected={kind === 'goalie'} className={kind === 'goalie' ? 'on' : ''} onClick={() => setKind('goalie')}>Goalies</button>
                 </div>
-                <WaiverWire data={data} kind={kind} values={values} rosterIds={taken} league={leagueCfg} onAdd={addValued} />
+                <WaiverWire data={data} kind={kind} values={values} rosterIds={taken} league={leagueCfg} taken={leagueTaken} leagueName={leagues.active?.name} onAdd={addValued} />
               </>
             ) : <p className="status">Loading…</p>,
           },
@@ -392,6 +419,11 @@ export default function Fantasy() {
             id: 'trade',
             label: 'Trade analyzer',
             content: values ? <TradeAnalyzer data={data} values={values} roster={list.players} categories={isCats ? leagueCfg.categories : null} /> : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'partners',
+            label: 'Trade partners',
+            content: values && data ? <TradePartners league={leagues.active} roster={list.players} values={values} info={playerInfo} slots={leagueCfg.slots} isCats={isCats} /> : <p className="status">Loading…</p>,
           },
           {
             id: 'settings',

@@ -34,7 +34,7 @@ const Contributors = ({ starters }) => (
  * Your next 7 days against another team in your league: you enter their roster (search or paste names), both teams get their best
  * lineup under your slots and scoring, and the totals give an expected result and a win chance. Points leagues only.
  */
-export default function MatchupProjector({ data, players, values, scoring, league }) {
+export default function MatchupProjector({ data, players, values, scoring, league, leagueTeams = [], leagueName = '' }) {
   const [opp, setOppState] = useState(readOpponent)
   const [query, setQuery] = useState('')
   const [paste, setPaste] = useState('')
@@ -74,6 +74,10 @@ export default function MatchupProjector({ data, players, values, scoring, leagu
     const have = new Set(oppIds)
     setOpp({ ...opp, players: [...opp.players, ...list.filter((p) => !have.has(p.id))] })
   }
+  const loadLeagueTeam = (teamId) => {
+    const t = leagueTeams.find((x) => String(x.id) === teamId)
+    if (t) setOpp({ name: t.name, players: t.players })
+  }
   const addPasted = () => {
     const { matched, unmatched: bad } = matchNames(paste, data)
     addOpp(matched)
@@ -111,6 +115,16 @@ export default function MatchupProjector({ data, players, values, scoring, leagu
       {!isCats && (
         <>
           <h3>Opponent roster</h3>
+          {leagueTeams.length > 0 && (
+            <div className="h2h-picks">
+              <label className="h2h-pick">Load a team from {leagueName || 'your league'}
+                <select value="" onChange={(e) => e.target.value && loadLeagueTeam(e.target.value)}>
+                  <option value="">Choose a team…</option>
+                  {leagueTeams.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.players.length} players)</option>)}
+                </select>
+              </label>
+            </div>
+          )}
           <div className="h2h-picks">
             <label className="h2h-pick">Team name (optional)
               <input type="text" value={opp.name} maxLength={40} onChange={(e) => setOpp({ ...opp, name: e.target.value })} />

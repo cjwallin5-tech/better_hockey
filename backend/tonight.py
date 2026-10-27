@@ -1,7 +1,7 @@
 """What to watch tonight: rank a day's games by how much they are worth your attention, and say why.
 
 Each game gets points for the things that make a game worth watching, and the reasons that earned them:
-- close matchup: the two teams' strength (matchups.py ratings, the same win model as streaming.py) leaves the win chance near
+- close matchup: the two teams' strength (matchups.py ratings, the win model of streaming.py plus home ice) leaves the win chance near
   even, up to W_CLOSE points
 - scoring: more expected goals than the league's average game, up to W_GOALS points
 - stakes: both teams are in the playoff race (playoff odds between RACE_LOW and RACE_HIGH), up to W_STAKES points
@@ -12,7 +12,16 @@ The weights are judgment calls, not fitted to anything: this is a way to sort th
 will be. It can't see injuries or lineups, and early in a season the playoff odds are close to 50% for most teams, so stakes
 barely separates games until the standings spread out.
 """
+import math
+
 import streaming
+
+# Home teams win a bit more than half their games whoever is playing. Measured over the 20,054 stored games from 2005-06 to
+# 2021-22 it was 54.7% (54.1% over the last five of those seasons); 54.5% is used, applied as a shift in the log-odds so it
+# fades toward the edges the way a real advantage does. Taken from the long history, not from this season, so a hot or cold
+# stretch of home results this year doesn't leak into it.
+HOME_WIN_RATE = 0.545
+HOME_LOGIT = math.log(HOME_WIN_RATE / (1 - HOME_WIN_RATE))
 
 W_CLOSE = 2.0
 W_GOALS = 2.0
@@ -33,11 +42,14 @@ def _clip(x, lo=0.0, hi=1.0):
 
 def matchup(home, away, league):
     """(home win chance, expected total goals) for a game, from the two teams' ratings, or (None, None) without them.
-    home, away: dicts with off_ratio and def_ratio; league: {goals_pg, shots_pg}."""
+    home, away: dicts with off_ratio and def_ratio; league: {goals_pg, shots_pg}. The win chance includes home ice (HOME_LOGIT)."""
     if not home or not away or not league or not league.get("goals_pg") or not league.get("shots_pg"):
         return None, None
     line = streaming.expected_line(home, away, league["goals_pg"], league["shots_pg"])
-    return line["win"], line["gf"] + line["ga"]
+    p = line["win"]
+    p = min(1 - 1e-9, max(1e-9, p))
+    logit = math.log(p / (1 - p)) + HOME_LOGIT
+    return 1 / (1 + math.exp(-logit)), line["gf"] + line["ga"]
 
 
 def score_game(win, total, league_total, odds, star, yours, teams_followed):

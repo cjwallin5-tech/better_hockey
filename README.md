@@ -90,7 +90,7 @@ and never refreshed, so when a new season starts the one that just finished stop
   round each would cost: surplus over the value of the player who typically goes mid-round, best surpluses up to your limit marked keep.
   State is kept in this browser only. Logic in `frontend/src/draft.js`. It only knows players with a game played this season.
 - **What to watch** (`/tonight`, nav "Tonight"): a day's games ranked by how worth watching they are, with the reasons: how even the two
-  teams are (the matchup ratings and the streaming win model), expected goals, whether both teams are in the playoff race, a star
+  teams are (the matchup ratings and the streaming win model, plus home ice), expected goals, whether both teams are in the playoff race, a star
   scorer, and how many of your fantasy roster and watchlist players (or followed teams) play. Each card also lists the likely goalies, rest
   and top scorers. Weights in `backend/tonight.py` are judgment calls, not fitted. Early in a season playoff odds are near 50% for most
   teams, so stakes barely separates games until the standings spread out.
@@ -114,6 +114,33 @@ and never refreshed, so when a new season starts the one that just finished stop
   each and a verdict (clear or slight boost or drag, or no clear effect) only after 30 minutes together (`backend/chemistry.py`). The
   noise estimate treats attempts as even coin flips, so it is a floor, and time apart is usually with other linemates, opponents and zone
   starts, so a verdict is a clue, not proof of fit. Until a game's xG is stored the page falls back to the shot-attempt (Corsi) lift.
+- **Private leagues** (`/leagues`, `/league/:id`; nav "More" -> Leagues; a league picker sits on the Fantasy page): friends in a fantasy league
+  share rosters so the site knows who is actually taken. The owner starts a league (name, size, optionally the shared scoring and slots) and
+  sends an invite link or code; each member's team is their own fantasy roster from the Fantasy page, kept current by the existing sync. The
+  owner can also add and fill teams by hand (paste names) for friends without accounts. With a league active, the waiver wire hides players
+  on other teams exactly instead of guessing ("likely available") and labels who owns each one, and the matchup projector can load a
+  league-mate's team as the opponent. Only members can see rosters, and only team names are shown, never emails; the owner can rename or
+  remove teams, reset the invite code or delete the league, and members can leave. A user has one synced roster, so it shows in every league
+  they are in, and a member's team is only as current as their last sync. Tables `league` and `league_team` are created when the API starts
+  (`backend/leagues.py`).
+- **Trade partners** (Fantasy -> Trade partners, needs an active league): trades that make both you and another team in your league better.
+  Each team is scored by its lineup value (the best players it can start in each position group under the league's slots, with anyone at or
+  below replacement level adding nothing), so a team with a spare center gains from a winger and the other way round. One-for-one,
+  two-for-one and one-for-two trades are tried with every other team; a trade is kept when it gains at least 1% of each side's lineup value,
+  each team shows up to three with no player repeated, and each links to the trade analyzer. Order by biggest gain for you or fairest to both;
+  untick "Only trades that help them too" for one-sided ones. It is the value model's view of fair (no injuries, keepers or managers'
+  preferences, noisy early in the season). Logic in `frontend/src/tradefinder.js`.
+- **Accuracy** (`/accuracy`; nav "More" -> Accuracy): how well two of the site's predictions did this season, graded fairly by replaying the
+  season in date order and rebuilding the model before each day from only the earlier games (`backend/accuracy.py`, tests check that a
+  prediction never changes when later games or its own result change). The on-paper win chance (the Tonight page's, from expected-goals
+  ratings) is scored by Brier, log loss and picking the winner against a coin flip, the home team's win rate so far and a goals-based
+  version of the same idea, with a 95% interval on each difference so "can't tell apart yet" is said when it is true, plus a calibration
+  table. The probable-goalie model is scored on how often its top pick started, the chance it gave the actual starter, back-to-backs
+  against rested, and two baselines, with a calibration table and an automatic note where it is over- or under-confident. Current season
+  only (expected goals are stored game by game just for this season); skater projections and the lineup optimizer are not covered.
+  The win model includes a home-ice shift of 54.5% (the home win rate over the 20,054 stored games from 2005-06 to 2021-22, taken from the
+  long history and not from this season), which took its Brier score on the first 115 predicted games from 0.240 to 0.232 and made it clearly
+  better than a coin flip and than the goals-based version (home-win-rate baseline still within the margin of error).
 - **Goalie projections** (Projections → Show: Goalies, `/api/projections/goalies`): wins, saves, goals against and shutouts at season's end =
   what he has plus his expected starts left (the streaming start-chance model run to the last game) times the per-start value from the
   two teams' ratings. No range, and recent usage is assumed to continue (a backup who takes over is not predicted). Not backtested.
@@ -201,7 +228,10 @@ and never refreshed, so when a new season starts the one that just finished stop
   limits, so it isn't part of the nightly job. It feeds the "xGA/60 vs. teammates" columns and chart on player and Compare pages.
 - **Goalie starts this week** (Fantasy → This week): each rostered goalie's chance of starting every game in the next week, and the
   expected number of starts. It chains the starter guess across games (a back-to-back after an uncertain start is a mix of both
-  cases), anchoring on any start the NHL boxscore already shows. Still an inference; `probable_goalies.py` documents the model.
+  cases), anchoring on any start the NHL boxscore already shows. Still an inference; `probable_goalies.py` documents the model. Its shares
+  are made less sure (pulled 20% toward an even split) and a team whose recent starts are all one goalie is no longer called certain: the
+  Accuracy page's replay showed the backup played every second night of a back-to-back in those cases, so he is as likely to go again as
+  the league repeat rate says on a back-to-back and (k+1)/(k+2) otherwise.
 - **Daily roster email**: signed-in users can turn it on from the Account page. `backend/digest.py` emails today's games for
   each rostered player (with a likely-starter guess for goalies), who's hot and who's missing games, role changes (power-play
   moves and ice-time shifts over the last 5 games), sell-high ideas (your skaters and goalies scoring well above what their

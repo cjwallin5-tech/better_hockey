@@ -44,11 +44,12 @@ const gamesTitle = (r) => (r.games == null ? '' : `${r.games} games in the next 
  * Players not on your roster, with the reasons to pick one up: value over the rest of the season in your league, a bigger
  * role, a hot stretch, results below what the shots support, and games this week.
  */
-export default function WaiverWire({ data, kind, values, rosterIds, league, onAdd }) {
+export default function WaiverWire({ data, kind, values, rosterIds, league, taken = null, leagueName = '', onAdd }) {
   const [sort, setSort] = useState('value')
   const [position, setPosition] = useState('all')
   const [search, setSearch] = useState('')
   const [likelyAvailable, setLikelyAvailable] = useState(true)
+  const [hideTaken, setHideTaken] = useState(true)
   const [hideHurt, setHideHurt] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const signals = useSignals(kind)
@@ -58,9 +59,9 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, onAd
     if (!values || !signals) return null
     return waiverRows({
       kind, players: goalie ? data.goalies : data.skaters, values, roles: signals.roles, luck: signals.luck, schedule: signals.schedule,
-      roster: rosterIds, league, filters: { position: goalie ? 'all' : position, search, likelyAvailable, hideHurt }, sort,
+      roster: rosterIds, league, taken, filters: { position: goalie ? 'all' : position, search, likelyAvailable, hideHurt, hideTaken }, sort,
     })
-  }, [kind, goalie, data, values, signals, rosterIds, league, position, search, likelyAvailable, hideHurt, sort])
+  }, [kind, goalie, data, values, signals, rosterIds, league, taken, position, search, likelyAvailable, hideHurt, hideTaken, sort])
 
   const sorts = SORTS.filter((s) => !(goalie && (s.id === 'role')))
   const activeSort = sorts.find((s) => s.id === sort) ?? sorts[0]
@@ -89,14 +90,26 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, onAd
         <label className="h2h-pick">Search
           <input type="search" placeholder="Player name" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
-        <label className="h2h-pick">
-          <span><input type="checkbox" checked={likelyAvailable} onChange={(e) => setLikelyAvailable(e.target.checked)} /> Likely available only</span>
-        </label>
+        {taken ? (
+          <label className="h2h-pick">
+            <span><input type="checkbox" checked={hideTaken} onChange={(e) => setHideTaken(e.target.checked)} /> Hide players on other teams in {leagueName || 'your league'}</span>
+          </label>
+        ) : (
+          <label className="h2h-pick">
+            <span><input type="checkbox" checked={likelyAvailable} onChange={(e) => setLikelyAvailable(e.target.checked)} /> Likely available only</span>
+          </label>
+        )}
         <label className="h2h-pick">
           <span><input type="checkbox" checked={hideHurt} onChange={(e) => setHideHurt(e.target.checked)} /> Hide players who are out</span>
         </label>
       </div>
-      {likelyAvailable && (
+      {taken && (
+        <p className="sub small">
+          Availability comes from the rosters in {leagueName || 'your league'}: {taken.size} players are on other teams. A team with no roster entered yet
+          counts as having nobody, so players it holds may still show here.
+        </p>
+      )}
+      {!taken && likelyAvailable && (
         <p className="sub small">
           Hides the best players at each position by value (as many as a league of {league.teams} teams starts), who are probably already rostered.
           We can't see who is actually owned in your league.
@@ -135,6 +148,7 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, onAd
                     {r.hot && <span className="badge" title="Recent point pace is well above the season pace">hot stretch</span>}
                     {r.luck?.flag === 'cold' && <span className="badge" title={goalie ? 'Saving fewer than the shots faced should allow: likely to improve' : 'Scoring below what the shots and chances support: likely to rebound'}>due</span>}
                     {r.luck?.flag === 'hot' && <span className="badge warn" title={goalie ? 'Saving more than the shots faced should allow: may cool off' : 'Scoring above what the shots and chances support: may cool off'}>running hot</span>}
+                    {r.ownedBy && <span className="badge warn" title={`On ${r.ownedBy} in your league`}>on {r.ownedBy}</span>}
                     {r.likelyOwned && <span className="badge warn" title="Ranks high enough that a league your size has probably rostered this player">likely owned</span>}
                   </td>
                   <td><button className="link-button" onClick={() => onAdd({ player_id: r.id, name: r.name }, kind)}>Add</button></td>

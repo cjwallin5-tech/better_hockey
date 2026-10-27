@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+import accuracy
 import auth
 import chemistry
 import config
@@ -20,6 +21,7 @@ import era
 import explain_db
 import fatigue
 import headtohead
+import leagues
 import oldgames_db
 import luck
 import luck_db
@@ -41,11 +43,13 @@ import trophies as trophy_lib
 
 app = FastAPI(title="Hockey Stats")
 app.include_router(auth.router)
+app.include_router(leagues.router)
 
 
 @app.on_event("startup")
 def _init_accounts():
     auth.init_db()
+    leagues.init_db()   # after auth: its tables refer to app_user
 
 SKATERS_SQL = """
 WITH ranked AS (
@@ -2540,6 +2544,46 @@ def projections_goalies(ids: str = "", min_games: int = 1, sort: str = "final_wi
         out.append({"player_id": g["player_id"], "name": g["name"], "team": g["team"], **projections.goalie_final(r, g["games"])})
     out.sort(key=lambda x: (-x[sort], x["name"]))
     return {"season": config.SEASON_ID, "total": len(out), "rows": out[:limit]}
+
+
+_accuracy_cache = {"sig": None, "data": None}
+
+
+@app.get("/api/accuracy")
+def accuracy_endpoint():
+    """How well two of the site's predictions did this season, replayed game by game using only what was known beforehand: the
+    on-paper win chance (against simple baselines) and the probable-goalie model. See accuracy.py."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        games = conn.execute(
+            """SELECT game_id, game_date AS date, home, away, home_score, away_score FROM game
+               WHERE season_id = %s AND state IN ('OFF', 'FINAL') AND home_score IS NOT NULL ORDER BY game_date, game_id""",
+            (config.SEASON_ID,)).fetchall()
+        sig = (len(games), games[-1]["game_id"] if games else None)
+        if _accuracy_cache["sig"] == sig:
+            return _accuracy_cache["data"]
+        shots = {}
+        for r in conn.execute(
+                """SELECT game_id, t AS team, coalesce(sum(xg) FILTER (WHERE side = 'f'), 0)::float AS xgf,
+                          coalesce(sum(xg) FILTER (WHERE side = 'a'), 0)::float AS xga
+                   FROM (SELECT game_id, team AS t, xg, 'f' AS side FROM shot WHERE season_id = %(s)s
+                         UNION ALL SELECT game_id, opponent, xg, 'a' FROM shot WHERE season_id = %(s)s) x
+                   GROUP BY game_id, t""", {"s": config.SEASON_ID}):
+            shots[(r["game_id"], r["team"])] = {"xgf": r["xgf"], "xga": r["xga"]}
+        for r in conn.execute(
+                """SELECT game_id, count(*) FILTER (WHERE kind = 'goal') AS goals,
+                          count(*) FILTER (WHERE kind IN ('shot', 'goal')) AS sog
+                   FROM shot WHERE season_id = %s GROUP BY game_id""", (config.SEASON_ID,)):
+            shots[(r["game_id"], None)] = {"goals": r["goals"], "sog": r["sog"]}
+        starters = {}
+        for r in conn.execute(
+                """SELECT game_id, game_date AS date, team, player_id FROM goalie_game
+                   WHERE season_id = %s AND started ORDER BY toi_sec DESC NULLS LAST""", (config.SEASON_ID,)):
+            starters.setdefault((r["game_id"], r["team"]), {"game_id": r["game_id"], "date": r["date"], "team": r["team"], "starter": r["player_id"]})
+    data = {"season": config.SEASON_ID, "games_finished": len(games),
+            "win": accuracy.win_report(accuracy.win_replay(games, shots)),
+            "goalie": accuracy.goalie_report(accuracy.goalie_replay(list(starters.values())))}
+    _accuracy_cache.update(sig=sig, data=data)
+    return data
 
 
 # --- Matchup quality ------------------------------------------------------------------------------

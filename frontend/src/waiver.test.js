@@ -100,3 +100,14 @@ test('scheduleByTeam counts games and averages the ratio; luckById prefers the h
   const l = luckById({ rows: [{ player_id: 1, enough: true, points_z: 2, points_z_adj: 1, points_flag: 'hot', points_flag_adj: 'steady' }] })
   assert.deepEqual(l.get(1), { z: 1, flag: 'steady', enough: true })
 })
+
+test('with a league, players on other teams are known and can be hidden; the likely-owned guess is off', () => {
+  const b = base()
+  const taken = new Map([[1, 'Friends FC'], [3, 'Pat']])
+  assert.deepEqual(ids(waiverRows({ ...b, taken })), [1, 3, 2])                        // shown, with who owns them
+  assert.equal(waiverRows({ ...b, taken }).find((r) => r.id === 1).ownedBy, 'Friends FC')
+  assert.equal(waiverRows({ ...b, taken }).find((r) => r.id === 2).ownedBy, null)
+  assert.deepEqual(ids(waiverRows({ ...b, taken, filters: { hideTaken: true } })), [2])
+  assert.ok(waiverRows({ ...b, taken }).every((r) => r.likelyOwned === false))
+  assert.deepEqual(ids(waiverRows({ ...b, filters: { hideTaken: true } })), [1, 3, 2])   // no league: nothing to hide
+})
