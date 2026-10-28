@@ -19,3 +19,6 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
 SMTP_FROM = os.environ.get("SMTP_FROM", "NHL Stats <no-reply@localhost>")
+
+# Accounts allowed to open the Accuracy page (comma-separated emails, compared without case).
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "cjwallin5@gmail.com").split(",") if e.strip()}

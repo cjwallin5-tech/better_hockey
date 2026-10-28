@@ -27,7 +27,9 @@ export default function PlayoffOdds({ teams }) {
         Odds come from playing out the {data.games_remaining.toLocaleString()} remaining games {data.sims.toLocaleString()} times.
         Each team is rated on goal differential per game, pulled toward average while few games are played, with a small home-ice
         edge. It's a model, not a prediction, and it's very uncertain early in the season. The top 3 in each division plus 2 wild
-        cards per conference make it.
+        cards per conference make it. The last four columns play the playoffs out from every simulated field: best-of-seven series with
+        the better seed at home, each game decided by the same strength gap. Series are close to coin flips, so even the best team's
+        Cup chance is modest, and early in the season the ratings lean on a small sample.
       </p>
       {conferences.map((conf) => {
         const rows = data.teams.filter((t) => t.conference === conf).sort((a, b) => b.make_playoffs - a.make_playoffs || b.points - a.points)
@@ -40,6 +42,7 @@ export default function PlayoffOdds({ teams }) {
                   <tr>
                     <th className="left" title={describe('Team')}>Team</th><th title={describe('GP')}>GP</th><th title={describe('PTS')}>PTS</th>
                     <th title={describe('Projected pts')}>Projected pts</th><th title={describe('Likely range')}>Likely range</th><th title={describe('Make playoffs')}>Make playoffs</th><th title={describe('Win division')}>Win division</th><th title={describe('Best record')}>Best record</th>
+                    <th title={describe('Round 2')}>Round 2</th><th title={describe('Conf. final')}>Conf. final</th><th title={describe('Cup final')}>Cup final</th><th title={describe('Win Cup')}>Win Cup</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -60,6 +63,7 @@ export default function PlayoffOdds({ teams }) {
                         </td>
                         <td>{pct(t.win_division)}</td>
                         <td>{pct(t.best_record)}</td>
+                        <td>{pct(t.round2)}</td><td>{pct(t.conf_final)}</td><td>{pct(t.final)}</td><td className="accent"><strong>{pct(t.cup)}</strong></td>
                       </tr>
                     )
                   })}

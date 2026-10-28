@@ -100,3 +100,33 @@ export function corsiModel({ shots, goals, away, home, view, strength }) {
   }
 }
 
+
+/**
+ * What the win-probability chart draws, from the API's win_probability block: both teams' chances through the game (they add to 100%),
+ * a dot at each goal on the scoring team's line, and the axis. wp: { points: [[sec, home chance]], events: [{ t, home, before, after }], ended }.
+ */
+export function winProbModel({ wp, goals, away, home }) {
+  const axisEnd = wp.ended > 3600 ? Math.ceil(wp.ended / 60) * 60 : 3600
+  const finalHome = wp.points[wp.points.length - 1][1]
+  const pct = (v) => `${Math.round(v * 100)}%`
+  const homeLine = wp.points.map(([t, p]) => [t, p])
+  const awayLine = wp.points.map(([t, p]) => [t, 1 - p])
+  return {
+    axisEnd,
+    lines: [
+      { key: away, label: away, slot: 1, pts: awayLine, endLabel: `${away} ${pct(1 - finalHome)}` },
+      { key: home, label: home, slot: 2, pts: homeLine, endLabel: `${home} ${pct(finalHome)}` },
+    ],
+    domain: { min: 0, max: 1, ticks: [0, 0.25, 0.5, 0.75, 1] },
+    fmt: pct,
+    dots: wp.events.map((e) => {
+      const team = e.home ? home : away
+      const goal = goals.find((g) => g.time_sec === e.t && g.team === team)
+      const mine = (v) => (e.home ? v : 1 - v)
+      return {
+        t: e.t, v: mine(e.after), slot: e.home ? 2 : 1,
+        tip: `${team} goal · ${goal?.scorer ?? ''} · ${clock(e.t)} · ${team} win chance ${pct(mine(e.before))} to ${pct(mine(e.after))}`.replace(' ·  ·', ' ·'),
+      }
+    }),
+  }
+}

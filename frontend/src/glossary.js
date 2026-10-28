@@ -69,6 +69,8 @@ const TERMS = {
   'Career now': 'Career total so far', 'To go': 'How many more are needed to reach the milestone', 'Est. games': 'Estimated games until the milestone is reached',
   'Projected pts': 'Projected final standings points', 'Likely range': 'The range the final points total will most likely fall in',
   'Make playoffs': 'Chance of making the playoffs', 'Win division': 'Chance of winning the division', 'Best record': 'Chance of finishing with the league\u2019s best record',
+  'Round 2': 'Chance of winning the first round and reaching the second', 'Conf. final': 'Chance of reaching the conference final',
+  'Cup final': 'Chance of reaching the Stanley Cup Final', 'Win Cup': 'Chance of winning the Stanley Cup',
   'PP share': 'Share of the team\u2019s power-play time, earlier games then recent games', 'PP time / game': 'Power-play ice time per game, earlier games then recent games',
   'Even strength / game': 'Even-strength ice time per game, earlier games then recent games', 'Total / game': 'Total ice time per game, earlier games then recent games',
   'Power-play unit': 'Power-play unit, earlier then recent: PP1 plays the most (45% or more of the team\u2019s power play), PP2 at least 15%',

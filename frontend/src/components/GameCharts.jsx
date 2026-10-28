@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { clock, corsiModel, mmss, xgModel } from '../gameFlow.js'
+import { clock, corsiModel, mmss, winProbModel, xgModel } from '../gameFlow.js'
 
 const lastName = (full) => full.split(' ').slice(1).join(' ') || full
 
@@ -74,6 +74,21 @@ function FlowChart({ title, label, lines, dots, domain, axisEnd, fmt, legendDot 
       </div>
       <p className="axis-note">{note}</p>
     </figure>
+  )
+}
+
+/**
+ * How each team's chance of winning moved through the game, from the score, the time left and how the teams were rated going in
+ * (backend/winprob.py). Each step is a goal; dots mark them on the scoring team's line.
+ */
+export function WinProbability({ wp, goals, away, home }) {
+  const m = winProbModel({ wp, goals, away, home })
+  return (
+    <FlowChart
+      title="Win probability" label="Each team's chance of winning by game time" lines={m.lines} dots={m.dots} axisEnd={m.axisEnd}
+      domain={m.domain} fmt={m.fmt}
+      note="Game minute · chance of winning, from the score and time left plus how the teams were rated before the game. It does not see the shots, so a team that was badly outshot while leading is treated like any other leader."
+    />
   )
 }
 

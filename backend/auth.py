@@ -75,8 +75,10 @@ CREATE TABLE IF NOT EXISTS fantasy_state (
     user_id    BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
     players    JSONB NOT NULL DEFAULT '[]',
     scoring    JSONB NOT NULL DEFAULT '{}',
+    league     JSONB NOT NULL DEFAULT '{}',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE fantasy_state ADD COLUMN IF NOT EXISTS league JSONB NOT NULL DEFAULT '{}';
 """
 
 
@@ -148,6 +150,18 @@ def current_user(conn, request: Request):
     ).fetchone()
 
 
+def is_admin(user):
+    return bool(user) and user["email"].lower() in config.ADMIN_EMAILS
+
+
+def require_admin(conn, request: Request):
+    """The signed-in admin, or a 404 so the page's existence isn't revealed to anyone else."""
+    user = current_user(conn, request)
+    if not is_admin(user):
+        raise HTTPException(404, "Not found")
+    return user
+
+
 class Credentials(BaseModel):
     email: str
     password: str
@@ -167,7 +181,7 @@ def register(body: Credentials, request: Request, response: Response):
         except psycopg.errors.UniqueViolation:
             raise HTTPException(409, "An account with that email already exists.")
         _start_session(conn, response, request, user["id"])
-    return {"email": user["email"]}
+    return {"email": user["email"], "admin": is_admin(user)}
 
 
 @router.post("/auth/login")
@@ -183,7 +197,7 @@ def login(body: Credentials, request: Request, response: Response):
             _fail(*keys)
             raise HTTPException(401, "Wrong email or password.")
         _start_session(conn, response, request, user["id"])
-    return {"email": user["email"]}
+    return {"email": user["email"], "admin": is_admin(user)}
 
 
 @router.post("/auth/logout")
@@ -200,12 +214,32 @@ def logout(request: Request, response: Response):
 def me(request: Request):
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         user = current_user(conn, request)
-    return {"user": {"email": user["email"]} if user else None}
+    return {"user": {"email": user["email"], "admin": is_admin(user)} if user else None}
 
 
 class FantasyState(BaseModel):
     players: list[dict]
     scoring: dict
+    league: dict = {}
+
+
+GROUPS = ("C", "L", "R", "D", "G")
+
+
+def clean_league(raw):
+    """The league shape the lineup email needs: {teams, format, slots} with whole numbers in range, or {} when nothing usable."""
+    if not isinstance(raw, dict) or not raw:
+        return {}
+
+    def whole(v, lo, hi):
+        return min(hi, max(lo, int(v))) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+    slots = raw.get("slots") if isinstance(raw.get("slots"), dict) else {}
+    out = {"format": "categories" if raw.get("format") == "categories" else "points",
+           "slots": {g: n for g in GROUPS if (n := whole(slots.get(g), 0, 10)) is not None}}
+    if (teams := whole(raw.get("teams"), 2, 32)) is not None:
+        out["teams"] = teams
+    return out
 
 
 def _clean_state(state: FantasyState):
@@ -224,23 +258,25 @@ def get_fantasy_state(request: Request):
         user = current_user(conn, request)
         if not user:
             raise HTTPException(401, "Not signed in")
-        row = conn.execute("SELECT players, scoring, updated_at FROM fantasy_state WHERE user_id = %s", (user["id"],)).fetchone()
-    return row or {"players": [], "scoring": {}, "updated_at": None}
+        row = conn.execute("SELECT players, scoring, league, updated_at FROM fantasy_state WHERE user_id = %s", (user["id"],)).fetchone()
+    return row or {"players": [], "scoring": {}, "league": {}, "updated_at": None}
 
 
 @router.put("/fantasy/state")
 def put_fantasy_state(state: FantasyState, request: Request):
     players, scoring = _clean_state(state)
+    league = clean_league(state.league)
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         user = current_user(conn, request)
         if not user:
             raise HTTPException(401, "Not signed in")
         conn.execute(
-            """INSERT INTO fantasy_state (user_id, players, scoring) VALUES (%s, %s, %s)
-               ON CONFLICT (user_id) DO UPDATE SET players = EXCLUDED.players, scoring = EXCLUDED.scoring, updated_at = now()""",
-            (user["id"], Jsonb(players), Jsonb(scoring)),
+            """INSERT INTO fantasy_state (user_id, players, scoring, league) VALUES (%s, %s, %s, %s)
+               ON CONFLICT (user_id) DO UPDATE SET players = EXCLUDED.players, scoring = EXCLUDED.scoring,
+                                                   league = EXCLUDED.league, updated_at = now()""",
+            (user["id"], Jsonb(players), Jsonb(scoring), Jsonb(league)),
         )
-    return {"players": players, "scoring": scoring}
+    return {"players": players, "scoring": scoring, "league": league}
 
 
 # --- Saved leaderboard views --------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
+import AwardOdds from '../components/AwardOdds.jsx'
 
 const STAT = { points: 'Points', goals: 'Goals', gsaa: 'GSAA' }
 const fmtValue = (stat, v) => (stat === 'gsaa' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : v)
@@ -24,7 +25,7 @@ export default function TrophyRaces() {
         <h1>Trophy races</h1>
         <p>
           Who is in the running for each stat-driven award: the top {data.size} (ties included) in the stat that
-          decides it. Voted awards like the Hart and Selke aren't covered. Early in the season this changes fast.
+          decides it. Early in the season this changes fast. Win chances for the voted Hart, Norris, Calder, Selke and Vezina are further down.
         </p>
       </header>
       {data.races.map((race) => (
@@ -50,6 +51,8 @@ export default function TrophyRaces() {
           )}
         </section>
       ))}
+      <h2>Win chances for the voted awards</h2>
+      <AwardOdds />
     </main>
   )
 }

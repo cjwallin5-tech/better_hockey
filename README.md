@@ -79,6 +79,12 @@ and never refreshed, so when a new season starts the one that just finished stop
   slots, either changing daily or locked for the week. A skater's game is scored by their per-game rate moved by the opponent's matchup
   rating (`/api/fantasy/week`), a goalie's by his chance to start times what a start there is worth (`/api/streaming/goalies`). Positions are
   filled independently (no UTIL slot). It can't see injuries beyond an "out N" badge. Logic in `frontend/src/lineup.js`.
+- **Playoff weeks** (Fantasy → Playoff weeks): the weeks that decide a fantasy season, Monday to Sunday, defaulting to the last three of the
+  schedule and editable (kept in this browser). It shows what your best daily lineup is expected to score in each week, each player's games per
+  week with light and heavy weeks marked, and every team's games, back-to-backs and matchup softness over those weeks (the "Teams to target"
+  table, ranked by the sum of each game's matchup ratio minus 1). A skater's games are his team's (`/api/fantasy/schedule`, the matchup
+  schedule for the rest of the season); a goalie's start chances come from `/api/fantasy/goalie-schedule` and are a rough guess far ahead.
+  Ratios use today's team ratings and nothing sees injuries or trades yet to happen. Logic in `frontend/src/playoffweeks.js`.
 - **Matchup projector** (Fantasy → Matchup projector): your next 7 days against another team in your league. You enter their roster (search
   or paste names; kept in this browser only, since the site can't see other teams), both teams get their best lineup from the optimizer,
   and the gap between the totals against a rough weekly-swing estimate gives a win chance (`frontend/src/h2h.js`). The swing model
@@ -130,7 +136,11 @@ and never refreshed, so when a new season starts the one that just finished stop
   each team shows up to three with no player repeated, and each links to the trade analyzer. Order by biggest gain for you or fairest to both;
   untick "Only trades that help them too" for one-sided ones. It is the value model's view of fair (no injuries, keepers or managers'
   preferences, noisy early in the season). Logic in `frontend/src/tradefinder.js`.
-- **Accuracy** (`/accuracy`; nav "More" -> Accuracy): how well two of the site's predictions did this season, graded fairly by replaying the
+- **Accuracy** (`/accuracy`; owner only: the nav link and the `/api/accuracy` route are visible only to accounts listed in the `ADMIN_EMAILS`
+  environment variable, default `cjwallin5@gmail.com`; everyone else gets a 404). Its top section is a forward log: `backend/predictions.py`
+  runs after the nightly ingest (from `run_ingest.sh`), grades yesterday's stored predictions and stores today's win chances and probable
+  goalies in `prediction_log` before the games start; the first stored value is never overwritten, so this is a real track record
+  (run `python predictions.py` by hand to log or grade now). The rest of the page is how well two of the site's predictions did this season, graded fairly by replaying the
   season in date order and rebuilding the model before each day from only the earlier games (`backend/accuracy.py`, tests check that a
   prediction never changes when later games or its own result change). The on-paper win chance (the Tonight page's, from expected-goals
   ratings) is scored by Brier, log loss and picking the winner against a coin flip, the home team's win rate so far and a goals-based
@@ -240,9 +250,42 @@ and never refreshed, so when a new season starts the one that just finished stop
   day, using the same SMTP settings as password reset. Preview without sending: `.venv/bin/python digest.py --dry`, or
   `--preview 8478402,8480069` for a list of player ids. To send every morning, follow the steps at the top of `backend/com.hockeystats.digest.plist.example` (a launchd template with
   the SMTP settings and an 8:00 AM schedule; logs in `backend/logs/digest.log`).
+- **Sunday week-ahead section** (part of the daily email, no separate switch): on Sundays `backend/digest.py` opens the email with the
+  coming Monday to Sunday from `backend/weekly.py`: the best lineup (the same maths as the Fantasy page's lineup optimizer, ported to Python
+  for points leagues, changing the lineup daily), your goalies' expected starts, streaming goalie picks, and heavy and light weeks. It uses the
+  scoring and the league shape (starting slots, format) saved with your synced roster; the league shape now syncs with the roster
+  (`fantasy_state.league`), and an account that never saved one gets the defaults (2 C, 2 L, 2 R, 4 D, 2 G). Category leagues get everything
+  but the lineup. Preview any day with `.venv/bin/python digest.py --dry --sunday`, or `--preview 8478402,8480069 --sunday`.
 - **Playoff odds** (Standings → Playoff odds): Monte Carlo over the remaining schedule (`backend/playoff_odds.py`; the model and its
-  knobs are described at the top of that file). **Schedule grid** (`/schedule`, under More): games per team per week, with light
+  knobs are described at the top of that file). The same simulation then plays the playoffs from each simulated field (the NHL's
+  division-and-wild-card bracket, best-of-seven series with home ice, each game from the same strength gap) for round-two, conference-final,
+  final and Cup chances; each field is advanced exactly rather than sampled, so the odds are smooth. Backtested on past playoffs (`backend/analysis/backtest_playoff_odds.py`, findings in its docstring): the
+  series model beats a coin flip modestly once its per-game scale was cut from 0.9 to 0.6, the odds of making the playoffs are strong, and
+  Cup odds themselves are barely better than a flat 1-in-16 guess over nine seasons, so treat them as rough. **Schedule grid** (`/schedule`, under More): games per team per week, with light
   weeks, heavy weeks and back-to-backs marked. Both need the full-season schedule, which the nightly ingest now loads.
+- **Award odds** (bottom of the Trophy races page): win chances for the Hart, Norris, Calder, Selke and Vezina (`backend/awards.py`, `/api/award-odds`).
+  A conditional logit over each award's candidates (top scorers, defensemen, rookies, goalies), fitted on the 20 seasons from 2005-06 to 2024-25
+  (`backend/analysis/backtest_award_odds.py`; data cached by `analysis/award_data.py` in `backend/data/award_backtest.json`) and scored leave-one-season-out:
+  the winner got 38% (Norris) to 70% (Vezina) on average against 5-13% for a uniform guess, and the top pick won 47-75% of the time, about
+  what it was given (a little less for the Norris). The Norris uses defensive numbers (penalty-kill time, shot-attempt share) and the Selke is built
+  on them plus faceoffs and takeaways; both were fitted on the 16 seasons since the NHL began tracking shot-attempt share. Early in the season the model is fed 400 plausible finishes drawn around the rest-of-season projections (plus a guessed 12%
+  chance of a long absence), so a lead after ten games counts for little. Not backtested in that early-season mode; skaters only for the Hart and Calder;
+  defense, narrative and the playoffs are not seen.
+- **Who's out** (`/absences`, under More; also a "TEAMMATE OUT" section in the daily email for your roster): regulars who have missed their team's
+  latest games and what their teammates in the same position group are getting (`backend/absences.py`, `absences_db.py`, `/api/absences`). "Out" is
+  inferred from the box scores (the NHL publishes no injury list), so a scratch or a trade looks the same as an injury. Four seasons of games
+  (`backend/analysis/backtest_absences.py`; per-game ice time cached by `analysis/absence_data.py` in `backend/data/absence_toi.json.gz`) show that only a
+  top-role absence moves ice time: with a top-unit power-play forward out, the other forwards gain about 17 seconds a game at even strength and 10 on the
+  power play; a top-unit defenseman out, the others gain about 53 and 16; a player with no power-play time out, nothing measurable. The gain is spread
+  thinly, and the table explains only a few percent of a player's change in a game, so the page shows it as an average plus what each teammate has
+  actually played since. Points could not be predicted at all and are not forecast.
+- **Win probability** (a "How the game was won" section on each finished game's page, and a win-chance line on the live cards): each team's chance of
+  winning through the game from the score, the time left and how the teams were rated going in (goal differential per game in the season so far, pulled
+  toward average), with a few sentences written from the biggest swings, any comeback, and the xG context (`backend/winprob.py`, `winprob_db.py`; the story
+  and timeline come in `/api/games/{id}` as `win_probability`, the live chance in `/api/live` as `home_win`). Fitted on 5,248 games from four seasons and
+  checked on seasons it was not fitted on (`backend/analysis/backtest_winprob.py`; goal timelines cached by `analysis/winprob_data.py` in
+  `backend/data/game_goals.json.gz`): it is well calibrated through the game, including one-goal games in the last minutes, and beats the score-and-time
+  rule without team strength. It does not see shots, penalties or who is on the ice.
 - **Trophy races** (`/trophies`): top-5 contenders for the stat-driven awards (Art Ross, Richard, Norris, Calder, Vezina).
 - **Live scores** on the home page come straight from the NHL scoreboard (cached 20s); everything else is from the nightly ingest.
 - The footer shows when stats were last refreshed and warns if the nightly job looks like it missed a run.

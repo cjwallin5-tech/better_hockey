@@ -131,13 +131,42 @@ function GoalieSection({ g }) {
   )
 }
 
+function LiveSection({ live }) {
+  if (!live || live.logged === 0) return <p className="status">Nothing logged yet. Predictions are stored each morning after the nightly ingest.</p>
+  const w = live.win
+  const g = live.goalie
+  const vs = verdictFor(w.vs_coin)
+  return (
+    <>
+      <p>
+        Logged since <strong>{day(live.since)}</strong>: {live.logged} predictions, made before the games and never changed. Graded so far:{' '}
+        <strong>{w.games}</strong> game win chances and <strong>{g.games}</strong> team starters.
+      </p>
+      {w.games > 0 && (
+        <p>
+          Win chances: Brier <strong>{n3(w.model.brier)}</strong> against {n3(w.coin.brier)} for a coin flip, picked the winner {pct(w.model.accuracy)} of the time;
+          next to a coin flip the model is {READING[vs]}. Home teams won {pct(w.model.rate)}, and the model's average home win chance was {pct(w.model.mean_p)}.
+        </p>
+      )}
+      {g.games > 0 && (
+        <p>
+          Starters: the top pick was right <strong>{pct(g.top_correct)}</strong> of {g.games} team games
+          {g.unconfirmed > 0 && <>; {pct(g.top_correct_unconfirmed)} of the {g.unconfirmed} made before the NHL confirmed the goalie</>}.
+        </p>
+      )}
+      <Calibration bins={w.calibration} label="Home win chance" what="Logged home win chances against how often the home team won." />
+      <Calibration bins={g.calibration} label="Top pick's chance" what="Starter picks made before confirmation, against how often that goalie started." />
+    </>
+  )
+}
+
 /** How well the site's predictions did so far this season, replayed game by game with only what was known beforehand. */
 export default function Accuracy() {
   const [state, setState] = useState({ data: null, error: null })
   useEffect(() => {
     let ignore = false
     fetch('/api/accuracy')
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`API returned ${r.status}`))))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'Page not found.' : `API returned ${r.status}`))))
       .then((data) => !ignore && setState({ data, error: null }))
       .catch((error) => !ignore && setState({ data: null, error: error.message }))
     return () => { ignore = true }
@@ -149,6 +178,9 @@ export default function Accuracy() {
       <header>
         <h1>How accurate are the predictions?</h1>
         <p>
+          Owner only. The first section grades predictions the site stored before each game; the replay sections below it rebuild the past.
+        </p>
+        <p>
           Each prediction here is graded fairly: the season is replayed in date order, and before each day's games the model is rebuilt from
           only the games played earlier, so nothing sees its own result. This covers the win chances on the Tonight page and the probable-goalie
           model, over this season only (expected goals are stored game by game just for this season). The skater projections are documented on
@@ -159,8 +191,9 @@ export default function Accuracy() {
       {!data && !error && <p className="status">Loading…</p>}
       {data && (
         <>
-          <section><h2>Game win chances</h2><WinSection w={data.win} /></section>
-          <section><h2>Probable goalies</h2><GoalieSection g={data.goalie} /></section>
+          <section><h2>Logged before the games</h2><LiveSection live={data.live} /></section>
+          <section><h2>Game win chances (season replay)</h2><WinSection w={data.win} /></section>
+          <section><h2>Probable goalies (season replay)</h2><GoalieSection g={data.goalie} /></section>
         </>
       )}
     </main>

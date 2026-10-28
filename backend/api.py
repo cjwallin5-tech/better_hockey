@@ -8,11 +8,16 @@ import time
 
 import psycopg
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+import absences_db
 import accuracy
+import awards
+import winprob
+import winprob_db
+import predictions
 import auth
 import chemistry
 import config
@@ -50,6 +55,7 @@ app.include_router(leagues.router)
 def _init_accounts():
     auth.init_db()
     leagues.init_db()   # after auth: its tables refer to app_user
+    predictions.init_db()
 
 SKATERS_SQL = """
 WITH ranked AS (
@@ -1188,7 +1194,8 @@ _odds_cache = {"sig": None, "data": None}
 
 @app.get("/api/playoff-odds")
 def playoff_odds_endpoint():
-    """Chance each team makes the playoffs, from simulating the rest of the season (see playoff_odds.py)."""
+    """Chance each team makes the playoffs and goes on to win each round and the Cup, from simulating the rest of the season
+    and then the playoffs (see playoff_odds.py)."""
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         teams = conn.execute(
             """SELECT abbrev, name, conference, division, games_played, points, reg_wins, goal_diff
@@ -1496,6 +1503,33 @@ LIVE_TTL = 20  # seconds
 _live_cache = {"at": 0.0, "data": None}
 
 
+def _live_elapsed(game):
+    """Seconds of regulation played in a live game from its period and clock (3600 or more once it is in overtime or a shootout)."""
+    period = game["period"] or 1
+    if period > 3:
+        return winprob.REGULATION
+    try:
+        minutes, seconds = (game["time_remaining"] or "20:00").split(":")
+        left = int(minutes) * 60 + int(seconds)
+    except ValueError:
+        left = 1200
+    return (period - 1) * 1200 + (1200 - left)
+
+
+def _add_live_win_probability(games):
+    """Adds home_win (the home team's chance, see winprob.py) to each live game; leaves it out if the ratings cannot be had."""
+    if not games:
+        return
+    try:
+        with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+            today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+            for g in games:
+                gap = winprob_db.gap_before(conn, config.SEASON_ID, today, g["home"]["abbrev"], g["away"]["abbrev"])
+                g["home_win"] = round(winprob.win_prob(g["home"]["score"] - g["away"]["score"], _live_elapsed(g), gap), 4)
+    except psycopg.Error:
+        pass
+
+
 @app.get("/api/live")
 def live():
     now = time.time()
@@ -1518,6 +1552,7 @@ def live():
                     "period": period.get("number"), "period_type": period.get("periodType"),
                     "time_remaining": clock.get("timeRemaining"), "intermission": bool(clock.get("inIntermission")),
                 })
+            _add_live_win_probability(games)
             _live_cache.update(at=now, data={"games": games})
     return _live_cache["data"]
 
@@ -1610,6 +1645,109 @@ def _contenders(skater_rows, goalie_rows):
     for lst in out.values():
         lst.sort(key=lambda t: t["rank"])
     return out
+
+
+_award_cache = {"sig": None, "data": None}
+AWARD_NAMES = {"hart": "Hart Trophy", "norris": "Norris Trophy", "calder": "Calder Trophy", "selke": "Selke Trophy", "vezina": "Vezina Trophy"}
+RATE_PRIOR_GAMES = 25   # early in the season a shot-attempt share, faceoff share or takeaway rate is pulled toward average, worth this many games (a guess)
+AWARD_SHOWN = 8       # candidates listed per award
+Z80 = 1.2816
+
+
+@app.get("/api/award-odds")
+def award_odds_endpoint():
+    """Win chances for the Hart, Norris, Calder, Selke and Vezina from the stats voters have rewarded in past seasons, applied to many
+    plausible finishes for the season (see awards.py)."""
+    skaters = projections_endpoint(limit=1000)["rows"]
+    goalies = projections_goalies(limit=300)["rows"]
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        sk_rows = {r["player_id"]: r for r in conn.execute(SKATERS_SQL, {
+            "season": config.SEASON_ID, "window": config.RECENT_WINDOW, "games": config.GAMES_PER_SEASON}).fetchall()}
+        gl_rows = {r["player_id"]: r for r in conn.execute(GOALIES_SQL, _goalie_params()).fetchall()}
+    sig = (sum(r["games_played"] for r in sk_rows.values()), sum(r["games_played"] or 0 for r in gl_rows.values()))
+    if _award_cache["sig"] == sig:
+        return _award_cache["data"]
+    try:
+        team_odds = playoff_odds_endpoint()["teams"]
+    except HTTPException:
+        team_odds = []
+    teams = {t["abbrev"]: (t["exp_points"], max(1.0, (t["p90_points"] - t["p10_points"]) / (2 * Z80))) for t in team_odds}
+
+    skater_cands = []
+    league_tk = sum(r["takeaways"] or 0 for r in sk_rows.values()) / max(1, sum(r["games_played"] for r in sk_rows.values()))
+    for p in skaters:
+        r = sk_rows.get(p["player_id"])
+        if not r:
+            continue
+        gp = p["games_played"]
+        shrink = gp / (gp + RATE_PRIOR_GAMES)
+        final_gp = gp + p["expected_games"]
+        tk_rate = ((r["takeaways"] or 0) + RATE_PRIOR_GAMES * league_tk) / (gp + RATE_PRIOR_GAMES)
+        skater_cands.append({
+            "id": p["player_id"], "name": p["name"], "team": (p["team"] or "").split(",")[-1], "pos": p["position"], "points": p["points"],
+            "goals": p["goals"], "toi_pg": r["toi_per_game_sec"], "rookie": bool(r["rookie"]) and (r.get("age") or 99) <= awards.ROOKIE_MAX_AGE,
+            "age": r.get("age"), "games_played": gp, "final_gp": final_gp,
+            "sat": 0.5 + ((r["sat_pct"] or 0.5) - 0.5) * shrink, "sat_now": r["sat_pct"], "sh": r["sh_toi_per_game"] or 0,
+            "fo": 0.5 + ((r["fo_win_pct"] or 0.5) - 0.5) * shrink, "fo_n": 1000 if p["position"] == "C" and r["fo_win_pct"] is not None else 0,
+            "takeaways": r["takeaways"] or 0, "final_takeaways": (r["takeaways"] or 0) + tk_rate * p["expected_games"],
+            "final_points": p["final_points"], "sd_points": max(0.5, (p["high_points"] - p["low_points"]) / (2 * Z80))})
+    goalie_cands = []
+    for p in goalies:
+        r = gl_rows.get(p["player_id"])
+        if not r or not p["final_shots"]:
+            continue
+        league_sv = r["league_sv_pct"] or 0.9
+        rest_shots = p["rest_shots"]
+        goalie_cands.append({
+            "id": p["player_id"], "name": p["name"], "team": (p["team"] or "").split(",")[-1], "wins": p["wins"],
+            "gsaa": p["saves"] - league_sv * (p["final_shots"] - rest_shots), "final_gp": p["final_starts"], "final_wins": p["final_wins"], "sd_wins": math.sqrt(0.25 * p["rest_starts"]),
+            "final_gsaa": p["final_saves"] - league_sv * p["final_shots"],
+            "sd_gsaa": math.sqrt(0.09 * rest_shots + (0.007 * rest_shots) ** 2), "games_played": p["games_played"]})
+    by_id = {c["id"]: c for c in skater_cands + goalie_cands}
+    out = {}
+    for award in awards.AWARDS:
+        if award == "vezina":
+            cands = sorted(goalie_cands, key=lambda c: -c["final_wins"])[:16]
+        elif award == "norris":
+            cands = sorted((c for c in skater_cands if c["pos"] == "D"), key=lambda c: -c["final_points"])[:20]
+        elif award == "calder":
+            cands = sorted((c for c in skater_cands if c["rookie"]), key=lambda c: -c["final_points"])[:20]
+        elif award == "selke":
+            fwd = [c for c in skater_cands if c["pos"] in ("C", "L", "R")]
+            rank = {c["id"]: 0 for c in fwd}
+            for stat in ("final_points", "sat", "sh"):
+                for place, c in enumerate(sorted(fwd, key=lambda c: (-c[stat], c["id"]))):
+                    rank[c["id"]] += place
+            cands = sorted(fwd, key=lambda c: (rank[c["id"]], c["id"]))[:40]
+        else:
+            cands = sorted(skater_cands, key=lambda c: -c["final_points"])[:40]
+        chances = awards.odds(award, cands, teams, games=config.GAMES_PER_SEASON, seed=sig[0])
+        ranked = sorted(chances.items(), key=lambda kv: (-kv[1], by_id[kv[0]]["name"]))[:AWARD_SHOWN]
+        rows = []
+        for pid, p in ranked:
+            c = by_id[pid]
+            rows.append({"player_id": pid, "name": c["name"], "team": c["team"], "chance": p, "games_played": c["games_played"],
+                         **({"wins": c["wins"], "final_wins": c["final_wins"], "final_gsaa": c["final_gsaa"]} if award == "vezina"
+                            else {"points": c["points"], "final_points": c["final_points"], "sat": c["sat_now"]})})
+        out[award] = {"trophy": AWARD_NAMES[award], "backtest": awards.BACKTEST[award], "candidates": rows}
+    data = {"season": config.SEASON_ID, "draws": awards.DRAWS, "awards": out}
+    _award_cache.update(sig=sig, data=data)
+    return data
+
+
+_absence_cache = {"sig": None, "data": None}
+
+
+@app.get("/api/absences")
+def absences_endpoint():
+    """Regulars who have missed their team's latest games (inferred from the box scores, since the NHL publishes no injury list) and what their
+    teammates in the same position group are getting: the average extra ice time for a teammate in that spot, from four seasons of games, and
+    what each has actually played in the games missed so far. See absences.py and its backtest."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        sig = tuple(conn.execute("SELECT count(*) AS n, max(game_date) AS d FROM skater_game_toi WHERE season_id = %s", (config.SEASON_ID,)).fetchone().values())
+        if _absence_cache["sig"] != sig:
+            _absence_cache.update(sig=sig, data={"season": config.SEASON_ID, "absences": absences_db.current(conn, config.SEASON_ID)})
+    return _absence_cache["data"]
 
 
 @app.get("/api/trophy-races")
@@ -2550,17 +2688,19 @@ _accuracy_cache = {"sig": None, "data": None}
 
 
 @app.get("/api/accuracy")
-def accuracy_endpoint():
-    """How well two of the site's predictions did this season, replayed game by game using only what was known beforehand: the
-    on-paper win chance (against simple baselines) and the probable-goalie model. See accuracy.py."""
+def accuracy_endpoint(request: Request):
+    """Owner only. How well two of the site's predictions did this season, replayed game by game using only what was known
+    beforehand: the on-paper win chance (against simple baselines) and the probable-goalie model, plus the forward log of
+    predictions made before each game (predictions.py). See accuracy.py."""
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        auth.require_admin(conn, request)
         games = conn.execute(
             """SELECT game_id, game_date AS date, home, away, home_score, away_score FROM game
                WHERE season_id = %s AND state IN ('OFF', 'FINAL') AND home_score IS NOT NULL ORDER BY game_date, game_id""",
             (config.SEASON_ID,)).fetchall()
         sig = (len(games), games[-1]["game_id"] if games else None)
         if _accuracy_cache["sig"] == sig:
-            return _accuracy_cache["data"]
+            return {**_accuracy_cache["data"], "live": predictions.load_report()}
         shots = {}
         for r in conn.execute(
                 """SELECT game_id, t AS team, coalesce(sum(xg) FILTER (WHERE side = 'f'), 0)::float AS xgf,
@@ -2583,7 +2723,7 @@ def accuracy_endpoint():
             "win": accuracy.win_report(accuracy.win_replay(games, shots)),
             "goalie": accuracy.goalie_report(accuracy.goalie_replay(list(starters.values())))}
     _accuracy_cache.update(sig=sig, data=data)
-    return data
+    return {**data, "live": predictions.load_report()}
 
 
 # --- Matchup quality ------------------------------------------------------------------------------
@@ -2612,7 +2752,34 @@ def _game_ratios(opp_row, own_kind, gaps, goals_pg):
 def matchup_schedule(days: int = 7):
     """Each team's games in the next `days` days (today first, Eastern) with how favorable each is for skaters and for
     goalies, and the stretch's summary: games, average ratio and opportunity index (sum of ratio - 1)."""
-    days = max(1, min(days, 21))
+    return _matchup_schedule(max(1, min(days, 21)))
+
+
+REST_OF_SEASON_DAYS = 250
+
+
+@app.get("/api/fantasy/schedule")
+def fantasy_schedule():
+    """Every team's remaining games this season with the matchup ratios of /api/matchups/schedule. The Fantasy page's playoff-week
+    planner picks its weeks from this, so a skater's games are his team's games. Ratios use today's team ratings, so late-season
+    games are only as good as the ratings are today."""
+    return _matchup_schedule(REST_OF_SEASON_DAYS)
+
+
+@app.get("/api/fantasy/goalie-schedule")
+def fantasy_goalie_schedule(ids: str = ""):
+    """The given goalies' chance to start each remaining game and what a start there is worth (as /api/streaming/goalies, but for the
+    rest of the season and only for the goalies asked for, since the full plan is large). Starts far ahead are a guess from the
+    team's recent split."""
+    try:
+        wanted = {int(i) for i in ids.split(",") if i.strip()}
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    plan = _streaming_plan(REST_OF_SEASON_DAYS)
+    return {**plan, "goalies": [g for g in plan["goalies"] if g["player_id"] in wanted]}
+
+
+def _matchup_schedule(days):
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         teams, league = matchups_db.team_table(conn, config.SEASON_ID)
         today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
@@ -2872,6 +3039,30 @@ def role_players(ids: str = "", window: int = 5):
 
 
 # --- Games and schedules ------------------------------------------------------------------------
+def _game_win_probability(game, goals, teams):
+    """How the home team's chance of winning moved through a finished game, with a short written story (see winprob.py), or None when the
+    goals we hold do not add up to the final score (so the timeline would be wrong)."""
+    if game["state"] not in ("OFF", "FINAL") or game["home_score"] is None or game["away_score"] is None:
+        return None
+    timed = [(g["time_sec"], 1 if g["team"] == game["home"] else 0) for g in goals if g["period"] <= 4]
+    shootout = game["last_period"] == "SO"
+    home_goals, away_goals = sum(h for _, h in timed), sum(1 - h for _, h in timed)
+    if (home_goals, away_goals) != (game["home_score"] - (shootout and game["home_score"] > game["away_score"]),
+                                    game["away_score"] - (shootout and game["away_score"] > game["home_score"])):
+        return None
+    end_type = game["last_period"] if game["last_period"] in ("OT", "SO") else "REG"
+    ended = winprob.REGULATION if end_type == "REG" else 3900 if end_type == "SO" else max(winprob.REGULATION + 1, timed[-1][0])
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        gap = winprob_db.gap_before(conn, game["season_id"], game["game_date"], game["home"], game["away"])
+    home_won = game["home_score"] > game["away_score"]
+    points, events = winprob.timeline(timed, gap, ended, home_won)
+    xg = {"home": teams[game["home"]]["xg"], "away": teams[game["away"]]["xg"]} if teams[game["home"]]["attempts"] else None
+    return {"pregame": winprob.win_prob(0, 0, gap), "gap": gap, "ended": ended, "end_type": end_type,
+            "points": [[t, round(p, 4)] for t, p in points],
+            "events": [{**e, "before": round(e["before"], 4), "after": round(e["after"], 4)} for e in events],
+            "story": winprob.story(game["home"], game["away"], gap, events, game["home_score"], game["away_score"], end_type, points, xg)}
+
+
 @app.get("/api/games/{game_id}")
 def game_detail(game_id: int):
     """Box score for one game: result, goals, team shot totals, skater and goalie lines, shots."""
@@ -2930,7 +3121,7 @@ def game_detail(game_id: int):
             "takeaways": sum(p["takeaways"] or 0 for p in sk), "giveaways": sum(p["giveaways"] or 0 for p in sk),
             "pim": sum(p["pim"] or 0 for p in sk),
         }
-    return {"game": game, "teams": teams, "goals": goals, "skaters": skaters, "goalies": goalies,
+    return {"game": game, "teams": teams, "goals": goals, "win_probability": _game_win_probability(game, goals, teams), "skaters": skaters, "goalies": goalies,
             "shots": shots, "lines": [{**l, "names": [names.get(l[k], str(l[k])) for k in ("p1", "p2", "p3")]} for l in lines],
             # pair_game holds every two skaters who shared the ice; the defense pairings are the ones where both are defensemen
             "pairs": [{**p, "names": [names.get(p[k], str(p[k])) for k in ("p1", "p2")]} for p in pairs

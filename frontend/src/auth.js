@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { FANTASY_EVENT, SCORING_EVENT, applyState, read, readScoring } from './fantasy.js'
+import { FANTASY_EVENT, LEAGUE_EVENT, SCORING_EVENT, applyState, read, readLeague, readScoring } from './fantasy.js'
 
 // Account + sync state, shared by the nav, the Account page and the Fantasy page.
 //   sync: 'off' (signed out) | 'checking' | 'conflict' | 'synced' | 'error'
@@ -19,7 +19,11 @@ const json = async (r) => {
 const send = (url, method, body) =>
   fetch(url, { method, headers: { 'content-type': 'application/json' }, body: body && JSON.stringify(body) }).then(json)
 
-const local = () => ({ players: read().players, scoring: readScoring() })
+// The league shape the Sunday email needs (slots, teams, format); the rest of the local league settings stay in this browser.
+const leagueShape = (l) => ({ teams: l?.teams, format: l?.format, slots: l?.slots })
+const local = () => ({ players: read().players, scoring: readScoring(), league: leagueShape(readLeague()) })
+// A league the account has not saved yet is not a conflict: it is simply uploaded.
+const sameLeague = (a, b) => !Object.keys(a.league ?? {}).length || JSON.stringify(leagueShape(a.league)) === JSON.stringify(leagueShape(b.league))
 const sameState = (a, b) =>
   JSON.stringify(a.players.map((p) => [p.id, p.kind])) === JSON.stringify(b.players.map((p) => [p.id, p.kind])) &&
   JSON.stringify(Object.entries(a.scoring).sort()) === JSON.stringify(Object.entries(b.scoring).sort())
@@ -39,6 +43,7 @@ function watchLocalChanges() {
   const onChange = () => state.sync === 'synced' && push()
   window.addEventListener(FANTASY_EVENT, onChange)
   window.addEventListener(SCORING_EVENT, onChange)
+  window.addEventListener(LEAGUE_EVENT, onChange)
   // Pick up edits made on another device when coming back to this tab.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && state.sync === 'synced' && !pushTimer) pull()
@@ -54,6 +59,7 @@ async function reconcile() {
     if (server.players.length === 0 && mine.players.length > 0) await send('/api/fantasy/state', 'PUT', mine)
     else if (server.players.length > 0 && mine.players.length === 0) applyState(server)
     else if (server.players.length > 0 && !sameState(server, mine)) return set({ sync: 'conflict', server })
+    else if (server.players.length > 0 && !sameLeague(server, mine)) await send('/api/fantasy/state', 'PUT', mine)
     set({ sync: 'synced', server: null })
     watchLocalChanges()
   } catch (e) {
@@ -64,7 +70,7 @@ async function reconcile() {
 async function pull() {
   try {
     const server = await send('/api/fantasy/state', 'GET')
-    if (!sameState(server, local())) applyState(server)
+    if (!sameState(server, local()) || !sameLeague(server, local())) applyState(server)
   } catch {
     // offline or a transient error: keep what's here
   }
@@ -83,8 +89,8 @@ export async function resolveConflict(choice) {
 }
 
 export async function signIn(mode, email, password) {
-  const { email: confirmed } = await send(`/api/auth/${mode}`, 'POST', { email, password })
-  set({ user: { email: confirmed } })
+  const { email: confirmed, admin } = await send(`/api/auth/${mode}`, 'POST', { email, password })
+  set({ user: { email: confirmed, admin } })
   await reconcile()
 }
 

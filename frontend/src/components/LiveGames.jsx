@@ -34,6 +34,11 @@ export default function LiveGames() {
             <span>{g.home.abbrev} <strong>{g.home.score}</strong></span>
             <em>{g.intermission ? `End of ${periodLabel(g)}` : `${periodLabel(g)} · ${g.time_remaining ?? ''}`}</em>
             {g.away.shots != null && <small>Shots {g.away.shots}–{g.home.shots}</small>}
+            {g.home_win != null && (
+              <small title="Chance of winning from the score, the time left and how the teams are rated (see the game page after it ends)">
+                Win chance {g.home_win >= 0.5 ? `${g.home.abbrev} ${Math.round(g.home_win * 100)}%` : `${g.away.abbrev} ${Math.round((1 - g.home_win) * 100)}%`}
+              </small>
+            )}
           </Link>
         ))}
       </div>

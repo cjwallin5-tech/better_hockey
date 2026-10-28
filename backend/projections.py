@@ -106,7 +106,7 @@ def goalie_final(now, games):
         "games_played": have("games_played"), "starts": have("games_started"), "wins": have("wins"), "saves": have("saves"),
         "goals_against": have("goals_against"), "shutouts": have("shutouts"),
         "rest_starts": rest["starts"], "rest_wins": rest["win"], "rest_saves": rest["saves"], "rest_goals_against": rest["ga"],
-        "rest_shutouts": rest["shutout"],
+        "rest_shutouts": rest["shutout"], "rest_shots": rest["shots"], "final_shots": have("shots_against") + rest["shots"],
         "final_starts": have("games_started") + rest["starts"], "final_wins": have("wins") + rest["win"],
         "final_saves": have("saves") + rest["saves"], "final_goals_against": have("goals_against") + rest["ga"],
         "final_shutouts": have("shutouts") + rest["shutout"],

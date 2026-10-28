@@ -7,6 +7,7 @@ import WaiverWire from '../components/WaiverWire.jsx'
 import LineupOptimizer from '../components/LineupOptimizer.jsx'
 import MatchupProjector from '../components/MatchupProjector.jsx'
 import DraftHelper from '../components/DraftHelper.jsx'
+import PlayoffPlanner from '../components/PlayoffPlanner.jsx'
 import { useAuth } from '../auth.js'
 import { refresh as refreshLeagues, setActive as setActiveLeague, takenByOthers, useLeagues } from '../leagues.js'
 import RosterTools from '../components/RosterTools.jsx'
@@ -376,6 +377,11 @@ export default function Fantasy() {
             id: 'lineup',
             label: 'Lineup optimizer',
             content: values ? <LineupOptimizer players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <p className="status">Loading…</p>,
+          },
+          {
+            id: 'playoffs',
+            label: 'Playoff weeks',
+            content: values ? <PlayoffPlanner players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <p className="status">Loading…</p>,
           },
           {
             id: 'versus',

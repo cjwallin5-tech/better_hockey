@@ -25,6 +25,14 @@ class Render(unittest.TestCase):
     def test_nothing_to_say_sends_nothing(self):
         self.assertIsNone(digest.render(day(idle=[{"name": "A"}])))
 
+    def test_the_sunday_week_ahead_section_comes_first_and_alone_is_enough_for_an_email(self):
+        subject, body = digest.render(day(idle=[{"name": "A"}]), week="WEEK AHEAD: Mon 11/2 to Sun 11/8\nbest lineup")
+        self.assertIn("Week ahead", subject)
+        self.assertLess(body.index("WEEK AHEAD"), body.index("NO GAME TODAY"))
+        subject, body = digest.render(day(playing=[entry("A", "COL", "NYR", True, None)]), week="WEEK AHEAD")
+        self.assertTrue(subject.startswith("Week ahead and today"))
+        self.assertLess(body.index("WEEK AHEAD"), body.index("TODAY:"))
+
     def test_games_are_listed_in_start_order_with_eastern_times(self):
         late = entry("Late Guy", "COL", "DAL", True, dt.datetime(2026, 12, 4, 1, 30, tzinfo=UTC))
         early = entry("Early Guy", "WSH", "MTL", True, dt.datetime(2026, 12, 4, 0, 0, tzinfo=UTC))

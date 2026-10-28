@@ -1,7 +1,7 @@
 // Run with: npm test   (Node's built-in test runner; no extra packages)
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { clock, corsiModel, gameEnd, mmss, xgModel } from './gameFlow.js'
+import { clock, corsiModel, gameEnd, mmss, winProbModel, xgModel } from './gameFlow.js'
 
 const shot = (period, time_sec, team, xg, situation = '1551') => ({ period, time_sec, team, xg, situation })
 const SHOTS = [
@@ -84,4 +84,31 @@ test('a game with no shots still draws flat lines', () => {
   const m = corsiModel({ shots: [], goals: [], away: 'AAA', home: 'BBB', view: 'attempts', strength: 'all' })
   assert.deepEqual(m.lines.map(last), [0, 0])
   assert.equal(m.dots.length, 0)
+})
+
+test('win probability: two mirrored lines, a dot per goal on the scoring team, and the axis', () => {
+  const wp = {
+    ended: 3600, points: [[0, 0.55], [600, 0.55], [600, 0.7], [3600, 1]],
+    events: [{ t: 600, home: true, before: 0.55, after: 0.7 }],
+  }
+  const goals = [{ period: 1, time_sec: 600, team: 'BBB', scorer: 'Home Hank' }]
+  const m = winProbModel({ wp, goals, away: 'AAA', home: 'BBB' })
+  assert.equal(m.axisEnd, 3600)
+  assert.deepEqual(m.lines.map((l) => l.key), ['AAA', 'BBB'])
+  assert.ok(Math.abs(m.lines[0].pts[2][1] - 0.3) < 1e-9)           // the away line is the mirror image
+  assert.equal(m.lines[1].endLabel, 'BBB 100%')
+  assert.equal(m.lines[0].endLabel, 'AAA 0%')
+  assert.equal(m.dots.length, 1)
+  assert.equal(m.dots[0].slot, 2)
+  assert.equal(m.dots[0].v, 0.7)
+  assert.match(m.dots[0].tip, /Home Hank/)
+  assert.match(m.dots[0].tip, /55% to 70%/)
+})
+
+test('win probability: an away goal sits on the away line at the away team\'s own chance, and overtime stretches the axis', () => {
+  const wp = { ended: 3700, points: [[0, 0.5], [600, 0.5], [600, 0.3], [3700, 0]], events: [{ t: 600, home: false, before: 0.5, after: 0.3 }] }
+  const m = winProbModel({ wp, goals: [], away: 'AAA', home: 'BBB' })
+  assert.equal(m.axisEnd, 3720)
+  assert.equal(m.dots[0].slot, 1)
+  assert.ok(Math.abs(m.dots[0].v - 0.7) < 1e-9)
 })

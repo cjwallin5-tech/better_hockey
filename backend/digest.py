@@ -1,4 +1,4 @@
-"""Daily roster digest: today's games for each rostered player, who's hot, who's missing games, plus a section for
+"""Daily roster digest (on Sundays it opens with the week-ahead lineup from weekly.py): today's games for each rostered player, who's hot, who's missing games, plus a section for
 the players, prospects and teams on the user's watchlist (games, hot/cold, role changes, nearby milestones, how a prospect's
 season is going and when one reaches the NHL). Rostered players who are
 scoring above what their shots predict come up as sell-high ideas, and good players elsewhere scoring below it as buy-low
@@ -8,6 +8,7 @@ Run it each morning (run_digest.sh). Only accounts that turned the digest on (Ac
 most once per Eastern-time day. Usage:
     python digest.py                 send to everyone who is due
     python digest.py --dry           print what would be sent, send nothing
+    add --sunday to --dry or --preview to include the Sunday week-ahead section whatever the day is
     python digest.py --preview 8478402,8480069   print a digest for these player ids (no account needed)
 """
 import sys
@@ -19,6 +20,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 import api
+import absences_db
 import config
 import fatigue
 import luck_db
@@ -26,6 +28,7 @@ import mail
 import prospects
 import roles_db
 import tradewatch
+import weekly
 
 ET = ZoneInfo("America/New_York")
 HOT_MIN_GAMES = 5      # recent games needed before a hot streak means anything
@@ -121,11 +124,11 @@ def _roster_rows(conn, ids):
     return skaters, goalies
 
 
-def gather(conn, players, league=None, roster=True, watched=frozenset()):
+def gather(conn, players, league=None, roster=True, watched=frozenset(), absent=None):
     """players: [{id, kind, name}] -> what today's email is made of. `league` is league_luck() (fetched here when
     omitted). roster=True is the user's own team: hot players there become sell-high lines and the league's cold
     stars not on the team become buy-low lines (`watched` ids come first); otherwise (watchlist players) every luck
-    flag stays in the luck check."""
+    flag stays in the luck check. `absent` is absences_db.current() (fetched here when omitted)."""
     league = league or league_luck(conn)
     players = list({p["id"]: p for p in players}.values())
     ids = {p["id"] for p in players}
@@ -170,11 +173,48 @@ def gather(conn, players, league=None, roster=True, watched=frozenset()):
     hot.sort(key=lambda h: h["recent_pace"] - h["pace"], reverse=True)
     out = {"today": today, "roster_size": len(playing) + len(idle), "playing": playing, "idle": idle,
            "hot": hot[:HOT_MAX], "watch": watch, "roles": role_alerts(conn, players),
-           "luck": luck_alerts(league, players, hot=not roster), "sell": [], "buy": []}
+           "luck": luck_alerts(league, players, hot=not roster), "sell": [], "buy": [],
+           "absent": teammate_lines(absent if absent is not None else absences_db.current(conn, config.SEASON_ID), skaters) if roster else []}
     if roster:
         out["sell"] = tradewatch.sell_high(league["skaters"], league["goalies"], ids, config.GAMES_PER_SEASON)
         out["buy"] = tradewatch.buy_low(league["skaters"], ids, config.GAMES_PER_SEASON, watched)
     return out
+
+
+ABSENT_MAX = 4          # most teammate-out lines in one email
+ABSENT_MIN_SEC = 30     # seconds a game, seen or expected, for a teammate's gain to be worth a line
+
+
+def mmss(seconds):
+    return f"{'+' if seconds >= 0 else '-'}{abs(round(seconds)) // 60}:{abs(round(seconds)) % 60:02d}"
+
+
+def teammate_lines(absent, skaters):
+    """Lines about roster skaters whose teammate (a top-role regular) is out and who are playing more because of it: [{name, out, games,
+    seen, expected}], biggest first. skaters: {player_id: season row} of the roster."""
+    out = []
+    for a in absent:
+        for m in a["teammates"]:
+            if m["player_id"] in skaters and m["player_id"] != a["player_id"]:
+                seen = m["seen"] if m["seen"]["games"] >= absences_db.SEEN_MIN_GAMES else None
+                gain = seen["total"] if seen else m["expected"]["total"]
+                if gain >= ABSENT_MIN_SEC:
+                    out.append({"name": m["name"], "out": a["name"], "out_team": a["team"], "games_out": a["games_out"], "role": a["role"],
+                                "seen": m["seen"], "expected": m["expected"]})
+    out.sort(key=lambda e: -(e["seen"]["total"] if e["seen"]["games"] >= absences_db.SEEN_MIN_GAMES else e["expected"]["total"]))
+    return out[:ABSENT_MAX]
+
+
+def absent_line(e):
+    seen, exp = e["seen"], e["expected"]
+    games = f"{e['games_out']} game{'s' if e['games_out'] != 1 else ''}"
+    text = f"{e['name']}: {e['out']} ({e['out_team']}, {e['role'] if e['role'] != 'none' else 'top-minutes'} player) has missed {games}. "
+    if seen["games"] >= absences_db.SEEN_MIN_GAMES:
+        text += (f"{e['name']} is playing {mmss(seen['total'])} a game more since ({mmss(seen['ev'])} even strength, {mmss(seen['pp'])} power play); "
+                 f"a teammate in his spot usually gains about {mmss(exp['total'])}.")
+    else:
+        text += f"A teammate in his spot usually gains about {mmss(exp['total'])} a game, but it has only been {games}."
+    return text
 
 
 def milestone_alerts(ms, ids, today):
@@ -319,12 +359,15 @@ def luck_line(a):
             f"(z {a['z']:+.1f}). A bounce back may be coming.")
 
 
-def render(d, w=None):
-    """(subject, plain-text body), or None when there is nothing worth an email. `w` is gather_watch()'s result."""
+def render(d, w=None, week=None):
+    """(subject, plain-text body), or None when there is nothing worth an email. `w` is gather_watch()'s result; `week` is
+    the Sunday week-ahead text (weekly.section), shown first."""
     watch = watch_lines(w) if w else []
-    if not (d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or d.get("sell") or d.get("buy") or watch):
+    if not (week or d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or d.get("sell") or d.get("buy") or d.get("absent") or watch):
         return None
     lines = [f"Your NHL roster for {d['today']:%A, %B %-d}" if d["roster_size"] else f"Your NHL watchlist for {d['today']:%A, %B %-d}", ""]
+    if week:
+        lines += [week, ""]
     if d["playing"]:
         lines.append(f"TODAY: {len(d['playing'])} of {d['roster_size']} players have a game")
         for e in sorted(d["playing"], key=lambda e: e["game"]["start"] or datetime.max.replace(tzinfo=ET)):
@@ -358,6 +401,10 @@ def render(d, w=None):
         lines.append("BUY LOW (good players scoring below what the shots say; we can't see who is available in your league)")
         lines += [f"  {tradewatch.buy_line(a)}" for a in d["buy"]]
         lines.append("")
+    if d.get("absent"):
+        lines.append("TEAMMATE OUT (more ice time for your players; the NHL publishes no injuries, so this is inferred from games missed)")
+        lines += [f"  {absent_line(e)}" for e in d["absent"]]
+        lines.append("")
     if d.get("luck"):
         lines.append("LUCK CHECK (results vs. what the shots say; early in the season these swing a lot)")
         lines += [f"  {luck_line(a)}" for a in d["luck"]]
@@ -369,12 +416,15 @@ def render(d, w=None):
     lines.append(f"Turn this email off any time: {config.PUBLIC_URL}/account")
     subject = (f"NHL roster: {len(d['playing'])} of {d['roster_size']} play today" if d["playing"]
                else "NHL roster update" if d["roster_size"] else "NHL watchlist update")
+    if week:
+        subject = f"Week ahead and today: {subject}" if d["playing"] else f"Week ahead: {subject}"
     return subject, "\n".join(lines)
 
 
 def due_users(conn):
     return conn.execute(
-        """SELECT u.id, u.email, coalesce(f.players, '[]'::jsonb) AS players, p.last_sent_on
+        """SELECT u.id, u.email, coalesce(f.players, '[]'::jsonb) AS players, coalesce(f.scoring, '{}'::jsonb) AS scoring,
+                  coalesce(f.league, '{}'::jsonb) AS league, p.last_sent_on
            FROM digest_pref p JOIN app_user u ON u.id = p.user_id LEFT JOIN fantasy_state f ON f.user_id = u.id
            WHERE p.enabled AND (coalesce(jsonb_array_length(f.players), 0) > 0
                                 OR EXISTS (SELECT 1 FROM watch_item w WHERE w.user_id = u.id))
@@ -394,16 +444,20 @@ def send_with_retry(to, subject, body, attempts=SEND_ATTEMPTS, wait=SEND_WAIT_SE
 def main(argv):
     dry = "--dry" in argv
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
+        sunday = today.weekday() == 6 or ("--sunday" in argv and (dry or "--preview" in argv))
+        shared = weekly.load_shared(conn) if sunday else None     # the week's schedule and goalie plan, shared by every email
         if "--preview" in argv:
             ids = [int(i) for i in argv[argv.index("--preview") + 1].split(",")]
             skaters, goalies = _roster_rows(conn, set(ids))
             players = [{"id": i, "kind": "skater" if i in skaters else "goalie", "name": str(i)} for i in ids]
-            out = render(gather(conn, players))
+            out = render(gather(conn, players), week=weekly.section(players, {}, {}, shared) if sunday else None)
             print(out[0] + "\n\n" + out[1] if out else "(nothing to send)")
             return 0
         sent = skipped = 0
         league = None  # luck rows for every player: one query set shared by all the emails
         ms = None  # api.milestones() scans every player, so it runs once and only if someone watches a player
+        absent = absences_db.current(conn, config.SEASON_ID)   # who is out, shared by every email
         for u in due_users(conn):
             items = conn.execute("SELECT kind, ref, name FROM watch_item WHERE user_id = %s", (u["id"],)).fetchall()
             if ms is None and any(i["kind"] == "player" for i in items):
@@ -411,7 +465,8 @@ def main(argv):
             roster_ids = {p["id"] for p in u["players"]}
             league = league or league_luck(conn)
             watched = {int(i["ref"]) for i in items if i["kind"] == "player"}
-            out = render(gather(conn, u["players"], league, watched=watched), gather_watch(conn, items, roster_ids, ms, league))
+            week = weekly.section(u["players"], u["scoring"], u["league"], shared) if sunday and u["players"] else None
+            out = render(gather(conn, u["players"], league, watched=watched, absent=absent), gather_watch(conn, items, roster_ids, ms, league), week)
             if out is None:
                 skipped += 1
                 continue

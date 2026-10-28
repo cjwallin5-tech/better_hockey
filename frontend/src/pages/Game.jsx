@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ShotMap from '../components/ShotMap.jsx'
-import { CorsiFlow, ShiftChart, XgFlow } from '../components/GameCharts.jsx'
+import { CorsiFlow, ShiftChart, WinProbability, XgFlow } from '../components/GameCharts.jsx'
 import { fmtPct, fmtToi } from '../format.js'
 import { describe } from '../glossary.js'
 import GameLines from '../components/GameLines.jsx'
@@ -37,7 +37,7 @@ export default function Game() {
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<p className="status">Loading…</p></main>
 
-  const { game: g, teams, goals, skaters, goalies, shots, lines = [], pairs = [] } = data
+  const { game: g, teams, goals, skaters, goalies, shots, win_probability: wp, lines = [], pairs = [] } = data
   const finished = g.state === 'OFF' || g.state === 'FINAL'
   const sides = [g.away, g.home]
   const score = { [g.away]: g.away_score, [g.home]: g.home_score }
@@ -87,6 +87,14 @@ export default function Game() {
               </li>
             ))}
           </ul>
+        </>
+      )}
+
+      {wp && (
+        <>
+          <h2>How the game was won</h2>
+          <p>{wp.story.join(' ')}</p>
+          <WinProbability wp={wp} goals={goals} away={g.away} home={g.home} />
         </>
       )}
 

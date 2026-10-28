@@ -56,5 +56,37 @@ class Simulate(unittest.TestCase):
         self.assertEqual(po.simulate(teams, remaining, sims=100, seed=5), po.simulate(teams, remaining, sims=100, seed=5))
 
 
+class Playoffs(unittest.TestCase):
+    def test_a_series_is_fair_between_equals_and_favors_the_better_team(self):
+        import numpy as np
+        S = po.series_matrix(np.array([0.0, 0.0, 1.0]))
+        self.assertTrue(0.5 < S[0, 1] < 0.6)            # equal teams: only the home edge helps
+        self.assertGreater(S[2, 0], 0.75)
+        self.assertGreater(S[2, 0], S[0, 2])            # home ice matters
+
+    def test_exactly_one_cup_winner_and_the_field_narrows_by_halves(self):
+        teams = league()
+        remaining = [(teams[i]["abbrev"], teams[(i + 7) % 20]["abbrev"]) for i in range(20)]
+        out = po.simulate(teams, remaining, sims=300, seed=2)
+        for key, total in (("make_playoffs", 16), ("round2", 8), ("conf_final", 4), ("final", 2), ("cup", 1)):
+            self.assertAlmostEqual(sum(o[key] for o in out.values()), total, places=6, msg=key)
+
+    def test_odds_never_go_up_from_one_round_to_the_next(self):
+        out = po.simulate(league(), [("EA0", "EB0")], sims=100, seed=1)
+        for o in out.values():
+            self.assertGreaterEqual(o["make_playoffs"] + 1e-9, o["round2"])
+            self.assertGreaterEqual(o["round2"] + 1e-9, o["conf_final"])
+            self.assertGreaterEqual(o["conf_final"] + 1e-9, o["final"])
+            self.assertGreaterEqual(o["final"] + 1e-9, o["cup"])
+
+    def test_a_dominant_team_is_the_cup_favorite(self):
+        teams = league()
+        for t in teams:
+            if t["abbrev"] == "WB1":
+                t["goal_diff"] = 400
+        out = po.simulate(teams, [], sims=200, seed=1)
+        self.assertEqual(max(out, key=lambda a: out[a]["cup"]), "WB1")
+
+
 if __name__ == "__main__":
     unittest.main()

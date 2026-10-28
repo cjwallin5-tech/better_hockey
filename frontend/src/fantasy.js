@@ -181,9 +181,17 @@ export function useLeague() {
 export const fantasyPoints = (row, cats, scoring) =>
   cats.reduce((t, [key]) => t + (row[key] ?? 0) * (Number(scoring[key]) || 0), 0)
 
-/** Replace the whole local state (roster and scoring), e.g. with what's stored on the account. */
-export function applyState({ players, scoring }) {
+/** Replace the whole local state (roster, scoring and, when the account has one, league), e.g. with what's stored on the account. */
+export function applyState({ players, scoring, league }) {
   write({ players: clean(players) })
+  if (league && Object.keys(league).length > 0) {
+    try {
+      localStorage.setItem(LEAGUE_KEY, JSON.stringify({ ...readLeague(), ...league }))
+    } catch {
+      // storage unavailable: the change simply won't persist
+    }
+    window.dispatchEvent(new Event(LEAGUE_EVENT))
+  }
   try {
     localStorage.setItem(SCORING_KEY, JSON.stringify(scoring ?? {}))
   } catch {
