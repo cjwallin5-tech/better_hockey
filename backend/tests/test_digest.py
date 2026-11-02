@@ -184,6 +184,65 @@ class RoleSection(unittest.TestCase):
 
 
 
+def fit(team, fit_goals, goalie="Devin Cooley", pid=1, notable=True, probability=0.66, confirmed=False):
+    return {"team": team, "fit_goals": fit_goals, "goalie_goals": -0.15, "shots_per_game": 25, "notable": notable,
+            "goalie": {"player_id": pid, "name": goalie, "probability": probability, "confirmed": confirmed},
+            "zones": [{"range": "mid", "lane": "blocker", "share": 0.16, "league_share": 0.13, "rate_per_100": 2.1, "goals": 0.08}]}
+
+
+def mine(name, team, pid=None, kind="skater"):
+    return {"id": pid, "name": name, "team": team, "kind": kind, "game": {"opp": "X", "home": True, "start": None}}
+
+
+class MatchupSection(unittest.TestCase):
+    def test_a_notable_fit_for_a_team_with_your_skaters_gets_a_line(self):
+        lines = digest.matchup_lines({1: {"home_shooting": fit("EDM", 0.12)}}, [mine("McDavid", "EDM"), mine("Draisaitl", "EDM")])
+        self.assertEqual(len(lines), 1)
+        self.assertIn("EDM (McDavid, Draisaitl) vs Devin Cooley (likely starter, 66%)", lines[0])
+        self.assertIn("Worth about +0.12 goals to EDM", lines[0])
+        self.assertIn("): He gives up +2.1 goals per 100 shots", lines[0])       # the goalie is named once, in the header
+
+    def test_fits_for_teams_you_have_nobody_on_and_small_fits_are_left_out(self):
+        fits = {1: {"home_shooting": fit("EDM", 0.12), "away_shooting": fit("CGY", 0.2, notable=True)}}
+        self.assertEqual(digest.matchup_lines(fits, [mine("A", "TOR")]), [])
+        self.assertEqual(digest.matchup_lines({1: {"x": fit("EDM", 0.05, notable=False)}}, [mine("A", "EDM")]), [])
+
+    def test_your_goalie_gets_the_goalies_view(self):
+        lines = digest.matchup_lines({1: {"away_shooting": fit("CGY", 0.14, goalie="Tristan Jarry", pid=77)}},
+                                     [mine("Jarry", "PIT", pid=77, kind="goalie")])
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(lines[0].startswith("Your goalie Jarry (likely starter, 66%)"))
+        self.assertIn("about 0.14 more goals against than his usual", lines[0])
+        self.assertIn("where he gives up", lines[0])
+
+    def test_one_fit_can_matter_to_your_skaters_and_your_goalie(self):
+        lines = digest.matchup_lines({1: {"a": fit("EDM", 0.12, pid=9)}}, [mine("McDavid", "EDM"), mine("Cooley", "CGY", pid=9, kind="goalie")])
+        self.assertEqual(len(lines), 2)
+
+    def test_biggest_first_and_capped(self):
+        fits = {i: {"a": fit(f"T{i}", 0.1 + i / 100)} for i in range(8)}
+        lines = digest.matchup_lines(fits, [mine("P", f"T{i}") for i in range(8)], limit=3)
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[0].startswith("T7"))
+        self.assertTrue(lines[2].startswith("T5"))
+
+    def test_no_fits_no_lines(self):
+        self.assertEqual(digest.matchup_lines({}, [mine("A", "EDM")]), [])
+        self.assertEqual(digest.matchup_lines(None, [mine("A", "EDM")]), [])
+
+    def test_the_section_appears_and_alone_is_enough_for_an_email(self):
+        d = day(idle=[{"name": "A"}])
+        d["matchups"] = ["EDM (McDavid) vs Devin Cooley (likely starter, 66%): ..."]
+        subject, body = digest.render(d)
+        self.assertIn("GOALIE MATCHUPS", body)
+        self.assertIn("  EDM (McDavid) vs Devin Cooley", body)
+
+    def test_no_section_without_lines(self):
+        d = day(playing=[entry("A", "EDM", "CGY", True, dt.datetime(2026, 12, 3, 23, 0, tzinfo=UTC))])
+        d["matchups"] = []
+        self.assertNotIn("GOALIE MATCHUPS", digest.render(d)[1])
+
+
 class RestNotes(unittest.TestCase):
     def test_a_tired_game_is_flagged_in_the_game_line(self):
         e = entry("Tired Guy", "OTT", "SJS", True, dt.datetime(2026, 12, 4, 0, 0, tzinfo=UTC))

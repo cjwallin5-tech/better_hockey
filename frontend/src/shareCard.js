@@ -89,6 +89,107 @@ export function drawCard({ title, subtitle, columns, rows, footer, verdict }) {
   return canvas
 }
 
+const SERIES_COLORS = ['#38bdf8', '#fb923c', '#34d399']
+
+/**
+ * Draws a percentile radar as a shareable card and returns the canvas.
+ * card: { title, subtitle?, labels: [axis, ...], series: [{ name, values: [0-100 | null, ...], notes?: [text, ...] }], footer? }
+ */
+export function drawRadarCard({ title, subtitle, labels, series, footer }) {
+  const height = 760
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = COLORS.bg
+  ctx.fillRect(0, 0, W, height)
+  ctx.textBaseline = 'middle'
+  ctx.textAlign = 'left'
+  ctx.fillStyle = COLORS.text
+  ctx.font = `700 44px ${FONT}`
+  ctx.fillText(fit(ctx, title, W - PAD * 2), PAD, 64)
+  if (subtitle) {
+    ctx.fillStyle = COLORS.muted
+    ctx.font = `400 24px ${FONT}`
+    ctx.fillText(fit(ctx, subtitle, W - PAD * 2), PAD, 112)
+  }
+
+  const n = labels.length
+  const cx = 360
+  const cy = 430
+  const r = 220
+  const at = (i, pct, extra = 0) => {
+    const a = (Math.PI * 2 * i) / n - Math.PI / 2
+    const d = (r * Math.max(0, Math.min(100, pct ?? 0))) / 100 + extra
+    return [cx + d * Math.cos(a), cy + d * Math.sin(a)]
+  }
+  ctx.strokeStyle = COLORS.line
+  ctx.lineWidth = 1.5
+  for (const ring of [25, 50, 75, 100]) {
+    ctx.beginPath()
+    for (let i = 0; i < n; i++) ctx.lineTo(...at(i, ring))
+    ctx.closePath()
+    ctx.stroke()
+  }
+  ctx.font = `500 22px ${FONT}`
+  ctx.fillStyle = COLORS.muted
+  labels.forEach((label, i) => {
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.lineTo(...at(i, 100))
+    ctx.stroke()
+    const [x, y] = at(i, 100, 26)
+    ctx.textAlign = Math.abs(x - cx) < 10 ? 'center' : x > cx ? 'left' : 'right'
+    ctx.fillText(label, x, y)
+  })
+  series.forEach((s, k) => {
+    const color = SERIES_COLORS[k % SERIES_COLORS.length]
+    ctx.beginPath()
+    s.values.forEach((v, i) => ctx.lineTo(...at(i, v)))
+    ctx.closePath()
+    ctx.globalAlpha = 0.22
+    ctx.fillStyle = color
+    ctx.fill()
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = color
+    ctx.lineWidth = 4
+    ctx.stroke()
+  })
+
+  // Percentile list on the right: one column per series.
+  const left = 760
+  const colW = Math.min(130, (W - PAD - left - 230) / Math.max(1, series.length))
+  ctx.textAlign = 'left'
+  ctx.fillStyle = COLORS.muted
+  ctx.font = `600 22px ${FONT}`
+  ctx.fillText('PERCENTILE', left, 190)
+  ctx.textAlign = 'right'
+  series.forEach((s, k) => {
+    ctx.fillStyle = SERIES_COLORS[k % SERIES_COLORS.length]
+    ctx.fillText(fit(ctx, s.name.split(' ').slice(-1)[0], colW - 8), left + 230 + colW * (k + 1) - 8, 190)
+  })
+  labels.forEach((label, i) => {
+    const y = 245 + i * 50
+    ctx.textAlign = 'left'
+    ctx.fillStyle = COLORS.text
+    ctx.font = `400 26px ${FONT}`
+    ctx.fillText(label, left, y)
+    ctx.textAlign = 'right'
+    ctx.font = `700 28px ${FONT}`
+    series.forEach((s, k) => {
+      ctx.fillStyle = SERIES_COLORS[k % SERIES_COLORS.length]
+      ctx.fillText(s.values[i] == null ? '–' : String(s.values[i]), left + 230 + colW * (k + 1) - 8, y)
+    })
+  })
+  if (footer) {
+    ctx.textAlign = 'left'
+    ctx.fillStyle = COLORS.muted
+    ctx.font = `400 20px ${FONT}`
+    ctx.fillText(fit(ctx, footer, W - PAD * 2), PAD, height - 36)
+  }
+  return canvas
+}
+
 /** Saves a canvas as a PNG download. */
 export function downloadCanvas(canvas, filename) {
   canvas.toBlob((blob) => {

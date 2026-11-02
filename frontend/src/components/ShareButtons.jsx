@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { drawCard, downloadCanvas } from '../shareCard.js'
+import { drawCard, drawRadarCard, downloadCanvas } from '../shareCard.js'
 
 /**
  * "Copy link" copies the current page address (the pages keep their picks in the URL); "Save image" downloads a PNG
@@ -18,7 +18,7 @@ export default function ShareButtons({ card, filename = 'nhl-stats.png', link })
     }
   }
   const save = () => {
-    downloadCanvas(drawCard(card), filename)
+    downloadCanvas(card.radar ? drawRadarCard(card) : drawCard(card), filename)
     setMsg('Image saved.')
   }
 

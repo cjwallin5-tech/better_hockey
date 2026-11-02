@@ -17,6 +17,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import psycopg
+from fastapi import HTTPException
 from psycopg.rows import dict_row
 
 import api
@@ -25,6 +26,7 @@ import config
 import fatigue
 import luck_db
 import mail
+import matchupfit
 import prospects
 import roles_db
 import tradewatch
@@ -36,6 +38,7 @@ HOT_RATIO = 1.25       # recent pace at least this much above the season pace
 HOT_MAX = 3
 MISSING_GAMES = 2      # team games in a row without playing before we flag it
 LUCK_MAX = 4           # most luck-check lines in one email, biggest gaps first
+MATCHUP_MAX = 4        # most goalie-matchup lines in one email, biggest first
 ROLE_WINDOW = 5        # games compared with the rest of the season for role changes
 ROLE_MAX = 4           # most role-change lines in one email, biggest moves first
 MILESTONE_SOON = 10    # a watched player this many games (at the current pace) from a career milestone is worth a line
@@ -124,11 +127,45 @@ def _roster_rows(conn, ids):
     return skaters, goalies
 
 
-def gather(conn, players, league=None, roster=True, watched=frozenset(), absent=None):
+def shot_fits(conn):
+    """Today's goalie matchup fits for every game (what the What to watch page shows), or {} when they cannot be had. One run's emails share it."""
+    try:
+        return api._shot_fits(conn, api.probable_goalies_endpoint()["games"])
+    except (HTTPException, psycopg.Error, KeyError):
+        return {}
+
+
+def matchup_lines(fits, playing, limit=MATCHUP_MAX):
+    """Goalie-matchup lines for the roster: a notable fit where one of your skaters is on the shooting team, or where the likely
+    goalie is yours. Biggest first. `playing` is gather()'s list of rostered players with a game today."""
+    skaters, goalies = {}, {}
+    for e in playing:
+        if e["kind"] == "skater":
+            skaters.setdefault(e["team"], []).append(e["name"])
+        elif e.get("id") is not None:
+            goalies[e["id"]] = e["name"]
+    found = []
+    for game in (fits or {}).values():
+        for f in game.values():
+            if not f["notable"] or not f["zones"]:
+                continue
+            note = matchupfit.start_note(f["goalie"])
+            names = skaters.get(f["team"])
+            if names:
+                found.append((abs(f["fit_goals"]), f"{f['team']} ({', '.join(names[:3])}) vs {f['goalie']['name']} ({note}): {matchupfit.sentence(f, 'He')}"))
+            mine = goalies.get(f["goalie"]["player_id"])
+            if mine:
+                found.append((abs(f["fit_goals"]), f"Your goalie {mine} ({note}): {matchupfit.goalie_sentence(f, 'he')}"))
+    found.sort(key=lambda t: -t[0])
+    return [text for _, text in found[:limit]]
+
+
+def gather(conn, players, league=None, roster=True, watched=frozenset(), absent=None, fits=None):
     """players: [{id, kind, name}] -> what today's email is made of. `league` is league_luck() (fetched here when
     omitted). roster=True is the user's own team: hot players there become sell-high lines and the league's cold
     stars not on the team become buy-low lines (`watched` ids come first); otherwise (watchlist players) every luck
-    flag stays in the luck check. `absent` is absences_db.current() (fetched here when omitted)."""
+    flag stays in the luck check. `absent` is absences_db.current() and `fits` is shot_fits() (both fetched here when
+    omitted)."""
     league = league or league_luck(conn)
     players = list({p["id"]: p for p in players}.values())
     ids = {p["id"] for p in players}
@@ -157,7 +194,7 @@ def gather(conn, players, league=None, roster=True, watched=frozenset(), absent=
             continue
         team = (row["team"] or "").split(",")[-1]
         game = by_team.get(team)
-        entry = {"name": row.get("name") or p["name"], "team": team, "kind": p["kind"], "game": game}
+        entry = {"id": p["id"], "name": row.get("name") or p["name"], "team": team, "kind": p["kind"], "game": game}
         if p["kind"] == "goalie":
             entry["start"] = likely.get(p["id"])
         (playing if game else idle).append(entry)
@@ -175,6 +212,7 @@ def gather(conn, players, league=None, roster=True, watched=frozenset(), absent=
            "hot": hot[:HOT_MAX], "watch": watch, "roles": role_alerts(conn, players),
            "luck": luck_alerts(league, players, hot=not roster), "sell": [], "buy": [],
            "absent": teammate_lines(absent if absent is not None else absences_db.current(conn, config.SEASON_ID), skaters) if roster else []}
+    out["matchups"] = matchup_lines(shot_fits(conn) if fits is None else fits, playing) if roster and playing else []
     if roster:
         out["sell"] = tradewatch.sell_high(league["skaters"], league["goalies"], ids, config.GAMES_PER_SEASON)
         out["buy"] = tradewatch.buy_low(league["skaters"], ids, config.GAMES_PER_SEASON, watched)
@@ -363,7 +401,7 @@ def render(d, w=None, week=None):
     """(subject, plain-text body), or None when there is nothing worth an email. `w` is gather_watch()'s result; `week` is
     the Sunday week-ahead text (weekly.section), shown first."""
     watch = watch_lines(w) if w else []
-    if not (week or d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or d.get("sell") or d.get("buy") or d.get("absent") or watch):
+    if not (week or d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or d.get("sell") or d.get("buy") or d.get("absent") or d.get("matchups") or watch):
         return None
     lines = [f"Your NHL roster for {d['today']:%A, %B %-d}" if d["roster_size"] else f"Your NHL watchlist for {d['today']:%A, %B %-d}", ""]
     if week:
@@ -400,6 +438,10 @@ def render(d, w=None, week=None):
     if d.get("buy"):
         lines.append("BUY LOW (good players scoring below what the shots say; we can't see who is available in your league)")
         lines += [f"  {tradewatch.buy_line(a)}" for a in d["buy"]]
+        lines.append("")
+    if d.get("matchups"):
+        lines.append("GOALIE MATCHUPS (where a team's shots come from against where tonight's goalie has been beaten; worth a tenth of a goal or so, not a forecast)")
+        lines += [f"  {m}" for m in d["matchups"]]
         lines.append("")
     if d.get("absent"):
         lines.append("TEAMMATE OUT (more ice time for your players; the NHL publishes no injuries, so this is inferred from games missed)")
@@ -458,6 +500,7 @@ def main(argv):
         league = None  # luck rows for every player: one query set shared by all the emails
         ms = None  # api.milestones() scans every player, so it runs once and only if someone watches a player
         absent = absences_db.current(conn, config.SEASON_ID)   # who is out, shared by every email
+        fits = shot_fits(conn)                                  # today's goalie matchup fits, shared by every email
         for u in due_users(conn):
             items = conn.execute("SELECT kind, ref, name FROM watch_item WHERE user_id = %s", (u["id"],)).fetchall()
             if ms is None and any(i["kind"] == "player" for i in items):
@@ -466,7 +509,7 @@ def main(argv):
             league = league or league_luck(conn)
             watched = {int(i["ref"]) for i in items if i["kind"] == "player"}
             week = weekly.section(u["players"], u["scoring"], u["league"], shared) if sunday and u["players"] else None
-            out = render(gather(conn, u["players"], league, watched=watched, absent=absent), gather_watch(conn, items, roster_ids, ms, league), week)
+            out = render(gather(conn, u["players"], league, watched=watched, absent=absent, fits=fits), gather_watch(conn, items, roster_ids, ms, league), week)
             if out is None:
                 skipped += 1
                 continue

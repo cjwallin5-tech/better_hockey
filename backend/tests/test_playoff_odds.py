@@ -56,6 +56,28 @@ class Simulate(unittest.TestCase):
         self.assertEqual(po.simulate(teams, remaining, sims=100, seed=5), po.simulate(teams, remaining, sims=100, seed=5))
 
 
+class LotterySeeds(unittest.TestCase):
+    def test_with_nothing_left_the_worst_records_among_the_teams_that_miss_are_the_first_seeds(self):
+        out = po.simulate(league(), [], sims=200)
+        # the four teams that miss: the two 82-point and the two 84-point teams, fewest points first
+        for team in ("EB4", "WB4"):
+            self.assertAlmostEqual(out[team]["lottery_seed"][0] + out[team]["lottery_seed"][1], 1.0)
+        for team in ("EB3", "WB3"):
+            self.assertAlmostEqual(out[team]["lottery_seed"][2] + out[team]["lottery_seed"][3], 1.0)
+        self.assertEqual(sum(out["EA0"]["lottery_seed"]), 0.0)     # a playoff team is never a lottery seed
+
+    def test_every_seed_is_filled_exactly_once_and_a_team_is_in_the_lottery_when_it_misses(self):
+        teams = league()
+        remaining = [(teams[i]["abbrev"], teams[(i + 7) % 20]["abbrev"]) for i in range(20)]
+        out = po.simulate(teams, remaining, sims=500, seed=3)
+        n_seeds = len(next(iter(out.values()))["lottery_seed"])
+        self.assertEqual(n_seeds, 4)
+        for k in range(n_seeds):
+            self.assertAlmostEqual(sum(o["lottery_seed"][k] for o in out.values()), 1.0, places=6)
+        for o in out.values():
+            self.assertAlmostEqual(sum(o["lottery_seed"]) + o["make_playoffs"], 1.0, places=6)
+
+
 class Playoffs(unittest.TestCase):
     def test_a_series_is_fair_between_equals_and_favors_the_better_team(self):
         import numpy as np

@@ -4,6 +4,7 @@ import { CompareChart } from '../components/Charts.jsx'
 import { ageInSeason, nhlSeasons, seasonGaa, seasonLabel, seasonSvPct } from '../career.js'
 import { fmt1, fmtPct, fmtToi } from '../format.js'
 import { DefenseCompare } from '../components/DefenseProfile.jsx'
+import { ScoutingCompare } from '../components/ScoutingCard.jsx'
 import ShareButtons from '../components/ShareButtons.jsx'
 import { GOALIE_CATS, SKATER_CATS, fantasyPoints, useScoring } from '../fantasy.js'
 
@@ -347,6 +348,8 @@ export default function Compare() {
           <CompareTable players={players.filter((p) => p.career)} rows={careerRows} />
         </>
       )}
+
+      {!isGoalie && players.length > 0 && <ScoutingCompare players={players} />}
 
       {!isGoalie && players.some((p) => p.career) && <DefenseCompare players={players.filter((p) => p.career)} />}
 

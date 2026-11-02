@@ -1,8 +1,10 @@
 """Read-only JSON API over the ingested stats. Run: uvicorn api:app --reload"""
 from datetime import date, datetime, timedelta, timezone
 
+import json
 import math
 from collections import defaultdict
+from pathlib import Path
 import statistics
 import time
 
@@ -27,14 +29,23 @@ import explain_db
 import fatigue
 import headtohead
 import leagues
+import lottery
 import oldgames_db
 import luck
+import goaliemap
 import luck_db
+import matchupfit
+import matchupfit_db
 import matchups
 import matchups_db
 import playoff_odds
 import probable_goalies
 import roles
+import scorestate
+import sos
+import scorestate_db
+import scouting
+import shootermap
 import roles_db
 import specialteams
 import specialteams_db
@@ -935,6 +946,24 @@ def similar(player_id: int):
     return _similar_players(everyone, player)
 
 
+@app.get("/api/skaters/{player_id}/scouting")
+def scouting_card(player_id: int):
+    """Percentile card: the skater against same-role peers on nine measures of how they play (see scouting.py)."""
+    params = {"season": config.SEASON_ID, "window": config.RECENT_WINDOW, "games": config.GAMES_PER_SEASON}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        everyone = conn.execute(SKATERS_SQL, params).fetchall()
+        speeds = {r["player_id"]: r["top_speed_mph"] for r in conn.execute(
+            "SELECT player_id, top_speed_mph FROM edge_skater_season WHERE season_id = %s AND has_data",
+            (config.SEASON_ID,)).fetchall()}
+    for r in everyone:
+        r["top_speed_mph"] = speeds.get(r["player_id"])
+    player = next((r for r in everyone if r["player_id"] == player_id), None)
+    if player is None:
+        raise HTTPException(404, "Player not found")
+    return {"player_id": player_id, "name": player["name"], "team": player["team"], "position": player["position"],
+            "games_played": player["games_played"], **scouting.card(everyone, player)}
+
+
 # --- Trade / availability context --------------------------------------------------------------
 # The NHL feeds don't publish injuries or transactions, so this is inferred from game rows: a team
 # change between games is a trade (or waiver claim), and a team game the player skipped is simply
@@ -1215,6 +1244,62 @@ def playoff_odds_endpoint():
     return _odds_cache["data"]
 
 
+@app.get("/api/schedule-strength")
+def schedule_strength():
+    """How hard each team's remaining and played games are, from the on-paper win model the What to watch page uses (see sos.py),
+    next to standings and playoff odds."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        table, league = matchups_db.team_table(conn, config.SEASON_ID)
+        games = conn.execute(
+            "SELECT game_id, game_date AS date, home, away, state FROM game WHERE season_id = %s", (config.SEASON_ID,)).fetchall()
+        standing = {t["abbrev"]: t for t in conn.execute(
+            "SELECT abbrev, conference, division, games_played, points FROM team_season WHERE season_id = %s", (config.SEASON_ID,)).fetchall()}
+    if not table:
+        raise HTTPException(404, "No team ratings yet")
+    try:
+        odds = {t["abbrev"]: t["make_playoffs"] for t in playoff_odds_endpoint()["teams"]}
+    except HTTPException:
+        odds = {}
+    by_team = {t["team"]: t for t in table}
+    rows = sos.team_rows(by_team, games, league)
+    for r in rows:
+        t, st = by_team[r["team"]], standing.get(r["team"], {})
+        r.update(name=t["name"], logo_url=t["logo_url"], logo_dark_url=t["logo_dark_url"], conference=st.get("conference"),
+                 division=st.get("division"), games_played=st.get("games_played"), points=st.get("points"),
+                 net=round(sos.net(t), 3), make_playoffs=odds.get(r["team"]))
+    return {"teams": rows, "games_left": sum(1 for g in games if g["state"] not in sos.DONE), "next_games": 10}
+
+
+@app.get("/api/lottery")
+def draft_lottery():
+    """Each team's chances in the draft lottery: of missing the playoffs, finishing with the worst record, and of each pick from the
+    first to the sixteenth, from the playoff odds simulation and the NHL's lottery rules (see lottery.py)."""
+    odds = playoff_odds_endpoint()
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        logos = {r["abbrev"]: r for r in conn.execute(
+            "SELECT abbrev, logo_url, logo_dark_url FROM team_season WHERE season_id = %s", (config.SEASON_ID,)).fetchall()}
+    teams = []
+    for t in odds["teams"]:
+        summary = lottery.summary(t["lottery_seed"]) if t.get("lottery_seed") else None
+        if not summary:
+            continue
+        teams.append({
+            "team": t["abbrev"], "name": t["name"], "conference": t["conference"], "division": t["division"],
+            "games_played": t["games_played"], "points": t["points"], "exp_points": t["exp_points"],
+            "p10_points": t["p10_points"], "p90_points": t["p90_points"], "make_playoffs": t["make_playoffs"],
+            "logo_url": logos.get(t["abbrev"], {}).get("logo_url"), "logo_dark_url": logos.get(t["abbrev"], {}).get("logo_dark_url"),
+            **summary,
+        })
+    teams.sort(key=lambda r: (-r["first_overall"], r["team"]))
+    published = lottery.MATRIX
+    return {
+        "teams": teams, "sims": odds["sims"], "games_remaining": odds["games_remaining"],
+        "seeds": [{"seed": i + 1, "first_draw": lottery.ODDS[i], "first_overall": float(published[i][0]),
+                   "top_two": float(published[i][:2].sum()), "worst_pick": int(max(j for j in range(lottery.SEEDS) if published[i][j] > 1e-12)) + 1}
+                  for i in range(lottery.SEEDS)],
+    }
+
+
 # --- Schedule grid ------------------------------------------------------------------------------
 @app.get("/api/schedule-grid")
 def schedule_grid():
@@ -1414,6 +1499,47 @@ def probable_goalies_endpoint(date: str | None = None):
     return {"date": day, "repeat_rate": round(p_repeat, 3), "games": out}
 
 
+_fit_cache = {}
+
+
+def _shot_fits(conn, starters_games):
+    """{game_id: {home_shooting, away_shooting}}: for each side, how its shot zones line up with the opposing probable goalie's weak and
+    strong zones (see matchupfit.py). Sides without a goalie or enough shots are left out."""
+    current, prior, games = matchupfit_db.team_diets(conn, config.SEASON_ID)
+    league = matchupfit_db.league_shares(current)
+    rates = {}
+
+    def goalie_rates(pid):
+        if pid not in rates:
+            goalie, summary = _goalie_zone_summary(conn, pid, "all")
+            ok = goalie is not None and summary["total"]["shots"] >= matchupfit.MIN_FACED
+            rates[pid] = (goalie, *matchupfit.goalie_rates(summary)) if ok else None
+        return rates[pid]
+
+    out = {}
+    for g in starters_games:
+        entry = {}
+        for shooting, defending in (("home", "away"), ("away", "home")):
+            team, goalie = g[shooting], (g.get(f"{defending}_goalies") or {}).get("candidates") or []
+            top = goalie[0] if goalie else None
+            if not top or sum(current.get(team, {}).values()) + sum(prior.get(team, {}).values()) < matchupfit.MIN_TEAM_SHOTS:
+                continue
+            info = goalie_rates(top["player_id"])
+            if not info:
+                continue
+            who, zone_rates, overall = info
+            shares, _ = matchupfit.diet(current.get(team, {}), prior.get(team, {}))
+            n_games = games.get(team, 0)
+            per_game = sum(current.get(team, {}).values()) / n_games if n_games >= 5 else matchupfit.LEAGUE_SHOTS_PER_GAME
+            entry[f"{shooting}_shooting"] = {
+                "team": team, "goalie": {"player_id": top["player_id"], "name": top["name"], "catches": who["catches"],
+                                         "probability": top["probability"], "confirmed": (g[f"{defending}_goalies"] or {}).get("confirmed")},
+                **matchupfit.fit(shares, per_game, zone_rates, overall, who["catches"], league)}
+        if entry:
+            out[g["game_id"]] = entry
+    return out
+
+
 @app.get("/api/tonight")
 def tonight_endpoint(date: str | None = None, ids: str = "", teams: str = ""):
     """A day's games (default today, Eastern), each with why it might be worth watching: how even the teams are, expected
@@ -1452,6 +1578,11 @@ def tonight_endpoint(date: str | None = None, ids: str = "", teams: str = ""):
         starters = {g["game_id"]: g for g in probable_goalies_endpoint(str(day))["games"]}
     except HTTPException:
         starters = {}
+    try:
+        with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as fit_conn:
+            shot_fits = _shot_fits(fit_conn, list(starters.values()))
+    except psycopg.Error:
+        shot_fits = {}
 
     stars, yours_by_team = {}, {}
     for r in skaters:
@@ -1490,6 +1621,7 @@ def tonight_endpoint(date: str | None = None, ids: str = "", teams: str = ""):
             "odds": {"home": odds.get(g["home"]), "away": odds.get(g["away"])},
             "stars": {"home": stars.get(g["home"], [])[:2], "away": stars.get(g["away"], [])[:2]},
             "goalies": {"home": goalie(starter["home_goalies"]), "away": goalie(starter["away_goalies"])} if starter else None,
+            "shot_fit": shot_fits.get(g["game_id"]),
             "rest": {"home": kinds.get((g["home"], g["game_id"])), "away": kinds.get((g["away"], g["game_id"]))},
             "yours": yours, "followed": sorted(followed & {g["home"], g["away"]}), **graded,
         })
@@ -2499,6 +2631,174 @@ def goalie_shots(player_id: int):
         factor = luck_db.goalie_factor(conn, config.SEASON_ID)
         summary["xga"] = summary["xga"] * factor
     return {"shots": rows, "summary": summary, "xga_factor": factor}
+
+
+_zone_calibration = {"sig": None, "cal": None}
+
+ZONE_SHOT_SQL = """
+    SELECT season_id, goalie_id, kind, xg, distance, angle, y, shot_type, rebound, strength, empty_net
+    FROM shot_hist WHERE x IS NOT NULL AND kind IN ('shot', 'goal')
+    UNION ALL
+    SELECT season_id, goalie_id, kind, xg, distance, angle, y, shot_type, rebound, strength, empty_net
+    FROM shot WHERE x IS NOT NULL AND kind IN ('shot', 'goal') AND season_id NOT IN (SELECT season_id FROM shot_hist_game)
+"""
+
+
+def _goalie_zone_summary(conn, player_id, span="all"):
+    """(goalie row, goaliemap.summarize output) for one goalie, or (None, None) if he is not in the data. The league calibration
+    behind it is cached (see goaliemap.league_calibration)."""
+    goalie = conn.execute("SELECT name, catches FROM goalie_season WHERE player_id = %s ORDER BY season_id DESC LIMIT 1",
+                          (player_id,)).fetchone()
+    if goalie is None:
+        return None, None
+    factors = {r["season_id"]: r["f"] for r in conn.execute(
+        f"WITH {luck_db.GOALIE_CALIBRATION_CTE} SELECT season_id, f FROM gcal").fetchall()}
+    only = "WHERE season_id = %(cur)s" if span == "current" else ""
+    mine = conn.execute(f"SELECT * FROM ({ZONE_SHOT_SQL}) t {only} {'AND' if only else 'WHERE'} goalie_id = %(p)s",
+                        {"p": player_id, "cur": config.SEASON_ID}).fetchall()
+    sig = (span, conn.execute("SELECT count(*) AS n FROM shot_hist_game WHERE located").fetchone()["n"],
+           conn.execute("SELECT count(*) AS n FROM shot WHERE season_id = %s", (config.SEASON_ID,)).fetchone()["n"])
+    if _zone_calibration["sig"] != sig:
+        catches = {r["player_id"]: r["catches"] for r in conn.execute(
+            "SELECT DISTINCT ON (player_id) player_id, catches FROM goalie_season ORDER BY player_id, season_id DESC").fetchall()}
+        league = conn.execute(f"SELECT * FROM ({ZONE_SHOT_SQL}) t {only}", {"cur": config.SEASON_ID}).fetchall()
+        for r in league:
+            r["catches"] = catches.get(r["goalie_id"])
+            r["f"] = factors.get(r["season_id"], 1.0)
+        _zone_calibration.update(sig=sig, cal=goaliemap.league_calibration(league, 1.0))
+    for r in mine:
+        r["f"] = factors.get(r["season_id"], 1.0)
+    return goalie, goaliemap.summarize(mine, 1.0, goalie["catches"], _zone_calibration["cal"])
+
+
+@app.get("/api/goalies/{player_id}/zones")
+def goalie_zones(player_id: int, span: str = "all"):
+    """Where this goalie is beaten: goals allowed against an average goalie's in nine ice zones, by shot type and by situation
+    (see goaliemap.py). span=all pools every season with stored shot locations (this one and the past
+    seasons backfilled by `ingest.py backfill-shot-locations`); span=current is this season only."""
+    if span not in ("all", "current"):
+        raise HTTPException(400, "span must be all or current")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        goalie, out = _goalie_zone_summary(conn, player_id, span)
+    if goalie is None:
+        raise HTTPException(404, "Goalie not found")
+    return {"player_id": player_id, "name": goalie["name"], "catches": goalie["catches"], "span": span,
+            "headline": goaliemap.headline(out), "min_zone_shots": goaliemap.MIN_ZONE_SHOTS, "flag_z": goaliemap.FLAG_Z, **out}
+
+
+_shooter_profile = {"sig": None, "data": None}
+
+SHOOTER_SHOT_SQL = """
+    SELECT season_id, shooter_id, kind, xg, distance, angle, y, shot_type, rebound, strength, empty_net
+    FROM shot_hist WHERE x IS NOT NULL AND kind IN ('shot', 'miss', 'goal') AND shooter_id IS NOT NULL
+    UNION ALL
+    SELECT season_id, shooter_id, kind, xg, distance, angle, y, shot_type, rebound, strength, empty_net
+    FROM shot WHERE x IS NOT NULL AND kind IN ('shot', 'miss', 'goal') AND shooter_id IS NOT NULL
+      AND season_id NOT IN (SELECT season_id FROM shot_hist_game)
+"""
+
+
+@app.get("/api/skaters/{player_id}/zones")
+def skater_zones(player_id: int, span: str = "all", strength: str = "all"):
+    """Where this skater shoots from and where he scores above or below what the chances predict, in nine ice zones, by
+    shot type and by situation (see shootermap.py). span=all pools every season with stored shot locations; span=current
+    is this season only. strength=all, ev or pp filters his attempts (the league profile is always every strength)."""
+    if span not in ("all", "current") or strength not in ("all", "ev", "pp"):
+        raise HTTPException(400, "span must be all or current, strength all, ev or pp")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        player = conn.execute("SELECT name FROM skater_season WHERE player_id = %s ORDER BY season_id DESC LIMIT 1",
+                              (player_id,)).fetchone()
+        if player is None:
+            raise HTTPException(404, "Player not found")
+        sig = (span, conn.execute("SELECT count(*) AS n FROM shot_hist_game WHERE located").fetchone()["n"],
+               conn.execute("SELECT count(*) AS n FROM shot WHERE season_id = %s", (config.SEASON_ID,)).fetchone()["n"])
+        only = "WHERE season_id = %(cur)s" if span == "current" else ""
+        if _shooter_profile["sig"] != sig:
+            league = conn.execute(f"SELECT * FROM ({SHOOTER_SHOT_SQL}) t {only}", {"cur": config.SEASON_ID}).fetchall()
+            factors = shootermap.season_factors(league)
+            for r in league:
+                r["f"] = factors.get(r["season_id"], 1.0)
+            cal, shares = shootermap.league_profile(league)
+            _shooter_profile.update(sig=sig, data=(factors, cal, shares))
+        factors, cal, shares = _shooter_profile["data"]
+        extra = "" if strength == "all" else f" AND strength = '{strength}'"
+        mine = conn.execute(f"SELECT * FROM ({SHOOTER_SHOT_SQL}) t {only} {'AND' if only else 'WHERE'} shooter_id = %(p)s{extra}",
+                            {"p": player_id, "cur": config.SEASON_ID}).fetchall()
+    for r in mine:
+        r["f"] = factors.get(r["season_id"], 1.0)
+    out = shootermap.summarize(mine, cal, shares)
+    return {"player_id": player_id, "name": player["name"], "span": span, "strength": strength,
+            "headline": shootermap.headline(out), "min_zone_attempts": shootermap.MIN_ZONE_ATTEMPTS,
+            "flag_z": shootermap.FLAG_Z, **out}
+
+
+_score_cache = {}
+
+
+def _timed_seasons(conn):
+    """Seasons with score state available: the current one plus past seasons whose shot times are backfilled."""
+    rows = conn.execute("SELECT season_id FROM shot_hist_game WHERE timed GROUP BY season_id ORDER BY season_id").fetchall()
+    return sorted({r["season_id"] for r in rows} | {config.SEASON_ID})
+
+
+def _score_tallies(conn, seasons):
+    sig = (tuple(seasons), conn.execute("SELECT count(*) AS n FROM shot_hist_game WHERE timed").fetchone()["n"],
+           conn.execute("SELECT count(*) AS n FROM shot WHERE season_id = %s", (config.SEASON_ID,)).fetchone()["n"])
+    hit = _score_cache.get(tuple(seasons))
+    if hit is None or hit[0] != sig:
+        hit = (sig, scorestate_db.team_tallies(conn, seasons))
+        _score_cache[tuple(seasons)] = hit
+    return hit[1]
+
+
+@app.get("/api/score-effects")
+def score_effects(season: str = "current"):
+    """How play changes with the score, league-wide and by team, with score-adjusted team shares (see scorestate.py).
+    season is a season id, `current`, or `all` (every season with shot times). The score effect behind the adjustment
+    is always measured on every available season."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        available = _timed_seasons(conn)
+        if season == "all":
+            chosen = available
+        else:
+            chosen = [config.SEASON_ID if season == "current" else int(season)] if (season == "current" or season.isdigit()) else []
+        if not chosen or any(c not in available for c in chosen):
+            raise HTTPException(400, "season must be current, all, or a season with shot times")
+        league = _score_tallies(conn, available)
+        mine = league if chosen == available else _score_tallies(conn, chosen)
+    rows, p = scorestate.team_rows(mine, league)
+    rows.sort(key=lambda r: -(r["xg_pct_adj"] or 0))
+    return {"seasons": chosen, "available": available, "effects": scorestate.league_effects(mine),
+            "effects_all": scorestate.league_effects(league), "teams": rows, "league_share": p}
+
+
+@app.get("/api/skaters/{player_id}/score-state")
+def skater_score_state(player_id: int, span: str = "all"):
+    """A skater's finishing by score state and in close-and-late situations against the rest of his shots."""
+    if span not in ("all", "current"):
+        raise HTTPException(400, "span must be all or current")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        seasons = _timed_seasons(conn)
+        if span == "current":
+            seasons = [config.SEASON_ID]
+        player = conn.execute("SELECT name FROM skater_season WHERE player_id = %s ORDER BY season_id DESC LIMIT 1",
+                              (player_id,)).fetchone()
+        if player is None:
+            raise HTTPException(404, "Player not found")
+        rows = scorestate_db.player_shots(conn, player_id, seasons)
+    for r in rows:
+        r["state"] = scorestate.state_of(r["diff"])
+    out = scorestate.clutch(rows)
+    out["states"] = scorestate.by_state([{**r, "strength": r["strength"]} for r in rows])
+    seasons_with = sorted({r["season_id"] for r in rows})
+    return {"player_id": player_id, "name": player["name"], "span": span, "seasons": seasons_with, **out,
+            "backtest": _clutch_backtest()}
+
+
+def _clutch_backtest():
+    """The saved check of whether close-and-late finishing repeats between seasons (analysis/backtest_clutch.py)."""
+    path = Path(__file__).parent / "data" / "clutch_backtest.json"
+    return json.loads(path.read_text()) if path.exists() else None
 
 
 # --- Luck and regression --------------------------------------------------------------------------

@@ -541,3 +541,27 @@ tbody td:first-child { z-index: 1; }
 
 .findings { list-style: none; padding: 0; margin: 0 0 12px; }
 .findings .finding { padding: 6px 0; border-bottom: 1px solid var(--line); }
+
+.scout { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 800px) { .scout { grid-template-columns: minmax(0, 1fr); } }
+.scout-radar { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.radar-label { font-size: 11px; }
+.radar-area { fill-opacity: 0.18; stroke-width: 2.5; }
+.radar-fill-1 { fill: var(--series-1); } .radar-fill-2 { fill: var(--series-2); } .radar-fill-3 { fill: var(--series-3); }
+
+.zonemap { max-width: 640px; }
+.zm-zone { stroke: var(--card); stroke-width: 1.5; }
+.zm-good { fill: var(--series-1); } .zm-bad { fill: var(--series-2); }
+.zm-none { fill: var(--muted); fill-opacity: 0.1; }
+.zm-zone.zm-flag { stroke: var(--text); stroke-width: 3; }
+.key.zm-good { background: var(--series-1); } .key.zm-bad { background: var(--series-2); } .key.zm-none { background: var(--muted); opacity: 0.4; }
+.zm-text { fill: var(--text); pointer-events: none; }
+.zm-gsax { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.zm-n { font-size: 10px; fill: var(--muted); }
+tr.zm-row-flag td { font-weight: 600; }
+
+tr.ss-hardest td:first-child { box-shadow: inset 3px 0 0 var(--series-2); }
+tr.ss-easiest td:first-child { box-shadow: inset 3px 0 0 var(--series-1); }
+
+table.heat td, table.heat th { padding-left: 6px; padding-right: 6px; text-align: center; font-variant-numeric: tabular-nums; }
+table.heat td.left, table.heat th.left { text-align: left; }

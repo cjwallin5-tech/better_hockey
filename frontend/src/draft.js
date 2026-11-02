@@ -13,7 +13,7 @@
 // - Needs: starting slots (from your league settings) not yet filled by your picks.
 // - Keepers: a player kept in round R costs the pick, so the surplus is his value minus the value of the player who
 //   typically goes at that spot of the round (the value ranked at that overall pick on the value board).
-import { GROUPS } from './value.js'
+import { GROUPS, teamOf } from './value.js'
 
 export const TIER_GAP = 0.08
 
@@ -48,6 +48,14 @@ export function buildBoard({ values, info, league }) {
   }
   all.sort((a, b) => b.value - a.value || a.id - b.id)
   return all.map((r, i) => ({ ...r, overall: i + 1 }))
+}
+
+/** Id -> { name, team, position, kind } for every skater and goalie in the season rows ({ skaters, goalies }), for buildBoard(). */
+export function infoMap(data) {
+  const m = new Map()
+  for (const r of data.skaters) m.set(r.player_id, { name: r.name, team: teamOf(r), position: r.position, kind: 'skater' })
+  for (const r of data.goalies) m.set(r.player_id, { name: r.name, team: teamOf(r), position: 'G', kind: 'goalie' })
+  return m
 }
 
 // --- Draft order ----------------------------------------------------------------------------------

@@ -48,7 +48,7 @@ class ShotHistRows(unittest.TestCase):
         self.assertTrue(all(r[0] == 555 and r[2] == 20252026 for r in self.rows))
 
     def test_fields_are_in_insert_order(self):
-        game_id, event_id, season_id, shooter, goalie, kind, strength, xg = self.rows[0]
+        game_id, event_id, season_id, shooter, goalie, kind, strength, xg = self.rows[0][:8]
         self.assertEqual((shooter, goalie, kind, strength), (8000001, 8000002, "shot", "ev"))
         self.assertGreater(xg, 0)
 
@@ -56,6 +56,16 @@ class ShotHistRows(unittest.TestCase):
         self.assertIsNone(self.rows[1][7])
         self.assertEqual(self.rows[2][5], "goal")
         self.assertIsNone(self.rows[2][7])
+
+    def test_location_fields_follow_the_xg(self):
+        shot_type, x, y, distance, angle, rebound, empty_net = self.rows[0][8:15]
+        self.assertEqual((shot_type, x, y, rebound, empty_net), ("wrist", 70, 5, False, False))
+        self.assertAlmostEqual(distance, (19 ** 2 + 5 ** 2) ** 0.5, places=3)
+        self.assertTrue(self.rows[2][14])  # the empty-net goal
+
+    def test_time_and_side_are_kept_for_score_state(self):
+        period, time_sec, is_home = self.rows[0][15:]
+        self.assertEqual((period, time_sec, is_home), (1, 600, True))
 
 
 if __name__ == "__main__":

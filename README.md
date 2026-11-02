@@ -250,6 +250,10 @@ and never refreshed, so when a new season starts the one that just finished stop
   day, using the same SMTP settings as password reset. Preview without sending: `.venv/bin/python digest.py --dry`, or
   `--preview 8478402,8480069` for a list of player ids. To send every morning, follow the steps at the top of `backend/com.hockeystats.digest.plist.example` (a launchd template with
   the SMTP settings and an 8:00 AM schedule; logs in `backend/logs/digest.log`).
+- **Goalie matchups in the daily email** (a "GOALIE MATCHUPS" section, roster only, at most four lines): for tonight's games, any fit of 0.1 goals or more from the What to
+  watch page's goalie zones where one of your skaters is on the shooting team, or the likely goalie is yours, in the same words as the site but from your side
+  (`matchup_lines` in `backend/digest.py`, wording in `backend/matchupfit.py`; computed once per run with `shot_fits`). A line names the likely goalie and how sure the
+  starter guess is. Not in the watchlist block.
 - **Sunday week-ahead section** (part of the daily email, no separate switch): on Sundays `backend/digest.py` opens the email with the
   coming Monday to Sunday from `backend/weekly.py`: the best lineup (the same maths as the Fantasy page's lineup optimizer, ported to Python
   for points leagues, changing the lineup daily), your goalies' expected starts, streaming goalie picks, and heavy and light weeks. It uses the
@@ -286,6 +290,62 @@ and never refreshed, so when a new season starts the one that just finished stop
   checked on seasons it was not fitted on (`backend/analysis/backtest_winprob.py`; goal timelines cached by `analysis/winprob_data.py` in
   `backend/data/game_goals.json.gz`): it is well calibrated through the game, including one-goal games in the last minutes, and beats the score-and-time
   rule without team strength. It does not see shots, penalties or who is on the ice.
+- **Scouting card** (a panel on each skater's Stats tab, and an overlay on the Compare page): a radar of percentiles among same-role skaters (forwards and
+  defensemen ranked apart, peers with at least half the busiest skater's games) on nine measures: scoring (points/60), shot quality (individual xG/60),
+  possession (on-ice xGF%), defense (5v5 xGA/60, fewer is better), power play, ice time, hits, shot blocking and EDGE top speed, with strengths and
+  weaknesses named from the non-style axes (`backend/scouting.py`, `/api/skaters/{id}/scouting`; `frontend/src/scouting.js`, `ScoutingCard.jsx`).
+  Scoring is marked because it carries finishing luck; defense depends on teammates. "Save image" draws a PNG radar card (`drawRadarCard` in `shareCard.js`).
+- **Goalie weakness map** (a "Where he's beaten" section on each goalie's Advanced tab): goals allowed against an average goalie's on similar shots, in nine
+  zones (close, mid and long range by glove side, middle and blocker side), by shot type and by situation (`backend/goaliemap.py`,
+  `/api/goalies/{id}/zones`; `frontend/src/goalieZones.js`, `GoalieZones.jsx`). Lanes follow the shooter's angle, and the glove side comes from the
+  goalie's catching hand (checked against left- and right-shot defensemen: positive rink y is the shooter's left). The xG model is off by location, so
+  expected goals are re-scaled until the league sits at zero in each zone, type and situation. A zone holds a few dozen shots, so only gaps of about 2 standard deviations are outlined.
+  The map pools every season with stored shot locations (`?span=all`, the default; `?span=current` is this season only), each season on its own xG
+  scale, and lists each zone's result by season so a repeat weakness stands apart from a one-year blip. Past seasons' locations come from
+  `python ingest.py backfill-shot-locations` (one play-by-play request per game, about 25 minutes for four seasons, resumable; new seasons are
+  stored with locations by `backfill-shots`). After a season rolls over, run `backfill-shots` for it, which includes locations.
+- **Score effects and clutch** (a "Score effects" page under More, and a "Close games and clutch" section on each skater's Advanced tab): a shot's score
+  state is the shooter's lead just before it, worked out in SQL from each game's own goals (`backend/scorestate.py`, `scorestate_db.py`;
+  `/api/score-effects`, `/api/skaters/{id}/score-state`; `frontend/src/scoreState.js`, `ScoreEffects.jsx`, `ScoreState.jsx`). Even-strength shots in
+  regulation only. The page shows how the score shifts shots, xG and goals league-wide and every team's xG and shot-attempt share with the score
+  effect removed (each team's events re-weighted so the league sits at 50% in every state; it moves xG share by under half a point, so it mostly
+  confirms the raw ranking). The player panel compares his finishing in close, late moments (third period, within a goal) with his own finishing
+  elsewhere. Past seasons need shot times: `python ingest.py backfill-shot-times` (one play-by-play request per game, about 25 minutes, resumable;
+  new seasons get them from `backfill-shots`). `analysis/backtest_clutch.py` (output in `data/clutch_backtest.json`, shown on the panel) checks
+  whether clutch repeats: it does not.
+- **Shooter zone map** (a "Where he shoots from" section on each skater's Advanced tab): the same nine zones as the goalie map (left, middle and right as the
+  shooter sees the net), showing the share of his attempts taken from each zone next to the league's share and his goals against expected there, by
+  shot type and by situation, with a toggle for even strength or power play (`backend/shootermap.py`, `/api/skaters/{id}/zones`;
+  `frontend/src/components/ShooterZones.jsx`). Unblocked attempts, all strengths by default. Each season's xG is scaled to that season's goals and
+  then to the league's goals in the same zone, shot type and situation, so a number reads "goals more or fewer than an average shooter gets from
+  similar shots in that spot"; the model knows nothing about the shooter, so a player who finishes well shows positive numbers everywhere. Pools every
+  season with stored locations (`?span=all`, the default; `?span=current`), with each zone's result by season. Both zone maps are drawn from the
+  shooter's end of the ice, so a left-catching goalie's glove side is on the right of the picture.
+- **Goalie matchup tips** (a "Goalie zones" line on each game card of the What to watch page; `shot_fit` in `/api/tonight`): for each side, how the team's
+  shot zones (this season blended with last, `backend/matchupfit_db.py`) line up with the opposing probable goalie's zone record (the goalie map's
+  nine zones, pooled over seasons and shrunk toward average by 300 pseudo-shots), in goals per game to the shooting team on top of the goalie's overall level
+  (`backend/matchupfit.py`; `frontend/src/matchupTip.js`). Only fits of 0.1 goals or more are shown. `analysis/backtest_goalie_zones.py` checked it from
+  earlier seasons only: the zone detail predicted later goals allowed with a coefficient of about 1.0 (se 0.4), but a typical fit is only about 0.1 goals.
+- **Schedule strength** (a "Schedule strength" page under More; `/api/schedule-strength`): how hard each team's remaining games are, next to the schedule already
+  played, the next ten games and the back-to-backs left (`backend/sos.py`; `frontend/src/pages/ScheduleStrength.jsx`, `scheduleStrength.js`). Every game is
+  priced with the What to watch page's on-paper model (xG ratings with home ice); a team's figure is its expected points over those games minus what it
+  would expect against a league-average opponent at the same venues, so home and road mix does not count and negative means harder. It uses today's ratings for
+  every opponent, so it moves as the season does, and it is small early (about plus or minus 0.8 points over 70 games, a few tenths of a point is noise).
+  Not an input to the playoff odds, which simulate the real schedule themselves.
+- **Draft lottery** (a "Draft lottery" page under More; `/api/lottery`): every team's chance of missing the playoffs, of the worst record, and of each pick from first to
+  sixteenth. The playoff odds simulation ranks the 16 teams that miss the playoffs in every simulated ending (`lottery_seed` in `playoff_odds.simulate`, worst
+  record first), and `backend/lottery.py` turns a seed into a pick distribution by enumerating the NHL's two drawings with the 2026 guide's odds (18.5% down to
+  0.5%), the 10-spot move-up cap (only the 11 worst can win first overall; a winner from 12th to 16th moves up as far as the cap allows and the worst team keeps
+  the first pick) and the rest keeping their order. A test checks it against the guide's published first-overall column (the worst seed's 25.5%). Not modelled: who
+  owns each pick, the limit of two moves up in five years, and exactly what happens when both drawings aim at the same slot (about 2% of simulated lotteries).
+  `frontend/src/pages/Lottery.jsx`, `lotteryView.js`.
+- **Mock draft** (a "Mock draft" tab on the Fantasy page, next to the draft helper): draft from a slot of your league against bots that make the other teams' picks,
+  on the draft helper's value board (`frontend/src/mockDraft.js`, `components/MockDraft.jsx`). A bot takes the best player by value plus some noise (chalk, tight, realistic
+  or wild), prefers a position it still needs a starter at, will not stack a position past its starters plus two bench players (one for goalies), and fills every starting slot
+  before the draft ends. The whole draft is a pure function of the board, a seed and your own picks (a bot's randomness for pick n depends only on the seed and n), so it
+  survives a refresh and undo is just dropping your last pick. "Auto-draft the rest" takes the best player for a position you still need. At the end every team's best
+  starting lineup (players below a free pickup count for nothing) is compared, with a pick-by-pick review of what you left behind. The bots are plausible managers
+  working from the same values, not a prediction of how your league mates draft.
 - **Trophy races** (`/trophies`): top-5 contenders for the stat-driven awards (Art Ross, Richard, Norris, Calder, Vezina).
 - **Live scores** on the home page come straight from the NHL scoreboard (cached 20s); everything else is from the nightly ingest.
 - The footer shows when stats were last refreshed and warns if the nightly job looks like it missed a run.

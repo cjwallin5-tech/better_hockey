@@ -7,6 +7,7 @@ import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
 import FantasyStar from '../components/FantasyStar.jsx'
 import WatchButton from '../components/WatchButton.jsx'
 import { GoalieShots } from '../components/Shots.jsx'
+import GoalieZones from '../components/GoalieZones.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
 import LuckPanel from '../components/Luck.jsx'
 import { GoalieForm } from '../components/Form.jsx'
@@ -151,6 +152,8 @@ export default function Goalie() {
               <TrackingProfile playerId={g.player_id} />
 
               <GoalieShots playerId={g.player_id} />
+
+              <GoalieZones playerId={g.player_id} />
               </>
             ),
           },

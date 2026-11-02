@@ -1,0 +1,17 @@
+{
+ "seasons": [
+  20222023,
+  20232024,
+  20242025,
+  20252026
+ ],
+ "min_attempts": 25,
+ "player_seasons": 1304,
+ "pairs": 726,
+ "r_clutch": -0.009,
+ "r_finishing": 0.184,
+ "pairs_finishing": 972,
+ "share_beyond_2": 0.071,
+ "expected_beyond_2": 0.046,
+ "sd_of_z": 1.29
+}

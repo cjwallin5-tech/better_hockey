@@ -12,12 +12,15 @@ import { Linemates } from '../components/Lines.jsx'
 import { SkaterShots } from '../components/Shots.jsx'
 import PaceHistory from '../components/PaceHistory.jsx'
 import Similar from '../components/Similar.jsx'
+import ScoutingCard from '../components/ScoutingCard.jsx'
 import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
 import LuckPanel from '../components/Luck.jsx'
 import Projection from '../components/Projection.jsx'
 import Explain from '../components/Explain.jsx'
+import ScoreState from '../components/ScoreState.jsx'
+import ShooterZones from '../components/ShooterZones.jsx'
 import { SkaterForm } from '../components/Form.jsx'
 import { RolePanel } from '../components/Roles.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
@@ -208,13 +211,19 @@ export default function Player() {
                 <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
               </section>
 
+              <ScoutingCard playerId={p.player_id} />
+
               <DefenseProfile playerId={p.player_id} />
 
               <LuckPanel playerId={p.player_id} />
 
+              <ScoreState playerId={p.player_id} />
+
               <TrackingProfile playerId={p.player_id} />
 
               <SkaterShots playerId={p.player_id} />
+
+              <ShooterZones playerId={p.player_id} />
 
               <Linemates playerId={p.player_id} />
 

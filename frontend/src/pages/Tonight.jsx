@@ -5,6 +5,7 @@ import TeamLogo from '../components/TeamLogo.jsx'
 import { useFantasy } from '../fantasy.js'
 import { useWatchlist } from '../watchlist.js'
 import { useUrlSync } from '../urlState.js'
+import { notableTips } from '../matchupTip.js'
 
 const startTime = (iso) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : 'time TBD')
 const FINISHED = ['FINAL', 'OFF']
@@ -18,6 +19,22 @@ function Goalie({ g, team }) {
       <span className={g.confirmed ? 'accent' : 'muted'}>{g.confirmed ? 'confirmed' : `likely, ${pct(g.probability)}`}</span>
       {g.back_to_back && <sup title="Second game in two nights"> B2B</sup>}
     </span>
+  )
+}
+
+/** Goalie matchup tips: where a team's shots come from against where tonight's likely goalie leaks or is strong. Only notable mismatches show. */
+function ShotFit({ fit }) {
+  const tips = notableTips(fit)
+  if (tips.length === 0) return <p className="muted">Goalie zones: no notable mismatch either way.</p>
+  return (
+    <div className="shotfit">
+      {tips.map((t) => (
+        <p key={t.team}>
+          <strong>Goalie zones, {t.team}:</strong> {t.text}
+          {t.uncertain && <span className="muted"> {t.goalie} is only {pct(t.probability)} likely to start, so this may change.</span>}
+        </p>
+      ))}
+    </div>
   )
 }
 
@@ -47,6 +64,7 @@ function GameCard({ g, rank }) {
           Goalies: <Goalie g={g.goalies.away} team={g.away} /> · <Goalie g={g.goalies.home} team={g.home} />
         </p>
       )}
+      {g.shot_fit && <ShotFit fit={g.shot_fit} />}
       {(g.stars.away.length > 0 || g.stars.home.length > 0) && (
         <p className="muted">
           Top scorers:{' '}
@@ -126,6 +144,16 @@ export default function Tonight() {
         <ul style={{ padding: 0 }}>
           {games.map((g, i) => <GameCard key={g.game_id} g={g} rank={sort === 'interest' ? i + 1 : null} />)}
         </ul>
+      )}
+      {games.some((g) => g.shot_fit) && (
+        <p className="sub">
+          Goalie zones compares where a team's shots come from (its nine ice zones, this season and last) with where the likely goalie
+          has been beaten more or less than an average goalie over the last several seasons, shrunk toward average because a goalie's
+          zone record is thin. The number is the goals per game that the mismatch is worth to the shooting team, on top of the goalie's
+          overall level. In a test on four seasons, using only earlier seasons, this carried real but small signal: a typical mismatch is
+          about 0.1 goals, and only those of 0.1 or more are shown. It also depends on who starts, and part of a goalie's weak zones
+          may be his team's defensive habits rather than him.
+        </p>
       )}
     </main>
   )

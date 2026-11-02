@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { GROUPS, teamOf } from '../value.js'
-import { buildBoard, keeperRows, myPicks, needs, recommend, roundOf, slotAt, tierCliffs } from '../draft.js'
+import { GROUPS } from '../value.js'
+import { buildBoard, infoMap, keeperRows, myPicks, needs, recommend, roundOf, slotAt, tierCliffs } from '../draft.js'
 
 const KEY = 'nhl-stats.fantasy-draft'
 const LIMIT = 50
@@ -44,12 +44,7 @@ export default function DraftHelper({ data, values, league, roster }) {
     }
   }
 
-  const info = useMemo(() => {
-    const m = new Map()
-    for (const r of data.skaters) m.set(r.player_id, { name: r.name, team: teamOf(r), position: r.position, kind: 'skater' })
-    for (const r of data.goalies) m.set(r.player_id, { name: r.name, team: teamOf(r), position: 'G', kind: 'goalie' })
-    return m
-  }, [data])
+  const info = useMemo(() => infoMap(data), [data])
   const board = useMemo(() => buildBoard({ values, info, league }), [values, info, league])
 
   const slot = Math.min(state.slot, league.teams)

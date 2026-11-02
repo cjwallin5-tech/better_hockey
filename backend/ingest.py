@@ -843,12 +843,14 @@ def fetch_pbp(game_id):
 
 
 def shot_hist_rows(game_id, season_id, pbp):
-    """(game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg) for every shot attempt in a game."""
+    """(game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg, shot_type, x, y, distance, angle,
+    rebound, empty_net, period, time_sec, is_home) for every shot attempt in a game."""
     rows = []
     for r in shotlib.extract_shots(pbp):
         if r["event_id"] is not None:
             rows.append((game_id, r["event_id"], season_id, r["shooter_id"], r["goalie_id"], r["kind"], r["strength"],
-                         shotlib.xg(r)))
+                         shotlib.xg(r), r["shot_type"], r["x"], r["y"], r["distance"], r["angle"], r["rebound"],
+                         r["empty_net"], r["period"], r["time_sec"], r["is_home"]))
     return rows
 
 
@@ -873,9 +875,10 @@ def backfill_shots(conn, seasons, limit=None):
         for i, (game_id, pbp) in enumerate(pool.map(fetch_pbp, [t[0] for t in todo]), 1):
             rows = shot_hist_rows(game_id, season_of[game_id], pbp)
             cur.executemany(
-                """INSERT INTO shot_hist (game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (game_id, event_id) DO NOTHING""", rows)
-            cur.execute("INSERT INTO shot_hist_game (game_id, season_id, shots) VALUES (%s,%s,%s) ON CONFLICT (game_id) DO NOTHING",
+                """INSERT INTO shot_hist (game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg,
+                                          shot_type, x, y, distance, angle, rebound, empty_net, period, time_sec, is_home)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (game_id, event_id) DO NOTHING""", rows)
+            cur.execute("INSERT INTO shot_hist_game (game_id, season_id, shots, located, timed) VALUES (%s,%s,%s,true,true) ON CONFLICT (game_id) DO NOTHING",
                         (game_id, season_of[game_id], len(rows)))
             conn.commit()
             stored += 1
@@ -883,6 +886,62 @@ def backfill_shots(conn, seasons, limit=None):
                 rate = i / (time.time() - started)
                 print(f"  {i}/{len(todo)} ({(len(todo) - i) / rate / 60:.0f} min left)", flush=True)
     print(f"shot backfill: {stored} games stored")
+
+
+def backfill_shot_locations(conn, seasons, limit=None):
+    """Adds location, shot type, rebound and empty-net flags to shot_hist rows stored before those columns existed
+    (the goalie zone maps need them). One request per game, like backfill_shots; resumable, because a game is marked
+    located (shot_hist_game.located) only once its rows are updated. Run it by hand, not in the nightly job."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT game_id, season_id FROM shot_hist_game WHERE NOT located AND season_id = ANY(%s) "
+                    "ORDER BY season_id, game_id", (seasons,))
+        todo = cur.fetchall()
+    if limit:
+        todo = todo[:limit]
+    print(f"shot location backfill: {len(todo)} games to process", flush=True)
+    done = 0
+    started = time.time()
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for i, (game_id, pbp) in enumerate(pool.map(fetch_pbp, [t[0] for t in todo]), 1):
+            rows = shot_hist_rows(game_id, None, pbp)
+            cur.executemany(
+                """UPDATE shot_hist SET shot_type = %s, x = %s, y = %s, distance = %s, angle = %s, rebound = %s, empty_net = %s
+                   WHERE game_id = %s AND event_id = %s""",
+                [(r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[0], r[1]) for r in rows])
+            cur.execute("UPDATE shot_hist_game SET located = true WHERE game_id = %s", (game_id,))
+            conn.commit()
+            done += 1
+            if i % 50 == 0:
+                rate = i / (time.time() - started)
+                print(f"  {i}/{len(todo)} ({(len(todo) - i) / rate / 60:.0f} min left)", flush=True)
+    print(f"shot location backfill: {done} games updated")
+
+
+def backfill_shot_times(conn, seasons, limit=None):
+    """Adds period, game time and the shooting side to shot_hist rows stored before those columns existed (score-state
+    splits need them). Same shape as backfill_shot_locations: one request per game, resumable through
+    shot_hist_game.timed, run by hand."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT game_id, season_id FROM shot_hist_game WHERE NOT timed AND season_id = ANY(%s) "
+                    "ORDER BY season_id, game_id", (seasons,))
+        todo = cur.fetchall()
+    if limit:
+        todo = todo[:limit]
+    print(f"shot time backfill: {len(todo)} games to process", flush=True)
+    done = 0
+    started = time.time()
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        for i, (game_id, pbp) in enumerate(pool.map(fetch_pbp, [t[0] for t in todo]), 1):
+            rows = shot_hist_rows(game_id, None, pbp)
+            cur.executemany("UPDATE shot_hist SET period = %s, time_sec = %s, is_home = %s WHERE game_id = %s AND event_id = %s",
+                            [(r[15], r[16], r[17], r[0], r[1]) for r in rows])
+            cur.execute("UPDATE shot_hist_game SET timed = true WHERE game_id = %s", (game_id,))
+            conn.commit()
+            done += 1
+            if i % 50 == 0:
+                rate = i / (time.time() - started)
+                print(f"  {i}/{len(todo)} ({(len(todo) - i) / rate / 60:.0f} min left)", flush=True)
+    print(f"shot time backfill: {done} games updated")
 
 
 def goalie_rows(game_id, box):
@@ -1464,5 +1523,19 @@ if __name__ == "__main__":
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             backfill_shots(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-shot-locations"]:
+        # python ingest.py backfill-shot-locations [20222023,20232024,...] [--limit N]
+        seasons, limit = parse_backfill_args(sys.argv[2:], [config.SEASON_ID - 10001 * i for i in range(1, 5)])
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            backfill_shot_locations(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-shot-times"]:
+        # python ingest.py backfill-shot-times [20222023,20232024,...] [--limit N]
+        seasons, limit = parse_backfill_args(sys.argv[2:], [config.SEASON_ID - 10001 * i for i in range(1, 5)])
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            backfill_shot_times(conn, seasons, limit)
     else:
         main()

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 
-const S = 7 // pixels per foot
-const PAD = 8
-const W = 85 * S + PAD * 2
-const H = 76 * S + PAD * 2
+export const S = 7 // pixels per foot
+export const PAD = 8
+export const W = 85 * S + PAD * 2
+export const H = 76 * S + PAD * 2
 
 // Rink coordinates (feet, attacking goal at x = +89) -> SVG pixels, goal at the top of the picture.
-const px = (y) => PAD + (y + 42.5) * S
-const py = (x) => PAD + (100 - x) * S
+export const px = (y) => PAD + (y + 42.5) * S
+export const py = (x) => PAD + (100 - x) * S
 
 const KIND_LABEL = { goal: 'Goal', shot: 'Shot on goal', miss: 'Missed', block: 'Blocked' }
 const STRENGTHS = [['all', 'All strengths'], ['ev', 'Even strength'], ['pp', 'Power play'], ['sh', 'Short-handed']]
@@ -15,7 +15,7 @@ const PERIOD_LABEL = { 1: '1st period', 2: '2nd period', 3: '3rd period', 4: 'Ov
 const fmtDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const clock = (sec) => `P${Math.min(4, Math.floor((sec - 1) / 1200) + 1) === 4 ? 'OT' : Math.floor((sec - 1) / 1200) + 1} ${Math.floor(((sec - 1) % 1200 + 1) / 60)}:${String(((sec - 1) % 1200 + 1) % 60).padStart(2, '0')}`
 
-function Rink() {
+export function Rink() {
   const corner = 28 * S
   const left = PAD, right = PAD + 85 * S, top = py(100), bottom = py(25)
   return (

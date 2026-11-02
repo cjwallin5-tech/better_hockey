@@ -32,6 +32,9 @@ import Rest from './pages/Rest.jsx'
 import Prospects from './pages/Prospects.jsx'
 import Prospect from './pages/Prospect.jsx'
 import SpecialTeams from './pages/SpecialTeams.jsx'
+import ScoreEffects from './pages/ScoreEffects.jsx'
+import ScheduleStrength from './pages/ScheduleStrength.jsx'
+import Lottery from './pages/Lottery.jsx'
 import { initAuth, useAuth } from './auth.js'
 import Fantasy from './pages/Fantasy.jsx'
 import Standings from './pages/Standings.jsx'
@@ -80,6 +83,9 @@ function Pages() {
         <Route path="/account" element={<Account />} />
         <Route path="/fantasy" element={<Fantasy />} />
         <Route path="/special-teams" element={<SpecialTeams />} />
+        <Route path="/score-effects" element={<ScoreEffects />} />
+        <Route path="/schedule-strength" element={<ScheduleStrength />} />
+        <Route path="/lottery" element={<Lottery />} />
         <Route path="/prospects" element={<Prospects />} />
         <Route path="/prospect/:id" element={<Prospect />} />
         <Route path="/rest" element={<Rest />} />
@@ -115,7 +121,7 @@ export default function App() {
         <NavLink to="/fantasy">Fantasy</NavLink>
         <NavLink to="/tonight">Tonight</NavLink>
         <NavLink to="/my-team">My team</NavLink>
-        <NavMore items={[...(user?.admin ? [['/accuracy', 'Accuracy']] : []), ['/compare', 'Compare'], ['/absences', 'Who\u2019s out'], ['/prospects', 'Prospects'], ['/leagues', 'Leagues'], ['/watchlist', 'Watchlist'], ['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/trophy', 'Trophy winners'], ['/schedule', 'Schedule grid'], ['/rest', 'Back-to-backs'], ['/special-teams', 'Special teams'], ['/head-to-head', 'Head-to-head'], ['/tracking', 'Speed & shots'], ['/projections', 'Projections'], ['/luck', 'Luck & regression'], ['/matchups', 'Matchups']]} />
+        <NavMore items={[...(user?.admin ? [['/accuracy', 'Accuracy']] : []), ['/compare', 'Compare'], ['/absences', 'Who\u2019s out'], ['/prospects', 'Prospects'], ['/leagues', 'Leagues'], ['/watchlist', 'Watchlist'], ['/milestones', 'Milestones'], ['/trophies', 'Trophy races'], ['/trophy', 'Trophy winners'], ['/schedule', 'Schedule grid'], ['/schedule-strength', 'Schedule strength'], ['/lottery', 'Draft lottery'], ['/rest', 'Back-to-backs'], ['/special-teams', 'Special teams'], ['/score-effects', 'Score effects'], ['/head-to-head', 'Head-to-head'], ['/tracking', 'Speed & shots'], ['/projections', 'Projections'], ['/luck', 'Luck & regression'], ['/matchups', 'Matchups']]} />
         <GlobalSearch />
         <NavLink to="/account" className="nav-account">{user ? user.email : 'Log in'}</NavLink>
         <button className="theme-toggle" onClick={toggle} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Switch to light theme' : 'Switch to dark theme'}>

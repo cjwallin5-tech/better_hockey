@@ -360,6 +360,22 @@ CREATE TABLE IF NOT EXISTS shot_hist_game (   -- games already pulled, so the ba
     shots      INTEGER NOT NULL,
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Shot locations and context for past seasons, so goalie zone maps can look back (ingest.py backfill-shot-locations).
+-- NULL for games not located yet; shot_hist_game.located says which games have been.
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS shot_type TEXT;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS x REAL;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS y REAL;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS distance REAL;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS angle REAL;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS rebound BOOLEAN;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS empty_net BOOLEAN;
+ALTER TABLE shot_hist_game ADD COLUMN IF NOT EXISTS located BOOLEAN NOT NULL DEFAULT false;
+-- When in the game each shot happened and which side took it, so score state can be worked out from the game's own goals
+-- (ingest.py backfill-shot-times). time_sec counts from the start of the game; is_home is the shooting team's side.
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS period SMALLINT;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS time_sec INTEGER;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS is_home BOOLEAN;
+ALTER TABLE shot_hist_game ADD COLUMN IF NOT EXISTS timed BOOLEAN NOT NULL DEFAULT false;
 
 -- Ice time by situation for every skater game this season, from the NHL stats API's per-game time-on-ice report.
 -- Feeds the role-change views (roles.py): who moved up or down the power-play units, who is playing more or less.

@@ -154,6 +154,16 @@ def simulate(teams, remaining, sims=SIMS, seed=0):
     best = np.zeros((sims, n), dtype=bool)
     best[np.arange(sims), np.argmax(key, axis=1)] = True
 
+    # Draft lottery seeds: the teams that miss the playoffs, worst record first (the same tiebreaks, reversed). With 16 playoff
+    # spots in a 32-team league there are 16 lottery teams, seed 1 being the fewest points. lottery_seed[i][k] is the share of
+    # simulations in which team i is seed k + 1 (see lottery.py for what a seed is worth).
+    lottery_n = n - int(make[0].sum()) if sims else 0
+    lottery_seed = np.zeros((n, max(lottery_n, 0)))
+    if lottery_n > 0:
+        order = np.argsort(np.where(make, np.inf, key), axis=1)[:, :lottery_n]
+        for k in range(lottery_n):
+            lottery_seed[:, k] = np.bincount(order[:, k], minlength=n) / sims
+
     out = {}
     for i, a in enumerate(abbrevs):
         out[a] = {
@@ -168,5 +178,6 @@ def simulate(teams, remaining, sims=SIMS, seed=0):
             "final": float(reach[2][i] / sims),
             "cup": float(reach[3][i] / sims),
             "rating": float(r[i]),
+            "lottery_seed": [float(v) for v in lottery_seed[i]],
         }
     return out

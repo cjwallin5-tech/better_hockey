@@ -1,7 +1,7 @@
 // Run with: npm test   (Node's built-in test runner; no extra packages)
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { buildBoard, keeperRows, myPicks, needs, recommend, roundOf, roundValue, slotAt, tierCliffs, tierGroup } from './draft.js'
+import { buildBoard, infoMap, keeperRows, myPicks, needs, recommend, roundOf, roundValue, slotAt, tierCliffs, tierGroup } from './draft.js'
 
 const row = (id, value, group = 'C') => ({ id, value, group })
 
@@ -75,4 +75,14 @@ test('keepers: the cap on how many to keep applies, and a player with no surplus
   const rows = keeperRows([{ id: 1, round: 8 }, { id: 2, round: 8 }, { id: 3, round: 8 }], board, 2, 1)
   assert.deepEqual(rows.map((r) => r.keep), [true, false, false])
   assert.equal(keeperRows([{ id: 20, round: 1 }], board, 2, 3)[0].keep, false)
+})
+
+test('infoMap: one entry per skater and goalie, goalies as G and the last team of a traded player', () => {
+  const m = infoMap({
+    skaters: [{ player_id: 1, name: 'A', team: 'EDM', position: 'C' }, { player_id: 2, name: 'B', team: 'NYR,TOR', position: 'D' }],
+    goalies: [{ player_id: 3, name: 'C', team: 'CGY' }],
+  })
+  assert.deepEqual(m.get(1), { name: 'A', team: 'EDM', position: 'C', kind: 'skater' })
+  assert.equal(m.get(2).team, 'TOR')
+  assert.deepEqual(m.get(3), { name: 'C', team: 'CGY', position: 'G', kind: 'goalie' })
 })
