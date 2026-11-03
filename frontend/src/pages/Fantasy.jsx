@@ -16,6 +16,7 @@ import { LuckBadge, useLuck } from '../components/Luck.jsx'
 import { RoleBadge, useRoles } from '../components/Roles.jsx'
 import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints, useFantasy, useLeague, useScoring } from '../fantasy.js'
 import PlayerValues from '../components/PlayerValues.jsx'
+import FantasyStart from '../components/FantasyStart.jsx'
 import TradeAnalyzer from '../components/TradeAnalyzer.jsx'
 import TradePartners from '../components/TradePartners.jsx'
 import TradeIdeas from '../components/TradeIdeas.jsx'
@@ -25,6 +26,9 @@ import { categoryValues } from '../categories.js'
 import { CATEGORY_PRESETS, GOALIE_CATEGORIES, SKATER_CATEGORIES } from '../categoryDefs.js'
 import { fmt1 } from '../format.js'
 import { describe } from '../glossary.js'
+import { Skeleton } from '../components/Skeleton.jsx'
+import { getJson } from '../lists.js'
+import NeedRoster from '../components/NeedRoster.jsx'
 
 const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
@@ -147,7 +151,7 @@ export default function Fantasy() {
   const roles = useRoles(list.players.filter((p) => p.kind === 'skater').map((p) => p.id))
 
   useEffect(() => {
-    Promise.all([fetch('/api/skaters').then((r) => r.json()), fetch('/api/goalies').then((r) => r.json())])
+    Promise.all([getJson('/api/skaters'), getJson('/api/goalies')])
       .then(([skaters, goalies]) => setData({ skaters, goalies: goalies.goalies }))
       .catch(() => setData({ skaters: [], goalies: [] }))
   }, [])
@@ -250,13 +254,14 @@ export default function Fantasy() {
         tabs={[
           {
             id: 'roster',
+            group: 'Team',
             label: `Roster${list.players.length ? ` (${list.players.length})` : ''}`,
             content: (
               <>
               {list.players.length === 0 && (
-                <p className="status">No players yet. Search above, or press Add to team on a <Link to="/skaters">player</Link> or <Link to="/goalies">goalie</Link> page.</p>
+                <FantasyStart values={values} info={playerInfo} onAdd={(id) => { const i = playerInfo.get(id); togglePlayer({ id, kind: i.kind, name: i.name }) }} />
               )}
-              {list.players.length > 0 && !data && <p className="status">Loading…</p>}
+              {list.players.length > 0 && !data && <Skeleton />}
 
               {data && skaterRows.length > 0 && (
                 <>
@@ -371,36 +376,43 @@ export default function Fantasy() {
           },
           {
             id: 'week',
+            group: 'Team',
             label: 'This week',
-            content: list.players.length > 0 ? <><GoalieStarts players={list.players} /><FantasyWeek players={list.players} /></> : <p className="status">Add players to see their games this week.</p>,
+            content: list.players.length > 0 ? <><GoalieStarts players={list.players} /><FantasyWeek players={list.players} /></> : <NeedRoster what="see their games this week" />,
           },
           {
             id: 'lineup',
+            group: 'Team',
             label: 'Lineup optimizer',
-            content: values ? <LineupOptimizer players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <p className="status">Loading…</p>,
+            content: values ? <LineupOptimizer players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <Skeleton />,
           },
           {
             id: 'playoffs',
+            group: 'Team',
             label: 'Playoff weeks',
-            content: values ? <PlayoffPlanner players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <p className="status">Loading…</p>,
+            content: values ? <PlayoffPlanner players={list.players} values={values} scoring={scoring} league={leagueCfg} /> : <Skeleton />,
           },
           {
             id: 'versus',
+            group: 'Team',
             label: 'Matchup projector',
-            content: values && data ? <MatchupProjector data={data} players={list.players} values={values} scoring={scoring} league={leagueCfg} leagueTeams={(leagues.active?.teams ?? []).filter((t) => !t.mine)} leagueName={leagues.active?.name} /> : <p className="status">Loading…</p>,
+            content: values && data ? <MatchupProjector data={data} players={list.players} values={values} scoring={scoring} league={leagueCfg} leagueTeams={(leagues.active?.teams ?? []).filter((t) => !t.mine)} leagueName={leagues.active?.name} /> : <Skeleton />,
           },
           {
             id: 'draft',
+            group: 'Draft',
             label: 'Draft helper',
-            content: values && data ? <DraftHelper data={data} values={values} league={leagueCfg} roster={list.players} /> : <p className="status">Loading…</p>,
+            content: values && data ? <DraftHelper data={data} values={values} league={leagueCfg} roster={list.players} /> : <Skeleton />,
           },
           {
             id: 'mock',
+            group: 'Draft',
             label: 'Mock draft',
-            content: values && data ? <MockDraft data={data} values={values} league={leagueCfg} /> : <p className="status">Loading…</p>,
+            content: values && data ? <MockDraft data={data} values={values} league={leagueCfg} /> : <Skeleton />,
           },
           {
             id: 'pickups',
+            group: 'Pickups',
             label: 'Waiver wire',
             content: data ? (
               <>
@@ -410,35 +422,41 @@ export default function Fantasy() {
                 </div>
                 <WaiverWire data={data} kind={kind} values={values} rosterIds={taken} league={leagueCfg} taken={leagueTaken} leagueName={leagues.active?.name} onAdd={addValued} />
               </>
-            ) : <p className="status">Loading…</p>,
+            ) : <Skeleton />,
           },
           {
             id: 'stream',
+            group: 'Pickups',
             label: 'Streaming goalies',
             content: <StreamingGoalies scoring={scoring} categories={isCats ? leagueCfg.categories : null} rosterIds={taken} onAdd={addValued} />,
           },
           {
             id: 'values',
+            group: 'Draft',
             label: 'Player values',
-            content: values ? <PlayerValues data={data} values={values} rosterIds={taken} onAdd={addValued} categories={isCats ? leagueCfg.categories : null} /> : <p className="status">Loading…</p>,
+            content: values ? <PlayerValues data={data} values={values} rosterIds={taken} onAdd={addValued} categories={isCats ? leagueCfg.categories : null} /> : <Skeleton />,
           },
           {
             id: 'ideas',
+            group: 'Trades',
             label: 'Trade ideas',
-            content: values ? <TradeIdeas data={data} values={values} roster={list.players} /> : <p className="status">Loading…</p>,
+            content: values ? <TradeIdeas data={data} values={values} roster={list.players} /> : <Skeleton />,
           },
           {
             id: 'trade',
+            group: 'Trades',
             label: 'Trade analyzer',
-            content: values ? <TradeAnalyzer data={data} values={values} roster={list.players} categories={isCats ? leagueCfg.categories : null} /> : <p className="status">Loading…</p>,
+            content: values ? <TradeAnalyzer data={data} values={values} roster={list.players} categories={isCats ? leagueCfg.categories : null} /> : <Skeleton />,
           },
           {
             id: 'partners',
+            group: 'Trades',
             label: 'Trade partners',
-            content: values && data ? <TradePartners league={leagues.active} roster={list.players} values={values} info={playerInfo} slots={leagueCfg.slots} isCats={isCats} /> : <p className="status">Loading…</p>,
+            content: values && data ? <TradePartners league={leagues.active} roster={list.players} values={values} info={playerInfo} slots={leagueCfg.slots} isCats={isCats} /> : <Skeleton />,
           },
           {
             id: 'settings',
+            group: 'Team',
             label: 'Scoring & backup',
             content: (
               <>

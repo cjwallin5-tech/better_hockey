@@ -1,50 +1,54 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import Leaderboard from './pages/Leaderboard.jsx'
-import AllTime from './pages/AllTime.jsx'
 import { useTheme } from './theme.js'
-import Compare from './pages/Compare.jsx'
-import Game from './pages/Game.jsx'
 import Home from './pages/Home.jsx'
-import Goalie from './pages/Goalie.jsx'
-import Goalies from './pages/Goalies.jsx'
-import Milestones from './pages/Milestones.jsx'
-import Player from './pages/Player.jsx'
-import ResetPassword from './pages/ResetPassword.jsx'
-import ScheduleGrid from './pages/ScheduleGrid.jsx'
-import HeadToHead from './pages/HeadToHead.jsx'
-import Tracking from './pages/Tracking.jsx'
-import Luck from './pages/Luck.jsx'
-import Matchups from './pages/Matchups.jsx'
-import Roles from './pages/Roles.jsx'
-import Trophy from './pages/Trophy.jsx'
-import TrophyIndex from './pages/TrophyIndex.jsx'
-import Account from './pages/Account.jsx'
-import Watchlist from './pages/Watchlist.jsx'
-import Projections from './pages/Projections.jsx'
-import Tonight from './pages/Tonight.jsx'
-import MyTeam from './pages/MyTeam.jsx'
-import Leagues from './pages/Leagues.jsx'
-import Accuracy from './pages/Accuracy.jsx'
-import Absences from './pages/Absences.jsx'
-import League from './pages/League.jsx'
-import Rest from './pages/Rest.jsx'
-import Prospects from './pages/Prospects.jsx'
-import Prospect from './pages/Prospect.jsx'
-import SpecialTeams from './pages/SpecialTeams.jsx'
-import ScoreEffects from './pages/ScoreEffects.jsx'
-import ScheduleStrength from './pages/ScheduleStrength.jsx'
-import Lottery from './pages/Lottery.jsx'
 import { initAuth, useAuth } from './auth.js'
-import Fantasy from './pages/Fantasy.jsx'
-import Standings from './pages/Standings.jsx'
-import TrophyRaces from './pages/TrophyRaces.jsx'
-import Team from './pages/Team.jsx'
 import NavMore from './components/NavMore.jsx'
 import Freshness from './components/Freshness.jsx'
 import Icon from './components/Icon.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import GlobalSearch from './components/GlobalSearch.jsx'
+import { pages, warm } from './routes.js'
+import PageSkeleton from './components/Skeleton.jsx'
+
+// Pages load on demand, so the first visit downloads the shell and the page you opened, not all of the site.
+const Leaderboard = lazy(pages.Leaderboard)
+const AllTime = lazy(pages.AllTime)
+const Compare = lazy(pages.Compare)
+const Game = lazy(pages.Game)
+const Goalie = lazy(pages.Goalie)
+const Goalies = lazy(pages.Goalies)
+const Milestones = lazy(pages.Milestones)
+const Player = lazy(pages.Player)
+const ResetPassword = lazy(pages.ResetPassword)
+const ScheduleGrid = lazy(pages.ScheduleGrid)
+const HeadToHead = lazy(pages.HeadToHead)
+const Tracking = lazy(pages.Tracking)
+const Luck = lazy(pages.Luck)
+const Matchups = lazy(pages.Matchups)
+const Roles = lazy(pages.Roles)
+const Trophy = lazy(pages.Trophy)
+const TrophyIndex = lazy(pages.TrophyIndex)
+const Account = lazy(pages.Account)
+const Watchlist = lazy(pages.Watchlist)
+const Projections = lazy(pages.Projections)
+const Tonight = lazy(pages.Tonight)
+const MyTeam = lazy(pages.MyTeam)
+const Leagues = lazy(pages.Leagues)
+const Accuracy = lazy(pages.Accuracy)
+const Absences = lazy(pages.Absences)
+const League = lazy(pages.League)
+const Rest = lazy(pages.Rest)
+const Prospects = lazy(pages.Prospects)
+const Prospect = lazy(pages.Prospect)
+const SpecialTeams = lazy(pages.SpecialTeams)
+const ScoreEffects = lazy(pages.ScoreEffects)
+const ScheduleStrength = lazy(pages.ScheduleStrength)
+const Lottery = lazy(pages.Lottery)
+const Fantasy = lazy(pages.Fantasy)
+const Standings = lazy(pages.Standings)
+const TrophyRaces = lazy(pages.TrophyRaces)
+const Team = lazy(pages.Team)
 
 /** Old /alltime links: send them to the skater or goalie page, keeping any filters in the query. */
 function AllTimeRedirect() {
@@ -60,6 +64,7 @@ function Pages() {
   const { pathname } = useLocation()
   return (
     <ErrorBoundary key={pathname}>
+      <Suspense fallback={<main><PageSkeleton /></main>}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/skaters" element={<Leaderboard />} />
@@ -102,8 +107,22 @@ function Pages() {
         <Route path="/standings" element={<Standings />} />
         <Route path="/team/:abbrev" element={<Team />} />
       </Routes>
+      </Suspense>
       </ErrorBoundary>
   )
+}
+
+// A new page opens at its top. Only the path counts: changing a tab or a filter (the query string) on the same page keeps your place.
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useLayoutEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
+
+// Pointing at (or tabbing to) a link in the top bar starts loading its page.
+function warmLink(e) {
+  const a = e.target.closest?.('a[href^="/"]')
+  if (a) warm(new URL(a.href).pathname)
 }
 
 export default function App() {
@@ -112,7 +131,7 @@ export default function App() {
   useEffect(initAuth, [])
   return (
     <BrowserRouter>
-      <header className="topbar">
+      <header className="topbar" onPointerOver={warmLink} onFocus={warmLink}>
       <nav className="topnav">
         <NavLink to="/" end className="brand" aria-label="NHL Stats home">NHL<b>STATS</b></NavLink>
         <NavLink to="/skaters">Skaters</NavLink>
@@ -129,6 +148,7 @@ export default function App() {
         </button>
       </nav>
       </header>
+      <ScrollToTop />
       <Pages />
       <Freshness />
     </BrowserRouter>

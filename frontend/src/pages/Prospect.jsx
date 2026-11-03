@@ -5,6 +5,7 @@ import { CountryFlag } from '../components/Flag.jsx'
 import Headshot from '../components/Headshot.jsx'
 import WatchButton from '../components/WatchButton.jsx'
 import { Line, draftText, height, ppg, svp } from '../components/ProspectBits.jsx'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 export default function Prospect() {
   const { id } = useParams()
@@ -20,7 +21,7 @@ export default function Prospect() {
   const { data: p, error } = state.id === id ? state : { data: null, error: null }
   const back = <Link to="/prospects" className="back">← Prospects</Link>
   if (error) return <main>{back}<p className="status">{error}</p></main>
-  if (!p) return <main>{back}<p className="status">Loading…</p></main>
+  if (!p) return <main>{back}<PageSkeleton /></main>
 
   const goalie = p.position === 'G'
   return (

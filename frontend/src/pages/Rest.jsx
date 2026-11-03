@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 const signed = (v, d = 2) => (v == null ? '–' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`)
 const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`)
@@ -51,7 +52,7 @@ export default function Rest() {
   }, [data, sort])
 
   if (error) return <main><p className="status">Couldn't load this: {error}</p></main>
-  if (!data) return <main><p className="status">Loading…</p></main>
+  if (!data) return <main><PageSkeleton /></main>
   const { tired, edge, both } = data.effects
   const lopsided = data.upcoming.filter((u) => u.mismatch)
 

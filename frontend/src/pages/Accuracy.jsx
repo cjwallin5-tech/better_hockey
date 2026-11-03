@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { binLabel, calibrationSentence, miscalibrated, verdictFor } from '../accuracy.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const pct = (v, d = 0) => (v == null ? '–' : `${(v * 100).toFixed(d)}%`)
 const n3 = (v) => (v == null ? '–' : v.toFixed(3))
@@ -188,7 +189,7 @@ export default function Accuracy() {
         </p>
       </header>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && (
         <>
           <section><h2>Logged before the games</h2><LiveSection live={data.live} /></section>

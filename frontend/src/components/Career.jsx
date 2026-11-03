@@ -48,43 +48,54 @@ export default function Career({ playerId }) {
 
   return (
     <section>
-      <h2>Career</h2>
-
-      <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={kind === 'regularSeason'} className={kind === 'regularSeason' ? 'on' : ''} onClick={() => setKind('regularSeason')}>Regular season</button>
-        <button role="tab" aria-selected={kind === 'playoffs'} className={kind === 'playoffs' ? 'on' : ''} onClick={() => setKind('playoffs')}>Playoffs</button>
+      <div className="section-head">
+        <h2>Career</h2>
+        <div className="subtabs" role="tablist">
+          <button role="tab" aria-selected={kind === 'regularSeason'} className={kind === 'regularSeason' ? 'on' : ''} onClick={() => setKind('regularSeason')}>Regular season</button>
+          <button role="tab" aria-selected={kind === 'playoffs'} className={kind === 'playoffs' ? 'on' : ''} onClick={() => setKind('playoffs')}>Playoffs</button>
+        </div>
       </div>
 
       {!totals ? (
         <p className="status">No {kind === 'playoffs' ? 'playoff' : 'regular-season'} games in the NHL yet.</p>
       ) : goalie ? (
-        <div className="tiles">
-          <Tile label="GP / GS" value={`${totals.gamesPlayed} / ${dash(totals.gamesStarted)}`} rank={rank('games_played')} />
-          <Tile label="W-L-OTL" value={`${dash(totals.wins)}-${dash(totals.losses)}-${dash(totals.otLosses)}`} rank={rank('wins')} />
-          <Tile label="Save %" value={sv(totals.savePctg)} rank={rank('save_pct')} />
-          <Tile label="GAA" value={dec(totals.goalsAgainstAvg)} rank={rank('gaa')} />
-          <Tile label="Shutouts" value={dash(totals.shutouts)} rank={rank('shutouts')} />
-          <Tile label="Shots against" value={dash(totals.shotsAgainst)} />
-          <Tile label="Goals against" value={dash(totals.goalsAgainst)} />
-        </div>
+        <CareerSummary
+          key={kind}
+          main={[
+            ['GP / GS', `${totals.gamesPlayed} / ${dash(totals.gamesStarted)}`, rank('games_played')],
+            ['W-L-OTL', `${dash(totals.wins)}-${dash(totals.losses)}-${dash(totals.otLosses)}`, rank('wins')],
+            ['Save %', sv(totals.savePctg), rank('save_pct')],
+            ['GAA', dec(totals.goalsAgainstAvg), rank('gaa')],
+            ['Shutouts', dash(totals.shutouts), rank('shutouts')],
+          ]}
+          more={[
+            ['Shots against', dash(totals.shotsAgainst)],
+            ['Goals against', dash(totals.goalsAgainst)],
+          ]}
+        />
       ) : (
-        <div className="tiles">
-          <Tile label="GP" value={totals.gamesPlayed} rank={rank('games_played')} />
-          <Tile label="Goals" value={totals.goals} rank={rank('goals')} />
-          <Tile label="Assists" value={totals.assists} rank={rank('assists')} />
-          <Tile label="Points" value={totals.points} rank={rank('points')} />
-          <Tile label="Points / game" value={dec(totals.points / totals.gamesPlayed)} rank={rank('points_per_game')} />
-          <Tile label="+/-" value={dash(totals.plusMinus)} rank={rank('plus_minus')} />
-          <Tile label="PIM" value={dash(totals.pim)} rank={rank('pim')} />
-          <Tile label="PP goals" value={dash(totals.powerPlayGoals)} rank={rank('pp_goals')} />
-          <Tile label="PP points" value={dash(totals.powerPlayPoints)} />
-          <Tile label="GW goals" value={dash(totals.gameWinningGoals)} rank={rank('game_winning_goals')} />
-          <Tile label="Shots" value={dash(totals.shots)} rank={rank('shots')} />
-          <Tile label="Shooting %" value={pct(totals.shootingPctg)} />
-          <Tile label="Avg TOI" value={dash(totals.avgToi)} />
-          {kind === 'regularSeason' && bestP && <Tile label={`Best season (P) · ${seasonLabel(bestP.season)}`} value={bestP.p} />}
-          {kind === 'regularSeason' && bestG && <Tile label={`Best season (G) · ${seasonLabel(bestG.season)}`} value={bestG.g} />}
-        </div>
+        <CareerSummary
+          key={kind}
+          main={[
+            ['GP', totals.gamesPlayed, rank('games_played')],
+            ['Goals', totals.goals, rank('goals')],
+            ['Assists', totals.assists, rank('assists')],
+            ['Points', totals.points, rank('points')],
+            ['Points / game', dec(totals.points / totals.gamesPlayed), rank('points_per_game')],
+          ]}
+          more={[
+            ['+/-', dash(totals.plusMinus), rank('plus_minus')],
+            ['PIM', dash(totals.pim), rank('pim')],
+            ['PP goals', dash(totals.powerPlayGoals), rank('pp_goals')],
+            ['PP points', dash(totals.powerPlayPoints)],
+            ['GW goals', dash(totals.gameWinningGoals), rank('game_winning_goals')],
+            ['Shots', dash(totals.shots), rank('shots')],
+            ['Shooting %', pct(totals.shootingPctg)],
+            ['Avg TOI', dash(totals.avgToi)],
+            ...(kind === 'regularSeason' && bestP ? [[`Most points (${seasonLabel(bestP.season)})`, bestP.p]] : []),
+            ...(kind === 'regularSeason' && bestG ? [[`Most goals (${seasonLabel(bestG.season)})`, bestG.g]] : []),
+          ]}
+        />
       )}
 
       <h3 className="career-table-title">
@@ -132,12 +143,29 @@ export default function Career({ playerId }) {
   )
 }
 
-function Tile({ label, value, rank }) {
+/** The career totals as one card: the few numbers that matter large, with their all-time rank, and the rest as a quiet list. */
+function CareerSummary({ main, more }) {
   return (
-    <div className="tile">
-      <span>{label}</span>
-      <strong>{value ?? '–'}</strong>
-      {rank && <small className="tile-rank">{rank}</small>}
+    <div className="card career-summary">
+      <dl className="career-key">
+        {main.map(([label, value, rank]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value ?? '–'}</dd>
+            {rank && <small>{rank}</small>}
+          </div>
+        ))}
+      </dl>
+      {more.length > 0 && (
+        <dl className="career-more">
+          {more.map(([label, value, rank]) => (
+            <div key={label} title={rank}>
+              <dt>{label}</dt>
+              <dd>{value ?? '–'}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </div>
   )
 }

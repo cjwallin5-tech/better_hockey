@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import DigestToggle from '../components/DigestToggle.jsx'
 import { useWatchlist } from '../watchlist.js'
+import { Skeleton } from '../components/Skeleton.jsx'
+import { getJson } from '../lists.js'
+import SignInPrompt from '../components/SignInPrompt.jsx'
+import WatchSuggestions from '../components/WatchSuggestions.jsx'
 
 /** Players, prospects and teams followed in the daily email. Add from here, or with the Watch button on a player or team page. */
 export default function Watchlist() {
@@ -12,7 +16,7 @@ export default function Watchlist() {
   useEffect(() => {
     if (!signedIn) return
     Promise.all([
-      fetch('/api/skaters').then((r) => r.json()), fetch('/api/goalies').then((r) => r.json()), fetch('/api/teams').then((r) => r.json()),
+      getJson('/api/skaters'), getJson('/api/goalies'), fetch('/api/teams').then((r) => r.json()),
       fetch('/api/prospects?min_games=0&limit=1000&sort=name').then((r) => (r.ok ? r.json() : { rows: [] })).catch(() => ({ rows: [] })),
     ]).then(([skaters, goalies, teams, prospects]) => setPool([
       ...skaters.map((r) => ({ kind: 'player', ref: String(r.player_id), name: r.name, detail: `${r.team} · ${r.position}`, path: `/player/${r.player_id}` })),
@@ -34,7 +38,9 @@ export default function Watchlist() {
     return (
       <main>
         <header><h1>Watchlist</h1><p>Follow players, prospects and teams outside your fantasy roster and get a section about them in the morning email.</p></header>
-        <p className="status"><Link to="/account">Log in</Link> to keep a watchlist.</p>
+        <SignInPrompt lead="Follow any player, prospect or team and get their games, hot and cold spells and milestones in your morning email.">
+          <WatchSuggestions />
+        </SignInPrompt>
       </main>
     )
   }
@@ -80,8 +86,13 @@ export default function Watchlist() {
         <span className="muted">{items.length} of {limit}</span>
       </div>
       {error && <p className="notice" role="alert">{error}</p>}
-      {status === 'loading' && <p className="status">Loading…</p>}
-      {status === 'ready' && items.length === 0 && <p className="status">Nothing yet. Search above, or use the Watch button on a player or team page.</p>}
+      {status === 'loading' && <Skeleton />}
+      {status === 'ready' && items.length === 0 && (
+        <section className="card start">
+          <p className="start-lead">Nothing yet. Search above, use the Watch button on any player or team page, or start with someone who is on a streak.</p>
+          <WatchSuggestions onFollow={(p) => toggle('player', String(p.player_id), p.name)} exclude={new Set(items.map((i) => i.ref))} />
+        </section>
+      )}
       {list('player', 'Players')}
       {list('prospect', 'Prospects')}
       {list('team', 'Teams')}

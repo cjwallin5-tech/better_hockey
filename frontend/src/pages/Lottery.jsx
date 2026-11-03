@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
 import { SORTS, chance, ordinal, shade, visibleTeams } from '../lotteryView.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const SORT_LABELS = [
   ['first_overall', 'Chance of the first pick'], ['worst_record', 'Chance of the worst record'], ['top_two', 'Chance of a top-two pick'],
@@ -42,7 +43,7 @@ export default function Lottery() {
         </p>
       </header>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && (
         <>
           <div className="h2h-picks">

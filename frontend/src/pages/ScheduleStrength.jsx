@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
 import { biggestSwing, difficultyRanks, extreme, fmtNet, fmtPts } from '../scheduleStrength.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const SORTS = [
   ['left', 'Remaining schedule'], ['next', 'Next 10 games'], ['played', 'Schedule so far'], ['b2b', 'Back-to-backs left'],
@@ -55,7 +56,7 @@ export default function ScheduleStrength() {
         </label>
       </div>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && (
         <>
           <div className="table-wrap">

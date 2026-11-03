@@ -7,6 +7,7 @@ import { DefenseCompare } from '../components/DefenseProfile.jsx'
 import { ScoutingCompare } from '../components/ScoutingCard.jsx'
 import ShareButtons from '../components/ShareButtons.jsx'
 import { GOALIE_CATS, SKATER_CATS, fantasyPoints, useScoring } from '../fantasy.js'
+import { getJson } from '../lists.js'
 
 const MAX_PLAYERS = 3
 
@@ -60,8 +61,8 @@ export default function Compare() {
   const [eraFactors, setEraFactors] = useState(null)
 
   useEffect(() => {
-    fetch('/api/skaters').then((r) => r.json()).then(setSkaters).catch(() => setSkaters([]))
-    fetch('/api/goalies').then((r) => r.json()).then((d) => setGoalies(d.goalies)).catch(() => setGoalies([]))
+    getJson('/api/skaters').then(setSkaters).catch(() => setSkaters([]))
+    getJson('/api/goalies').then((d) => setGoalies(d.goalies)).catch(() => setGoalies([]))
     fetch('/api/era-factors').then((r) => (r.ok ? r.json() : null)).then(setEraFactors).catch(() => {})
   }, [])
 

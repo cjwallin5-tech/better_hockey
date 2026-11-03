@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
@@ -88,7 +89,7 @@ function SkaterBoard({ dir, rank, setRank, vs, setVs, position, setPosition, min
           : ' Compared with an average shooter: elite finishers will show as hot even when it is just skill.'}
       </p>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No skaters meet that minimum yet.</p>}
       {data && data.rows.length > 0 && (
         <div className="table-wrap">
@@ -148,7 +149,7 @@ function GoalieBoard({ dir, min, setMin }) {
         goals allowed.
       </p>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No goalies meet that minimum yet.</p>}
       {data && data.rows.length > 0 && (
         <div className="table-wrap">

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buildEntries, optimize } from '../lineup.js'
+import { Skeleton } from './Skeleton.jsx'
+import NeedRoster from './NeedRoster.jsx'
 
 const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const GROUP_ORDER = ['C', 'L', 'R', 'D', 'G']
@@ -37,8 +39,8 @@ export default function LineupOptimizer({ players, values, scoring, league }) {
   )
   const plan = useMemo(() => optimize({ entries, slots: league.slots, mode }), [entries, league.slots, mode])
 
-  if (!key) return <p className="status">Add players to build a lineup.</p>
-  if (!ready) return <p className="status">Loading…</p>
+  if (!key) return <NeedRoster what="build a lineup" />
+  if (!ready) return <Skeleton />
   if (!state.week) return <p className="status">Couldn't load this week's schedule.</p>
 
   const sorted = [...entries].sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) || (plan.byPlayer.get(b.id).score - plan.byPlayer.get(a.id).score))

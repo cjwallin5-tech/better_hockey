@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { H, PAD, Rink, S, W, px, py } from './ShotMap.jsx'
-import { LANE_LABEL, RANGE_LABEL, gloveSign, signed, zoneCentre, zonePolygon, zoneStrength } from '../goalieZones.js'
+import { LANE_LABEL, clampLabel, gloveSign, signed, zoneCentre, zonePolygon, zoneStrength } from '../goalieZones.js'
 import { describe } from '../glossary.js'
 import { seasonLabel } from '../career.js'
+import SeasonResults from './SeasonResults.jsx'
 
 const pct = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
@@ -19,9 +20,6 @@ function useZones(id, span) {
   }, [id, span, key])
   return result.key === key ? result.data : null
 }
-
-// "22-23 +2.1, 23-24 -0.4": a zone's result each season, so a repeat weakness stands apart from a one-year blip.
-const bySeason = (m) => Object.entries(m ?? {}).map(([sid, v]) => `${seasonLabel(Number(sid)).replace(/^20/, '').replace('-20', '-')} ${signed(v)}`).join(', ')
 
 const zoneName = (z) => `${z.range === 'close' ? 'Close' : z.range === 'mid' ? 'Mid-range' : 'Long-range'}, ${LANE_LABEL[z.lane].toLowerCase()}`
 
@@ -62,10 +60,11 @@ function ZoneMap({ data }) {
           </g>
           {data.zones.map((z) => {
             const c = zoneCentre(z.range, z.lane, sideSign[z.lane])
+            const x = clampLabel(px(-c.y), outline.x, outline.x + outline.w)
             return (
-              <text key={`t-${z.range}-${z.lane}`} x={px(-c.y)} y={py(c.x)} textAnchor="middle" className="zm-text">
-                <tspan x={px(-c.y)} dy="-0.2em" className="zm-gsax">{z.shots ? signed(z.gsax) : '–'}</tspan>
-                <tspan x={px(-c.y)} dy="1.3em" className="zm-n">{z.shots} shots</tspan>
+              <text key={`t-${z.range}-${z.lane}`} x={x} y={py(c.x)} textAnchor="middle" className="zm-text">
+                <tspan x={x} dy="-0.2em" className="zm-gsax">{z.shots ? signed(z.gsax) : '–'}</tspan>
+                <tspan x={x} dy="1.3em" className="zm-n">{z.shots} shots</tspan>
               </text>
             )
           })}
@@ -83,7 +82,7 @@ function ZoneMap({ data }) {
 function GroupTable({ title, rows, seasons = false }) {
   if (!rows.length) return null
   return (
-    <div className="table-wrap">
+    <div className="table-wrap fit">
       <table>
         <thead>
           <tr>
@@ -98,7 +97,7 @@ function GroupTable({ title, rows, seasons = false }) {
               <td className="left">{r.label ?? zoneName(r)}</td>
               <td>{r.shots}</td><td>{r.goals}</td><td>{r.xg.toFixed(1)}</td>
               <td className="accent">{signed(r.gsax)}</td><td>{pct(r.sv_pct)}</td><td>{pct(r.exp_sv_pct)}</td>
-              {seasons && <td className="left muted">{bySeason(r.by_season)}</td>}
+              {seasons && <td className="left by-season"><SeasonResults bySeason={r.by_season} /></td>}
             </tr>
           ))}
         </tbody>

@@ -32,12 +32,19 @@ export function zonePolygon(range, lane, sign, steps = 10) {
   return [...outer, ...inner]
 }
 
-/** Where to put a zone's label: halfway through its range, in the middle of its lane. */
+/**
+ * Where to put a zone's label: halfway through its range, in the middle of its lane. The three close zones are small wedges around
+ * the net, so the middle one sits further out (still inside its wedge) to keep its label clear of the two beside it.
+ */
 export function zoneCentre(range, lane, sign) {
   const [r0, r1] = RANGE_FT[range]
-  const d = (r0 + r1) / 2
+  const d = range === 'close' && lane === 'middle' ? CLOSE_MIDDLE_LABEL_FT : (r0 + r1) / 2
   return lane === 'middle' ? polar(d, 0, 1) : polar(d, 52, sign)
 }
+const CLOSE_MIDDLE_LABEL_FT = 11
+
+/** Keeps a label's centre `half` pixels inside the left and right edges, so wide labels near the boards are not cut off. */
+export const clampLabel = (x, left, right, half = 36) => Math.min(Math.max(x, left + half), right - half)
 
 /** Fill opacity for a graded zone: 0 at the average, full at |z| >= 2. */
 export const zoneStrength = (z) => Math.min(1, Math.abs(z ?? 0) / 2)

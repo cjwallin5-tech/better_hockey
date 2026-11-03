@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CountryFlag } from '../components/Flag.jsx'
 import { ProspectName, draftText, ppg, svp } from '../components/ProspectBits.jsx'
 import { useUrlSync } from '../urlState.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -65,7 +66,7 @@ function TeamProspects() {
         </label>
       </div>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No prospects match. Prospects with fewer than 5 games this season are hidden unless you search by name.</p>}
       {data && data.rows.length > 0 && (
         <div className="table-wrap">
@@ -125,7 +126,7 @@ function DraftClass() {
         </label>
       </div>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data?.already_drafted && (
         <p className="notice">
           The NHL hasn't published rankings for the {data.upcoming_year} draft yet, so this is the {data.draft_year} class, which has already been

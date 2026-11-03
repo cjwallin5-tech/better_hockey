@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const day = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '–')
 const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
@@ -72,7 +73,7 @@ function SkaterBoard({ stat, setStat, season, setSeason, position, setPosition, 
       </div>
       {note && <p className="sub">{note}</p>}
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No tracking data yet for these filters.</p>}
       {data && data.rows.length > 0 && (
         <div className="table-wrap">
@@ -131,7 +132,7 @@ function GoalieBoard({ stat, setStat, season, setSeason }) {
         from that range to qualify.
       </p>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No tracking data yet for these filters.</p>}
       {data && data.rows.length > 0 && (
         <div className="table-wrap">

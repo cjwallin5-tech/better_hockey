@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import TeamLogo from './TeamLogo.jsx'
 import { MatchupTag, ratioLabel } from './Matchups.jsx'
 import { buildEntries, buildWeeks, goaliesInRange, planWeeks, playerWeeks, rangeFromSaved, rosterWeek, teamWindows } from '../playoffweeks.js'
+import { Skeleton } from './Skeleton.jsx'
+import NeedRoster from './NeedRoster.jsx'
 
 const KEY = 'nhl-stats.fantasy-playoff-weeks'
 const GROUP_ORDER = ['C', 'L', 'R', 'D', 'G']
@@ -75,7 +77,7 @@ export default function PlayoffPlanner({ players, values, scoring, league }) {
     return count
   }, [players, values])
 
-  if (schedule.status === 'loading') return <p className="status">Loading…</p>
+  if (schedule.status === 'loading') return <Skeleton />
   if (schedule.status === 'error' || weeks.length === 0) return <p className="status">Couldn't load the rest of the schedule.</p>
 
   const span = weeks.slice(range.from, range.to + 1)
@@ -108,7 +110,7 @@ export default function PlayoffPlanner({ players, values, scoring, league }) {
         </label>
       </div>
 
-      {players.length === 0 && <p className="status">Add players to plan your weeks.</p>}
+      {players.length === 0 && <NeedRoster what="plan your weeks" />}
       {noGoalieData && <p className="notice">Goalie start chances didn't load, so your goalies have no games below.</p>}
       {unknown.length > 0 && <p className="muted">No stats yet for {unknown.map((e) => e.name).join(', ')}, so they are scored 0.</p>}
 

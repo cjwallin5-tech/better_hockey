@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buildEntries } from '../lineup.js'
 import { matchNames, teamWeek, winChance } from '../h2h.js'
+import { Skeleton } from './Skeleton.jsx'
 
 const KEY = 'nhl-stats.fantasy-opponent'
 const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
@@ -167,7 +168,7 @@ export default function MatchupProjector({ data, players, values, scoring, leagu
 
           {players.length === 0 && <p className="status">Add your own players first (Roster tab).</p>}
           {players.length > 0 && opp.players.length === 0 && <p className="status">Enter the opponent's players to see the projection.</p>}
-          {players.length > 0 && opp.players.length > 0 && !ready && <p className="status">Loading…</p>}
+          {players.length > 0 && opp.players.length > 0 && !ready && <Skeleton />}
           {ready && !state.week && <p className="status">Couldn't load this week's schedule.</p>}
           {result && (
             <>

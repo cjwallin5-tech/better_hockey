@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { MatchupTag } from './Matchups.jsx'
 import { streamingBoard } from '../streaming.js'
 import { describe } from '../glossary.js'
+import { Skeleton } from './Skeleton.jsx'
 
 const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const pct = (p) => `${Math.round(p * 100)}%`
@@ -69,7 +70,7 @@ export default function StreamingGoalies({ scoring, categories, rosterIds, onAdd
         </p>
       )}
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && board.length === 0 && <p className="status">No goalie schedule or ratings yet.</p>}
       {data && board.length > 0 && rows.length === 0 && <p className="status">Nobody meets that minimum. Try a lower number.</p>}
       {rows.length > 0 && (

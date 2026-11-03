@@ -4,8 +4,6 @@ import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
 import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
-import FantasyStar from '../components/FantasyStar.jsx'
-import WatchButton from '../components/WatchButton.jsx'
 import { GoalieShots } from '../components/Shots.jsx'
 import GoalieZones from '../components/GoalieZones.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
@@ -15,11 +13,10 @@ import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
 import { GsaaChart } from '../components/Charts.jsx'
 import { fmt1, fmtToi } from '../format.js'
-import Flag from '../components/Flag.jsx'
-import Headshot from '../components/Headshot.jsx'
-import PlayerBio from '../components/PlayerBio.jsx'
+import PlayerBanner from '../components/PlayerBanner.jsx'
 import Awards from '../components/Awards.jsx'
 import { describe } from '../glossary.js'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
@@ -46,7 +43,7 @@ export default function Goalie() {
   const back = <Link to="/goalies" className="back">← All goalies</Link>
   if (error === 'Goalie not found') return <CareerPlayer id={Number(id)} goalie />
   if (error) return <main>{back}<p className="status">{error}</p></main>
-  if (!data) return <main>{back}<p className="status">Loading…</p></main>
+  if (!data) return <main>{back}<PageSkeleton /></main>
 
   const { goalie: g, games, league_sv_pct: lg, recent_window: window } = data
   const chrono = [...games].reverse()
@@ -55,47 +52,20 @@ export default function Goalie() {
   return (
     <main>
       {back}
-      <header className="player-head">
-        <Headshot playerId={g.player_id} name={g.name} />
-        <div>
-        <h1>
-          <Flag playerId={g.player_id} />{g.name}{' '}
-          <span>
-            {g.team?.split(',').map((abbr, i) => (
-              <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>
-            ))}{' '}
-            · G · catches {g.catches}
-          </span>
-        </h1>
-        <PlayerBio playerId={g.player_id} />
-        <p className="header-actions">
-          <FantasyStar player={{ id: g.player_id, kind: 'goalie', name: g.name }} />
-          <WatchButton kind="player" refId={g.player_id} name={g.name} />
-          <Link to={`/compare?ids=${g.player_id}`}>Compare with other goalies →</Link>
-        </p>
-        </div>
-      </header>
-
-      <Context playerId={g.player_id} goalie />
-      <Trophies playerId={g.player_id} />
-
-      <section className="tiles">
-        <Tile label="GP / GS" value={`${g.games_played} / ${g.games_started}`} rank={rank('games_played')} />
-        <Tile label="W-L-OTL" value={`${g.wins}-${g.losses}-${g.ot_losses}`} rank={rank('wins')} />
-        <Tile label="Save %" value={fmtSv(g.save_pct)} rank={rank('save_pct')} />
-        <Tile label="GAA" value={fmt2(g.gaa)} rank={rank('gaa')} />
-        <Tile label="GSAA" value={fmtSigned(g.gsaa)} />
-        <Tile label="GSAA / 60" value={fmtSigned(g.gsaa_per60)} />
-        <Tile label="Quality starts" value={`${g.quality_starts ?? '–'} (${fmtSv(g.quality_start_pct)})`} />
-        <Tile label="Shots against / 60" value={fmt1(g.shots_against_per60)} />
-        <Tile label="Goal support / game" value={fmt2(g.goal_support_avg)} />
-        <Tile label="Shutouts" value={g.shutouts} rank={rank('shutouts')} />
-        <Tile label={`Last ${g.recent_games ?? 0} SV%`} value={fmtSv(g.recent_save_pct)} />
-        <Tile label={`Last ${g.recent_games ?? 0} GSAA`} value={fmtSigned(g.recent_gsaa)} />
-      </section>
-      <p className="sub">
-        League-average save % is {fmtSv(lg)}. Recent form covers the last {window} appearances.
-      </p>
+      <PlayerBanner
+        p={g}
+        kind="goalie"
+        stats={[
+          { label: 'Save %', value: fmtSv(g.save_pct), rank: rank('save_pct'), big: true },
+          { label: 'GAA', value: fmt2(g.gaa), rank: rank('gaa'), big: true },
+          { label: 'GSAA', value: fmtSigned(g.gsaa), big: true },
+          { label: 'W-L-OTL', value: `${g.wins}-${g.losses}-${g.ot_losses}`, rank: rank('wins'), big: true },
+          { label: 'GP / GS', value: `${g.games_played} / ${g.games_started}` },
+          { label: 'Shutouts', value: g.shutouts, rank: rank('shutouts') },
+          { label: `Last ${g.recent_games ?? 0} SV%`, value: fmtSv(g.recent_save_pct) },
+          { label: `Last ${g.recent_games ?? 0} GSAA`, value: fmtSigned(g.recent_gsaa) },
+        ]}
+      />
 
       <PageTabs
         tabs={[
@@ -104,6 +74,15 @@ export default function Goalie() {
             label: 'Stats',
             content: (
               <>
+                <Context playerId={g.player_id} goalie />
+                <Trophies playerId={g.player_id} />
+                <section className="tiles tiles-sm">
+                  <Tile label="Quality starts" value={`${g.quality_starts ?? '–'} (${fmtSv(g.quality_start_pct)})`} />
+                  <Tile label="GSAA / 60" value={fmtSigned(g.gsaa_per60)} />
+                  <Tile label="Shots against / 60" value={fmt1(g.shots_against_per60)} />
+                  <Tile label="Goal support / game" value={fmt2(g.goal_support_avg)} />
+                </section>
+                <p className="sub">League-average save % is {fmtSv(lg)}. Recent form covers the last {window} appearances.</p>
                 <Career playerId={g.player_id} />
                 <Awards playerId={g.player_id} />
                 <Rankings playerId={g.player_id} kind="goalie" />
@@ -146,15 +125,24 @@ export default function Goalie() {
             id: 'advanced',
             label: 'Advanced',
             content: (
-              <>
-              <LuckPanel playerId={g.player_id} goalie />
-
-              <TrackingProfile playerId={g.player_id} />
-
-              <GoalieShots playerId={g.player_id} />
-
-              <GoalieZones playerId={g.player_id} />
-              </>
+              <PageTabs
+                param="view"
+                pills
+                tabs={[
+                  {
+                    id: 'luck',
+                    label: 'Luck & tracking',
+                    content: (
+                      <>
+                        <LuckPanel playerId={g.player_id} goalie />
+                        <TrackingProfile playerId={g.player_id} />
+                      </>
+                    ),
+                  },
+                  { id: 'shots', label: 'Shots faced', content: <GoalieShots playerId={g.player_id} /> },
+                  { id: 'zones', label: 'Weak spots', content: <GoalieZones playerId={g.player_id} /> },
+                ]}
+              />
             ),
           },
           {

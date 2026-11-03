@@ -4,6 +4,8 @@ import { call, refresh, setActive, useLeagues } from '../leagues.js'
 import { useLeague, useScoring } from '../fantasy.js'
 import { GROUPS, cleanLeague } from '../value.js'
 import { matchNames } from '../h2h.js'
+import PageSkeleton from '../components/Skeleton.jsx'
+import { getJson } from '../lists.js'
 
 const linkFor = (p) => `/${p.kind === 'goalie' ? 'goalie' : 'player'}/${p.id}`
 
@@ -63,7 +65,7 @@ export default function League() {
   const owner = data?.is_owner
   useEffect(() => {
     if (!owner) return
-    Promise.all([fetch('/api/skaters').then((r) => r.json()), fetch('/api/goalies').then((r) => r.json())])
+    Promise.all([getJson('/api/skaters'), getJson('/api/goalies')])
       .then(([skaters, goalies]) => setPool({ skaters, goalies: goalies.goalies }))
       .catch(() => setPool(null))
   }, [owner])
@@ -94,7 +96,7 @@ export default function League() {
   const back = <Link to="/leagues" className="back">← Leagues</Link>
   if (!signedIn) return <main>{back}<p className="status"><Link to="/account">Log in</Link> to see your leagues.</p></main>
   if (error) return <main>{back}<p className="status">{error}</p></main>
-  if (!data) return <main>{back}<p className="status">Loading…</p></main>
+  if (!data) return <main>{back}<PageSkeleton /></main>
 
   const settings = data.settings ?? {}
   const myCfg = cleanLeague(mySettings)

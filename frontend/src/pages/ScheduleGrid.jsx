@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFantasy } from '../fantasy.js'
 import { describe } from '../glossary.js'
+import PageSkeleton from '../components/Skeleton.jsx'
+import { getJson } from '../lists.js'
 
 const short = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const dayShort = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -26,7 +28,7 @@ export default function ScheduleGrid() {
   }, [])
   useEffect(() => {
     if (!mine || players || list.players.length === 0) return
-    Promise.all([fetch('/api/skaters').then((r) => r.json()), fetch('/api/goalies').then((r) => r.json())])
+    Promise.all([getJson('/api/skaters'), getJson('/api/goalies')])
       .then(([sk, gl]) => setPlayers([...sk, ...gl.goalies]))
       .catch(() => setPlayers([]))
   }, [mine, players, list.players.length])
@@ -47,7 +49,7 @@ export default function ScheduleGrid() {
   }, [data, group, sort, mine, rosterTeams])
 
   if (error) return <main><p className="status">Couldn't load the schedule: {error}</p></main>
-  if (!data) return <main><p className="status">Loading…</p></main>
+  if (!data) return <main><PageSkeleton /></main>
 
   return (
     <main>

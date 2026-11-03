@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { mmss } from './Roles.jsx'
+import { Skeleton } from './Skeleton.jsx'
 
 const WINDOW = 5
 const LIMIT = 10
@@ -31,7 +32,7 @@ export default function MovingUp() {
         Power-play promotions and rising ice time over the last {WINDOW} games compared with earlier this season. Ice time is the
         earliest sign of a new role, before the points show up.
       </p>
-      {rows === null && <p className="status">Loading…</p>}
+      {rows === null && <Skeleton />}
       {rows && rows.length === 0 && <p className="status">Nobody has moved up enough yet.</p>}
       {rows && rows.length > 0 && (
         <table className="mini">

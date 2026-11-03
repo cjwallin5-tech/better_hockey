@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const n0 = (v) => Math.round(v)
 const POSITIONS = [['', 'All skaters'], ['F', 'Forwards'], ['C', 'Centers'], ['L', 'Left wings'], ['R', 'Right wings'], ['D', 'Defensemen']]
@@ -78,7 +79,7 @@ export default function Projections() {
         </label>
       </div>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && goalies && (
         <div className="table-wrap">
           <table>

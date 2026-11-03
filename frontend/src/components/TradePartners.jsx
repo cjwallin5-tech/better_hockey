@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { findTrades } from '../tradefinder.js'
+import NeedRoster from './NeedRoster.jsx'
 
 const signed = (v, d = 1) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`
 
@@ -70,7 +71,7 @@ export default function TradePartners({ league, roster, values, info, slots, isC
           <span><input type="checkbox" checked={both} onChange={(e) => setBoth(e.target.checked)} /> Only trades that help them too</span>
         </label>
       </div>
-      {roster.length === 0 && <p className="status">Add players to your team first (Roster tab).</p>}
+      {roster.length === 0 && <NeedRoster what="find trade partners" />}
       {empty.length > 0 && <p className="muted">No roster yet for {empty.map((t) => t.name).join(', ')}, so no trades are shown with them.</p>}
       {roster.length > 0 && trades.length === 0 && <p className="status">No trade found. {both ? 'Try turning off "Only trades that help them too" to see one-sided ones.' : ''}</p>}
       {trades.map((t, i) => (

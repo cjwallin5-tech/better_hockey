@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import DigestToggle from '../components/DigestToggle.jsx'
 import { resolveConflict, signIn, signOut, useAuth } from '../auth.js'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 const names = (players) => players.map((p) => p.name).join(', ')
 
@@ -45,7 +46,7 @@ export default function Account() {
     }
   }
 
-  if (!ready) return <main><p className="status">Loading…</p></main>
+  if (!ready) return <main><PageSkeleton /></main>
 
   if (user) {
     return (

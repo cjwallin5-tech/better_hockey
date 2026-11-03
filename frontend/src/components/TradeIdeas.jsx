@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { luckSummary, useLuck } from './Luck.jsx'
 import { SWAP_TOLERANCE, tradeIdeas } from '../tradeIdeas.js'
+import { Skeleton } from './Skeleton.jsx'
+import NeedRoster from './NeedRoster.jsx'
 
 const signedZ = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`
 
@@ -63,10 +65,10 @@ export default function TradeIdeas({ data, values, roster }) {
         be worth at least {Math.round(SWAP_TOLERANCE * 100)}% of what you give. The site can't see other teams' rosters, so check a target is
         actually on a team you can trade with.
       </p>
-      {!ideas ? <p className="status">Loading…</p> : (
+      {!ideas ? <Skeleton /> : (
         <>
           <h3>Sell high: your players running hot</h3>
-          {roster.length === 0 ? <p className="status">Add players to your roster to see sell-high candidates.</p>
+          {roster.length === 0 ? <NeedRoster what="see sell-high candidates" />
             : ideas.sell.length === 0 ? <p className="status">None of your players is running hot with a big enough sample.</p> : (
               <div className="table-wrap">
                 <table>

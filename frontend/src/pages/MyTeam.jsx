@@ -5,6 +5,9 @@ import SpecialTeams from '../components/SpecialTeams.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useFavoriteTeam } from '../favorite.js'
 import { fmt1 } from '../format.js'
+import { Skeleton } from '../components/Skeleton.jsx'
+import TeamMark from '../components/TeamMark.jsx'
+import { teamColor } from '../teamColors.js'
 
 const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`)
 const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -49,24 +52,34 @@ function ShareChart({ rolling, window }) {
   )
 }
 
-function Picker({ onPick, current }) {
+/** First visit: every team as a tile, so choosing yours is one click. */
+function TeamGrid({ onPick, onCancel, keep }) {
   const [teams, setTeams] = useState(null)
   useEffect(() => {
     fetch('/api/teams').then((r) => (r.ok ? r.json() : [])).then(setTeams).catch(() => setTeams([]))
   }, [])
+  if (!teams) return <Skeleton rows={6} />
   return (
-    <label className="h2h-pick">{current ? 'Change team' : 'Pick your team'}
-      <select value={current ?? ''} onChange={(e) => e.target.value && onPick(e.target.value)} disabled={!teams}>
-        <option value="">{teams ? 'Choose…' : 'Loading…'}</option>
-        {(teams ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)).map((t) => <option key={t.abbrev} value={t.abbrev}>{t.name}</option>)}
-      </select>
-    </label>
+    <>
+      <div className="eyebrow">Pick your team</div>
+      {onCancel && <p><button type="button" className="link-button" onClick={onCancel}>Keep {keep}</button></p>}
+      <div className="team-grid">
+        {teams.slice().sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
+          <button key={t.abbrev} type="button" className="team-tile" onClick={() => onPick(t.abbrev)} style={{ '--team': teamColor(t.abbrev) }}>
+            <TeamMark abbrev={t.abbrev} size={44} />
+            <span>{t.common_name ?? t.name}</span>
+            <small>{t.wins}-{t.losses}-{t.ot_losses}</small>
+          </button>
+        ))}
+      </div>
+    </>
   )
 }
 
 /** Your team, game by game: results next to what the shots said, a rolling trend, key players' form, and what's next. */
 export default function MyTeam() {
   const { favorite, setFavorite } = useFavoriteTeam()
+  const [changing, setChanging] = useState(false) // choosing another team; the saved one stays until a new one is picked
   const [state, setState] = useState({ abbrev: null, data: null, error: null })
 
   useEffect(() => {
@@ -83,11 +96,11 @@ export default function MyTeam() {
   const games = useMemo(() => (data ? [...data.games].reverse() : []), [data])
   const form = useMemo(() => (data ? data.games.slice(-10) : []), [data])
 
-  if (!favorite) {
+  if (!favorite || changing) {
     return (
       <main>
         <header><h1>My team</h1><p>Pick the team you follow and this page tracks its season game by game, with what the shots said next to each result.</p></header>
-        <div className="h2h-picks"><Picker onPick={setFavorite} current={null} /></div>
+        <TeamGrid onPick={(abbrev) => { setFavorite(abbrev); setChanging(false) }} onCancel={favorite ? () => setChanging(false) : null} keep={favorite} />
       </main>
     )
   }
@@ -106,9 +119,9 @@ export default function MyTeam() {
           </p>
         </div>
       </header>
-      <div className="h2h-picks"><Picker onPick={setFavorite} current={favorite} /></div>
+      <p><button type="button" className="link-button" onClick={() => setChanging(true)}>Change team</button></p>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && data.games.length === 0 && <p className="status">No finished games yet.</p>}
 
       {data && data.games.length > 0 && (

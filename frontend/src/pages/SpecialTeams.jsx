@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { mmss } from '../components/Roles.jsx'
 import { useUrlSync } from '../urlState.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const pct = (v) => (v == null ? '–' : `${(v * 100).toFixed(1)}%`)
@@ -72,7 +73,7 @@ export default function SpecialTeams() {
         </label>
       </div>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && (
         <div className="table-wrap">
           <table>

@@ -5,6 +5,7 @@ import RestBadge from '../components/RestBadge.jsx'
 import { MatchupTag, pctOff } from '../components/Matchups.jsx'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -50,7 +51,7 @@ function Schedule({ days, setDays, who, setWho }) {
         a sixth of an extra average game of chances. Differences between teams are modest, so use it to break ties.
       </p>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && rows.length === 0 && <p className="status">No games, or no ratings yet.</p>}
       {data && rows.length > 0 && (
         <div className="table-wrap">
@@ -107,7 +108,7 @@ function Ratings() {
         "Offense" above 0% scores more than average; "Defense" above 0% gives up more.
       </p>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && rows.length === 0 && <p className="status">No shot data stored yet.</p>}
       {data && rows.length > 0 && (
         <div className="table-wrap">

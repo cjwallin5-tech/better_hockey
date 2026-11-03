@@ -4,6 +4,7 @@ import { RoleBadge } from './Roles.jsx'
 import { SORTS, luckById, scheduleByTeam, waiverRows } from '../waiver.js'
 import { describe } from '../glossary.js'
 import { fmt1 } from '../format.js'
+import { Skeleton } from './Skeleton.jsx'
 
 const POSITIONS = {
   skater: [['all', 'All skaters'], ['F', 'Forwards'], ['C', 'Centers'], ['L', 'Left wings'], ['R', 'Right wings'], ['D', 'Defensemen']],
@@ -116,7 +117,7 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, take
         </p>
       )}
 
-      {!rows && <p className="status">Loading…</p>}
+      {!rows && <Skeleton />}
       {rows && rows.length === 0 && <p className="status">No players match. Try turning off a filter{sort === 'buy' ? ', or pick another sort: no one available is running cold right now' : ''}.</p>}
       {rows && rows.length > 0 && (
         <div className="table-wrap">

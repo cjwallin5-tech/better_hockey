@@ -6,6 +6,8 @@ import SavedViews from '../components/SavedViews.jsx'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
 import { seasonLabel } from '../career.js'
+import PageSkeleton from '../components/Skeleton.jsx'
+import { getJson } from '../lists.js'
 
 // Pace from fewer games than this is mostly noise, so it's dimmed and flagged.
 const STABLE_GP = 20
@@ -71,11 +73,7 @@ export default function Leaderboard() {
 
   useEffect(() => {
     let ignore = false
-    fetch(season ? `/api/skaters?season=${season}` : '/api/skaters')
-      .then((r) => {
-        if (!r.ok) throw new Error(`API returned ${r.status}`)
-        return r.json()
-      })
+    getJson(season ? `/api/skaters?season=${season}` : '/api/skaters')
       .then((s) => !ignore && setRows(s))
       .catch((e) => !ignore && setError(e.message))
     return () => { ignore = true }
@@ -233,12 +231,13 @@ export default function Leaderboard() {
     )
 
   if (error) return <main><p className="status">Couldn't load stats: {error}</p></main>
-  if (!rows) return <main><p className="status">Loading…</p></main>
+  if (!rows) return <main><PageSkeleton /></main>
 
   const seasonName = seasonLabel(season ?? meta?.season_id ?? '')
 
   return (
     <main>
+      <SeasonSwitch kind="skater" value={season} onChange={onSeason} />
       <header>
         <h1>Skater Stats <span>{meta || season ? seasonName : ''}</span></h1>
         <p>
@@ -247,7 +246,6 @@ export default function Leaderboard() {
             : `Pace projects points over ${meta?.games_per_season ?? 84} games. L${meta?.recent_window ?? 10} Pace uses only each player's last ${meta?.recent_window ?? 10} games.`}
         </p>
       </header>
-      <SeasonSwitch kind="skater" value={season} onChange={onSeason} />
       <SavedViews path="/skaters" />
 
       {maxGp < STABLE_GP && (

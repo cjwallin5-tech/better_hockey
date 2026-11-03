@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { mmss } from './Roles.jsx'
+import { Skeleton } from './Skeleton.jsx'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const pct = (v) => (v == null ? '–' : `${(v * 100).toFixed(1)}%`)
@@ -79,7 +80,7 @@ export default function SpecialTeams({ abbrev }) {
         ))}
       </div>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {t && (
         <>
           <section className="tiles">

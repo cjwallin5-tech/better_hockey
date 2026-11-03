@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { mmss, signedMmss } from '../components/Roles.jsx'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -71,7 +72,7 @@ export default function Roles() {
         season the earlier games are few, so read the first weeks lightly.
       </p>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No skaters fit this yet. Try a shorter window or a different filter.</p>}
       {data && data.rows.length > 0 && (
         <div className="table-wrap">

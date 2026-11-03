@@ -4,6 +4,7 @@ import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
 import { STATE_LABEL, adjustment, pct1, signedPts } from '../scoreState.js'
 import { seasonLabel } from '../career.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const SORTS = [
   ['xg_pct_adj', 'Score-adjusted xG share'], ['xg_pct', 'Raw xG share'], ['att_pct_adj', 'Score-adjusted shot-attempt share'],
@@ -45,7 +46,7 @@ export default function ScoreEffects() {
       </header>
 
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && (
         <>
           <h2>What the score does to play</h2>

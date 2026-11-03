@@ -41,6 +41,18 @@ export function Rink() {
   )
 }
 
+/** The marker for a kind of shot, small, for the toggles. */
+function KindGlyph({ kind }) {
+  return (
+    <svg width="14" height="14" aria-hidden="true">
+      {kind === 'goal' && <circle cx="7" cy="7" r="5" className="m-goal" />}
+      {kind === 'shot' && <circle cx="7" cy="7" r="4.5" className="m-shot" />}
+      {kind === 'miss' && <path d="M3.5,3.5 L10.5,10.5 M10.5,3.5 L3.5,10.5" className="m-miss" />}
+      {kind === 'block' && <circle cx="7" cy="7" r="2.5" className="m-block" />}
+    </svg>
+  )
+}
+
 /**
  * Half-rink shot map. Marker size shows expected goals; shape/fill shows the outcome, so color
  * is never the only cue. `shots` rows need x, y, kind and (optionally) xg.
@@ -66,26 +78,36 @@ export default function ShotMap({ shots, caption }) {
 
   const xgSum = visible.reduce((t, s) => t + (s.xg ?? 0), 0)
   const goals = visible.filter((s) => s.kind === 'goal').length
-  const radius = (s) => (s.xg == null ? 3.5 : 4 + 22 * s.xg)
+  const radius = (s) => {
+    if (s.xg == null) return s.kind === 'goal' ? 5.5 : 3.5
+    return s.kind === 'goal' ? Math.min(12, 5 + 14 * s.xg) : Math.min(10, 3.5 + 14 * s.xg)
+  }
+  // How many of each kind there are under the strength and period filters, shown on the toggles.
+  const counts = useMemo(() => {
+    const c = { goal: 0, shot: 0, miss: 0, block: 0 }
+    for (const sh of shots) {
+      if ((strength === 'all' || sh.strength === strength) && (period === 'all' || Math.min(sh.period, 4) === Number(period))) c[sh.kind] += 1
+    }
+    return c
+  }, [shots, strength, period])
 
   return (
     <figure className="chart shotmap">
       <figcaption>
         <h3>{caption}</h3>
-        <ul className="legend">
-          <li><svg width="14" height="14"><circle cx="7" cy="7" r="5" className="m-goal" /></svg> Goal</li>
-          <li><svg width="14" height="14"><circle cx="7" cy="7" r="5" className="m-shot" /></svg> Shot on goal</li>
-          <li><svg width="14" height="14"><path d="M3,3 L11,11 M11,3 L3,11" className="m-miss" /></svg> Missed</li>
-          <li><svg width="14" height="14"><circle cx="7" cy="7" r="2.5" className="m-block" /></svg> Blocked</li>
-        </ul>
+        <span className="muted shot-summary">{visible.length} attempts · {goals} goals · {xgSum.toFixed(1)} xG</span>
       </figcaption>
 
       <div className="shot-controls">
-        {Object.entries(KIND_LABEL).map(([k, label]) => (
-          <label key={k} className="inline-check">
-            <input type="checkbox" checked={kinds[k]} onChange={(e) => setKinds({ ...kinds, [k]: e.target.checked })} /> {label}
-          </label>
-        ))}
+        <div className="kind-toggles" role="group" aria-label="Shot types">
+          {Object.entries(KIND_LABEL).map(([k, label]) => (
+            <button key={k} type="button" className={`kind-toggle${kinds[k] ? ' on' : ''}`} aria-pressed={kinds[k]} onClick={() => setKinds({ ...kinds, [k]: !kinds[k] })}>
+              <KindGlyph kind={k} />
+              {label}
+              <span className="kind-count">{counts[k]}</span>
+            </button>
+          ))}
+        </div>
         <select value={strength} onChange={(e) => setStrength(e.target.value)} aria-label="Strength">
           {STRENGTHS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
@@ -95,9 +117,6 @@ export default function ShotMap({ shots, caption }) {
             {periods.map((p) => <option key={p} value={p}>{PERIOD_LABEL[p]}</option>)}
           </select>
         )}
-        <span className="muted">
-          {visible.length} attempts · {goals} goals · {xgSum.toFixed(1)} xG
-        </span>
       </div>
 
       <div className="plot" style={{ maxWidth: W }}>
@@ -112,7 +131,7 @@ export default function ShotMap({ shots, caption }) {
                 <circle cx={cx} cy={cy} r={Math.max(r, 9)} fill="transparent" />
                 {s.kind === 'goal' && <circle cx={cx} cy={cy} r={r} className="m-goal" />}
                 {s.kind === 'shot' && <circle cx={cx} cy={cy} r={r} className="m-shot" />}
-                {s.kind === 'miss' && <path d={`M${cx - 4},${cy - 4} L${cx + 4},${cy + 4} M${cx + 4},${cy - 4} L${cx - 4},${cy + 4}`} className="m-miss" />}
+                {s.kind === 'miss' && <path d={`M${cx - 3},${cy - 3} L${cx + 3},${cy + 3} M${cx + 3},${cy - 3} L${cx - 3},${cy + 3}`} className="m-miss" />}
                 {s.kind === 'block' && <circle cx={cx} cy={cy} r="2.5" className="m-block" />}
               </g>
             )

@@ -37,8 +37,8 @@ export function SkaterShots({ playerId }) {
   return (
     <section>
       <h2>Shot map &amp; expected goals</h2>
-      <p className="sub">{NOTE}</p>
-      <div className="tiles">
+      <details className="howto"><summary>How expected goals work</summary><p>{NOTE}</p></details>
+      <div className="tiles tiles-sm">
         <Tile label="Individual xG" value={s.ixg.toFixed(1)} />
         <Tile label="Goals (non-empty-net)" value={s.model_goals} />
         <Tile label="Goals − xG" value={signed(goalsVsXg)} hint="Positive means finishing above what the chances suggested" />
@@ -59,8 +59,8 @@ export function TeamShots({ abbrev }) {
   return (
     <section>
       <h2>Shot maps</h2>
-      <p className="sub">{NOTE}</p>
-      <div className="tiles">
+      <details className="howto"><summary>How expected goals work</summary><p>{NOTE}</p></details>
+      <div className="tiles tiles-sm">
         <Tile label="xG for" value={t.xgf?.toFixed(1)} />
         <Tile label="xG against" value={t.xga?.toFixed(1)} />
         <Tile label="xG difference" value={t.xgf != null ? signed(t.xgf - t.xga) : null} />
@@ -83,8 +83,8 @@ export function GoalieShots({ playerId }) {
   return (
     <section>
       <h2>Shots faced &amp; goals saved above expected</h2>
-      <p className="sub">{NOTE} Goals saved above expected (GSAx) is the xG of the shots faced minus the goals allowed on them, with xG scaled so the league's expected goals on shots on goal match its actual goals.</p>
-      <div className="tiles">
+      <details className="howto"><summary>How expected goals work</summary><p>{NOTE} Goals saved above expected (GSAx) is the xG of the shots faced minus the goals allowed on them, with xG scaled so the league's expected goals on shots on goal match its actual goals.</p></details>
+      <div className="tiles tiles-sm">
         <Tile label="Shots faced" value={s.faced} />
         <Tile label="xG faced" value={s.xga.toFixed(1)} />
         <Tile label="Goals allowed (non-empty-net)" value={s.model_goals} />

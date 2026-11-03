@@ -31,17 +31,17 @@ export default function Projection({ playerId }) {
   if (!p) return null
 
   return (
-    <section>
-      <h2>Projected finish</h2>
-      <section className="tiles">
-        <div className="tile">
-          <span>Points</span><strong>{n0(p.final_points)}</strong>
-          <small className="muted">80% range {n0(p.low_points)} to {n0(p.high_points)}</small>
-        </div>
-        <div className="tile"><span>Goals</span><strong>{n0(p.final_goals)}</strong></div>
-        <div className="tile"><span>Assists</span><strong>{n0(p.final_assists)}</strong></div>
-        <div className="tile"><span>Games left</span><strong>{n0(p.expected_games)}</strong><small className="muted">of {p.games_left ?? '?'} for the team</small></div>
-      </section>
+    <section className="card projection">
+      <div className="eyebrow">Projected finish</div>
+      <div className="proj-main">
+        <strong>{n0(p.final_points)}</strong><span>points</span>
+        <small>80% range {n0(p.low_points)} to {n0(p.high_points)}</small>
+      </div>
+      <dl className="proj-row">
+        <div><dd>{n0(p.final_goals)}</dd><dt>goals</dt></div>
+        <div><dd>{n0(p.final_assists)}</dd><dt>assists</dt></div>
+        <div><dd>{n0(p.expected_games)}</dd><dt>games left</dt></div>
+      </dl>
       <p className="sub">
         {projectionNote(p)} Injuries are not predicted. <Link to="/projections">See every skater's projection →</Link>
       </p>

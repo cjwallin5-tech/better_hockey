@@ -11,6 +11,7 @@ import time
 import psycopg
 import requests
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
@@ -58,6 +59,8 @@ import trajectory
 import trophies as trophy_lib
 
 app = FastAPI(title="Hockey Stats")
+# Responses like /api/skaters are over a megabyte of repetitive JSON; compressing them is the cheapest speed-up there is.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.include_router(auth.router)
 app.include_router(leagues.router)
 
@@ -3440,6 +3443,18 @@ def _clock_seconds(period, mmss):
     return (period - 1) * 1200 + int(minutes) * 60 + int(seconds)
 
 
+def _fix_mojibake(text):
+    """The NHL's shift feed double-encodes some names ("BjÃ¶rck" for "Björck"); undo that when it is plainly the case, else leave the text alone."""
+    if not any(c in text for c in "ÃÂ"):
+        return text
+    for encoding in ("latin-1", "cp1252"):
+        try:
+            return text.encode(encoding).decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+    return text
+
+
 @app.get("/api/games/{game_id}/shifts")
 def game_shifts(game_id: int):
     """Every skater's shifts in absolute game seconds, forwards then defensemen, busiest first."""
@@ -3474,7 +3489,7 @@ def game_shifts(game_id: int):
         if end < start:
             continue
         p = players.setdefault(s["playerId"], {
-            "player_id": s["playerId"], "name": f"{s.get('firstName', '')} {s.get('lastName', '')}".strip(),
+            "player_id": s["playerId"], "name": _fix_mojibake(f"{s.get('firstName', '')} {s.get('lastName', '')}".strip()),
             "team": s["teamAbbrev"], "position": positions.get(s["playerId"]), "shifts": [], "toi_sec": 0})
         p["shifts"].append([start, end])
         p["toi_sec"] += end - start

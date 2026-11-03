@@ -7,6 +7,8 @@ import { fmt1, STABLE_GP } from '../format.js'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
 import { seasonLabel } from '../career.js'
+import PageSkeleton from '../components/Skeleton.jsx'
+import { getJson } from '../lists.js'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
@@ -41,11 +43,7 @@ export default function Goalies() {
 
   useEffect(() => {
     let ignore = false
-    fetch(season ? `/api/goalies?season=${season}` : '/api/goalies')
-      .then((r) => {
-        if (!r.ok) throw new Error(`API returned ${r.status}`)
-        return r.json()
-      })
+    getJson(season ? `/api/goalies?season=${season}` : '/api/goalies')
       .then((d) => !ignore && setData(d))
       .catch((e) => !ignore && setError(e.message))
     return () => { ignore = true }
@@ -133,10 +131,11 @@ export default function Goalies() {
   }
 
   if (error) return <main><p className="status">Couldn't load goalies: {error}</p></main>
-  if (!rows) return <main><p className="status">Loading…</p></main>
+  if (!rows) return <main><PageSkeleton /></main>
 
   return (
     <main>
+      <SeasonSwitch kind="goalie" value={season} onChange={onSeason} />
       <header>
         <h1>Goalie Stats <span>{seasonLabel(data.season_id)}</span></h1>
         <p>
@@ -144,7 +143,6 @@ export default function Goalies() {
           {isPast ? 'Last-appearances form is only kept for the current season.' : `L${recentWindow} columns use each goalie's last ${recentWindow} appearances.`}
         </p>
       </header>
-      <SeasonSwitch kind="goalie" value={season} onChange={onSeason} />
       <SavedViews path="/goalies" />
       {maxGp < STABLE_GP && (
         <p className="notice">

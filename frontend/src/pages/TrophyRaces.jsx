@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
 import AwardOdds from '../components/AwardOdds.jsx'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 const STAT = { points: 'Points', goals: 'Goals', gsaa: 'GSAA' }
 const fmtValue = (stat, v) => (stat === 'gsaa' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : v)
@@ -17,7 +18,7 @@ export default function TrophyRaces() {
   }, [])
 
   if (error) return <main><p className="status">{error}</p></main>
-  if (!data) return <main><p className="status">Loading…</p></main>
+  if (!data) return <main><PageSkeleton /></main>
 
   return (
     <main>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFantasy } from '../fantasy.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const mmss = (s) => `${s < 0 ? '−' : '+'}${Math.floor(Math.abs(Math.round(s)) / 60)}:${String(Math.abs(Math.round(s)) % 60).padStart(2, '0')}`
 const clock = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
@@ -48,7 +49,7 @@ export default function Absences() {
         </p>
       </header>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && (
         <>
           <div className="controls">

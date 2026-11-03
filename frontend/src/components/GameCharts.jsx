@@ -1,18 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { clock, corsiModel, mmss, winProbModel, xgModel } from '../gameFlow.js'
 
 const lastName = (full) => full.split(' ').slice(1).join(' ') || full
 
-// Draw at the container's real pixel width so text stays a constant size on any screen.
+// Draw at the container's real pixel width so text stays a constant size on any screen. The element is held in state (a callback
+// ref) because a chart may render nothing at first, until its data arrives, and the measuring starts only once there is an element.
 function useWidth() {
-  const ref = useRef(null)
+  const [el, setEl] = useState(null)
   const [w, setW] = useState(640)
   useEffect(() => {
+    if (!el) return undefined
     const ro = new ResizeObserver(([e]) => setW(Math.max(300, Math.round(e.contentRect.width))))
-    ro.observe(ref.current)
+    ro.observe(el)
     return () => ro.disconnect()
-  }, [])
-  return [ref, w]
+  }, [el])
+  return [setEl, w]
 }
 
 // Period boundaries and tick labels for a game that runs `length` seconds.

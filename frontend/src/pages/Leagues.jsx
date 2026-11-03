@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createLeague, joinLeague, setActive, useLeagues } from '../leagues.js'
 import { useLeague, useScoring } from '../fantasy.js'
 import { cleanLeague } from '../value.js'
+import { Skeleton } from '../components/Skeleton.jsx'
+import SignInPrompt from '../components/SignInPrompt.jsx'
 
 /** Your leagues, with forms to start one or join one by invite code. */
 export default function Leagues() {
@@ -48,7 +50,13 @@ export default function Leagues() {
     return (
       <main>
         <header><h1>Leagues</h1><p>Share rosters with the friends in your fantasy league so the site knows who is actually available.</p></header>
-        <p className="status"><Link to="/account">Log in</Link> to start or join a league{params.get('join') ? ' (keep this page open, or come back to the same invite link)' : ''}.</p>
+        <SignInPrompt lead={params.get('join') ? 'You were invited to a league. Log in or create an account, then come back to this same invite link to join it.' : 'Leagues are shared by invite code, so everyone needs an account.'}>
+          <ol className="start-steps">
+            <li><strong>Start a league</strong> and share its invite code with your league mates.</li>
+            <li><strong>Each member joins</strong> with the code and their own team name.</li>
+            <li><strong>Set it active</strong> on the Fantasy page, and the waiver wire shows who is really available.</li>
+          </ol>
+        </SignInPrompt>
       </main>
     )
   }
@@ -65,7 +73,7 @@ export default function Leagues() {
       </header>
       {error && <p className="notice" role="alert">{error}</p>}
       {message && <p className="notice" role="alert">{message}</p>}
-      {status === 'loading' && <p className="status">Loading…</p>}
+      {status === 'loading' && <Skeleton />}
 
       {leagues.length > 0 && (
         <section>

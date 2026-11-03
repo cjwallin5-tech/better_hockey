@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GROUPS } from '../value.js'
 import { buildBoard, infoMap, keeperRows, myPicks, needs, recommend, roundOf, slotAt, tierCliffs } from '../draft.js'
+import NeedRoster from './NeedRoster.jsx'
 
 const KEY = 'nhl-stats.fantasy-draft'
 const LIMIT = 50
@@ -188,7 +189,7 @@ export default function DraftHelper({ data, values, league, roster }) {
                  onChange={(e) => save({ ...state, maxKeepers: Math.max(0, Math.round(Number(e.target.value)) || 0) })} />
         </label>
       </div>
-      {roster.length === 0 ? <p className="status">Add players to your team (Roster tab) to price keepers.</p> : (
+      {roster.length === 0 ? <NeedRoster what="price keepers" /> : (
         <div className="table-wrap">
           <table>
             <thead>

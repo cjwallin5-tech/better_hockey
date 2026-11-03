@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 /** Every NHL trophy by kind, each linking to its list of winners by season. */
 export default function TrophyIndex() {
@@ -18,7 +19,7 @@ export default function TrophyIndex() {
   }, [])
 
   if (state.error) return <main><p className="status">{state.error}</p></main>
-  if (!state.data) return <main><p className="status">Loading…</p></main>
+  if (!state.data) return <main><PageSkeleton /></main>
 
   return (
     <main>

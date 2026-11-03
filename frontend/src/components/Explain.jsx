@@ -6,13 +6,13 @@ const KIND = { luck: 'Results vs. chances', real: 'Real change' }
 
 /** The one-word badge for a finding: where it points, with the group it belongs to in the tooltip so colour isn't the only cue. */
 function Finding({ f, games }) {
-  const cls = f.direction === 'down' ? 'badge warn' : f.direction === 'up' ? 'badge' : 'badge'
+  const cls = f.direction === 'down' ? 'badge warn' : 'badge'
   const arrow = f.direction === 'down' ? '↓' : f.direction === 'up' ? '↑' : '•'
   return (
     <li className="finding">
-      <span className={cls} title={KIND[f.kind]}>{arrow} {f.title}</span>{' '}
-      {f.price != null && <strong className="muted" title={`Estimated ${f.unit} over ${games} games`}>{signed(f.price)} {f.unit}</strong>}{' '}
-      {f.text}
+      <span className={cls} title={KIND[f.kind]}>{arrow} {f.title}</span>
+      <span className="finding-text">{f.text}</span>
+      {f.price != null && <strong className="finding-price" title={`Estimated ${f.unit} over ${games} games`}>{signed(f.price)} {f.unit}</strong>}
     </li>
   )
 }
@@ -32,21 +32,24 @@ export default function Explain({ playerId }) {
   if (!d) return null
 
   return (
-    <section>
-      <h2>What changed</h2>
-      <p>{d.headline}</p>
+    <section className="card explain">
+      <div className="eyebrow">What changed</div>
+      <p className="explain-lead">{d.headline}</p>
       {d.findings.length > 0 && (
         <ul className="findings">
           {d.findings.map((f) => <Finding key={f.key} f={f} games={d.games} />)}
         </ul>
       )}
-      <p className="sub">
-        {d.early && 'Early in the season a handful of games can swing any of this, so treat it as a first read. '}
-        Amounts are estimated over a full {d.games}-game season at the current rate. "Results vs. chances" is luck that tends to fade
-        (see <Link to="/luck">Luck &amp; regression</Link>); "Real change" is shot volume, shot quality, ice time and role, which tend to last
-        while the role does. The factors overlap a little (more ice time also means more shots), so they won't add up exactly.
-        Injuries and coaching changes that don't show in ice time aren't known.
-      </p>
+      <details className="howto">
+        <summary>How to read this</summary>
+        <p>
+          {d.early && 'Early in the season a handful of games can swing any of this, so treat it as a first read. '}
+          Amounts are estimated over a full {d.games}-game season at the current rate. "Results vs. chances" is luck that tends to fade
+          (see <Link to="/luck">Luck &amp; regression</Link>); "Real change" is shot volume, shot quality, ice time and role, which tend to last
+          while the role does. The factors overlap a little (more ice time also means more shots), so they won't add up exactly.
+          Injuries and coaching changes that don't show in ice time aren't known.
+        </p>
+      </details>
     </section>
   )
 }

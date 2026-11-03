@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { gloveSign, polar, zoneCentre, zonePolygon, zoneStrength } from './goalieZones.js'
+import { clampLabel, gloveSign, polar, zoneCentre, zonePolygon, zoneStrength } from './goalieZones.js'
 
 test('glove side is toward negative y for a left-catching goalie', () => {
   assert.equal(gloveSign('L'), -1)
@@ -40,4 +40,17 @@ test('labels sit inside the zone and strength saturates at two standard deviatio
   assert.equal(zoneStrength(-3), 1)
   assert.equal(zoneStrength(1), 0.5)
   assert.equal(zoneStrength(null), 0)
+})
+
+test('the middle close label sits further out than the two beside it, so the three do not collide', () => {
+  const mid = zoneCentre('close', 'middle', 1)
+  const side = zoneCentre('close', 'glove', -1)
+  assert.ok(89 - mid.x > 89 - side.x + 2)
+  assert.ok(Math.hypot(mid.x - side.x, mid.y - side.y) > 5)
+})
+
+test('labels are kept inside the edges of the map', () => {
+  assert.equal(clampLabel(10, 0, 200), 36)
+  assert.equal(clampLabel(195, 0, 200), 164)
+  assert.equal(clampLabel(100, 0, 200), 100)
 })

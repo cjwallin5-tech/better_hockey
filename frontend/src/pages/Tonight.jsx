@@ -6,6 +6,7 @@ import { useFantasy } from '../fantasy.js'
 import { useWatchlist } from '../watchlist.js'
 import { useUrlSync } from '../urlState.js'
 import { notableTips } from '../matchupTip.js'
+import { Skeleton } from '../components/Skeleton.jsx'
 
 const startTime = (iso) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : 'time TBD')
 const FINISHED = ['FINAL', 'OFF']
@@ -138,7 +139,7 @@ export default function Tonight() {
         </label>
       </div>
       {error && <p className="status">{error}</p>}
-      {!data && !error && <p className="status">Loading…</p>}
+      {!data && !error && <Skeleton />}
       {data && games.length === 0 && <p className="status">No games on {data.date}.</p>}
       {games.length > 0 && (
         <ul style={{ padding: 0 }}>

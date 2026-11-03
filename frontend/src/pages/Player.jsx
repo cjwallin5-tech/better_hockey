@@ -4,8 +4,6 @@ import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
 import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
-import FantasyStar from '../components/FantasyStar.jsx'
-import WatchButton from '../components/WatchButton.jsx'
 import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
 import { Linemates } from '../components/Lines.jsx'
@@ -24,11 +22,10 @@ import ShooterZones from '../components/ShooterZones.jsx'
 import { SkaterForm } from '../components/Form.jsx'
 import { RolePanel } from '../components/Roles.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
-import Flag from '../components/Flag.jsx'
-import Headshot from '../components/Headshot.jsx'
-import PlayerBio from '../components/PlayerBio.jsx'
+import PlayerBanner from '../components/PlayerBanner.jsx'
 import Awards from '../components/Awards.jsx'
 import { describe } from '../glossary.js'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
 const fmtToi = (sec) =>
@@ -88,52 +85,26 @@ export default function Player() {
   // No current-season data (retired or inactive): show the career page instead of an error.
   if (error === 'Player not found') return <CareerPlayer id={Number(id)} goalie={false} />
   if (error) return <main>{back}<p className="status">{error}</p></main>
-  if (!data) return <main>{back}<p className="status">Loading…</p></main>
+  if (!data) return <main>{back}<PageSkeleton /></main>
 
   const { player: p, games, games_per_season, percentiles, peer_group, peer_count, peer_min_gp } = data
 
   return (
     <main>
       {back}
-      <header className="player-head">
-        <Headshot playerId={p.player_id} name={p.name} />
-        <div>
-        <h1>
-          <Flag playerId={p.player_id} />{p.name}{' '}
-          <span>
-            {p.team?.split(',').map((abbr, i) => (
-              <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>
-            ))}{' '}
-            · {p.position}
-          </span>
-        </h1>
-        <PlayerBio playerId={p.player_id} />
-        <p className="header-actions">
-          <FantasyStar player={{ id: p.player_id, kind: 'skater', name: p.name }} />
-          <WatchButton kind="player" refId={p.player_id} name={p.name} />
-          <Link to={`/compare?ids=${p.player_id}`}>Compare with other players →</Link>
-        </p>
-        </div>
-      </header>
-
-      <Context playerId={p.player_id} />
-      <Explain playerId={p.player_id} />
-      <Projection playerId={p.player_id} />
-      <Trophies playerId={p.player_id} />
-
-      <section className="tiles">
-        <Tile label="GP" value={p.games_played} rank={rank('games_played')} />
-        <Tile label="Goals" value={p.goals} rank={rank('goals')} />
-        <Tile label="Assists" value={p.assists} rank={rank('assists')} />
-        <Tile label="Points" value={p.points} rank={rank('points')} />
-        <Tile label="Point pace" value={fmt1(p.point_pace)} />
-        <Tile
-          label={`Last ${p.recent_games ?? 0} pace`}
-          value={fmt1(p.recent_pace)}
-        />
-        <Tile label="+/-" value={p.plus_minus} rank={rank('plus_minus')} />
-        <Tile label="TOI / game" value={fmtToi(p.toi_per_game_sec)} />
-      </section>
+      <PlayerBanner
+        p={p}
+        stats={[
+          { label: 'Points', value: p.points, rank: rank('points'), big: true },
+          { label: 'Goals', value: p.goals, rank: rank('goals'), big: true },
+          { label: 'Assists', value: p.assists, rank: rank('assists'), big: true },
+          { label: 'GP', value: p.games_played, rank: rank('games_played'), big: true },
+          { label: 'Point pace', value: fmt1(p.point_pace) },
+          { label: `Last ${p.recent_games ?? 0} pace`, value: fmt1(p.recent_pace) },
+          { label: '+/-', value: p.plus_minus, rank: rank('plus_minus') },
+          { label: 'TOI / game', value: fmtToi(p.toi_per_game_sec) },
+        ]}
+      />
 
       <PageTabs
         tabs={[
@@ -142,6 +113,14 @@ export default function Player() {
             label: 'Stats',
             content: (
               <>
+                <Context playerId={p.player_id} />
+                <div className="player-overview">
+                  <Explain playerId={p.player_id} />
+                  <aside>
+                    <Projection playerId={p.player_id} />
+                    <Trophies playerId={p.player_id} />
+                  </aside>
+                </div>
                 <Career playerId={p.player_id} />
                 <Awards playerId={p.player_id} />
                 <Rankings playerId={p.player_id} kind="skater" />
@@ -185,50 +164,84 @@ export default function Player() {
             id: 'advanced',
             label: 'Advanced',
             content: (
-              <>
-              <RolePanel playerId={p.player_id} />
+              <PageTabs
+                param="view"
+                pills
+                tabs={[
+                  {
+                    id: 'profile',
+                    label: 'Profile',
+                    content: (
+                      <>
+                        <ScoutingCard playerId={p.player_id} />
+                        <TrackingProfile playerId={p.player_id} />
+                      </>
+                    ),
+                  },
+                  {
+                    id: 'role',
+                    label: 'Role & usage',
+                    content: (
+                      <>
+                        <RolePanel playerId={p.player_id} />
 
-              <h2>Defensive game</h2>
-              <p className="sub">
-                Percentile among {peer_count} {peer_group} with at least {peer_min_gp} GP. Higher bar is
-                better for every stat, including giveaways.
-              </p>
-              <StatCards stats={DEFENSIVE} p={p} percentiles={percentiles} />
-
-              <h2>Possession &amp; special teams</h2>
-              <p className="sub">
-                5v5 shot attempts: {p.sat_for ?? '–'} for, {p.sat_against ?? '–'} against
-                ({p.usat_for ?? '–'} / {p.usat_against ?? '–'} excluding blocked shots). Same peer
-                group as above.
-              </p>
-              <StatCards stats={POSSESSION} p={p} percentiles={percentiles} />
-              <section className="tiles usage">
-                <Tile label="EV TOI" value={fmtToi(p.ev_toi_per_game)} />
-                <Tile label="PP TOI" value={fmtToi(p.pp_toi_per_game)} />
-                <Tile label="SH TOI" value={fmtToi(p.sh_toi_per_game)} />
-                <Tile label="PP points" value={p.pp_points} />
-                <Tile label="SH points" value={p.sh_points} />
-                <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
-              </section>
-
-              <ScoutingCard playerId={p.player_id} />
-
-              <DefenseProfile playerId={p.player_id} />
-
-              <LuckPanel playerId={p.player_id} />
-
-              <ScoreState playerId={p.player_id} />
-
-              <TrackingProfile playerId={p.player_id} />
-
-              <SkaterShots playerId={p.player_id} />
-
-              <ShooterZones playerId={p.player_id} />
-
-              <Linemates playerId={p.player_id} />
-
-              <Similar playerId={p.player_id} />
-              </>
+                        <h2>Possession &amp; special teams</h2>
+                        <p className="sub">
+                          5v5 shot attempts: {p.sat_for ?? '–'} for, {p.sat_against ?? '–'} against
+                          ({p.usat_for ?? '–'} / {p.usat_against ?? '–'} excluding blocked shots). Percentile among {peer_count} {peer_group} with at
+                          least {peer_min_gp} GP.
+                        </p>
+                        <StatCards stats={POSSESSION} p={p} percentiles={percentiles} />
+                        <section className="tiles usage">
+                          <Tile label="EV TOI" value={fmtToi(p.ev_toi_per_game)} />
+                          <Tile label="PP TOI" value={fmtToi(p.pp_toi_per_game)} />
+                          <Tile label="SH TOI" value={fmtToi(p.sh_toi_per_game)} />
+                          <Tile label="PP points" value={p.pp_points} />
+                          <Tile label="SH points" value={p.sh_points} />
+                          <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
+                        </section>
+                      </>
+                    ),
+                  },
+                  {
+                    id: 'defense',
+                    label: 'Defense',
+                    content: (
+                      <>
+                        <h2>Defensive game</h2>
+                        <p className="sub">
+                          Percentile among {peer_count} {peer_group} with at least {peer_min_gp} GP. Higher bar is
+                          better for every stat, including giveaways.
+                        </p>
+                        <StatCards stats={DEFENSIVE} p={p} percentiles={percentiles} />
+                        <DefenseProfile playerId={p.player_id} />
+                      </>
+                    ),
+                  },
+                  {
+                    id: 'shooting',
+                    label: 'Shooting',
+                    content: (
+                      <>
+                        <ShooterZones playerId={p.player_id} />
+                        <SkaterShots playerId={p.player_id} />
+                        <LuckPanel playerId={p.player_id} />
+                        <ScoreState playerId={p.player_id} />
+                      </>
+                    ),
+                  },
+                  {
+                    id: 'teammates',
+                    label: 'Teammates',
+                    content: (
+                      <>
+                        <Linemates playerId={p.player_id} />
+                        <Similar playerId={p.player_id} />
+                      </>
+                    ),
+                  },
+                ]}
+              />
             ),
           },
           {

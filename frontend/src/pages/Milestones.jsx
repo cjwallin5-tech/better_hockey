@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 const day = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -44,7 +45,7 @@ export default function Milestones() {
   }, [data, kind, stat, majorOnly])
 
   if (error) return <main><p className="status">Couldn't load milestones: {error}</p></main>
-  if (!data) return <main><p className="status">Loading…</p></main>
+  if (!data) return <main><PageSkeleton /></main>
 
   const route = kind === 'goalie' ? 'goalie' : 'player'
   const switchKind = (k) => { setKind(k); setStat('all') }

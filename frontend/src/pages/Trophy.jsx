@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
+import PageSkeleton from '../components/Skeleton.jsx'
 
 const COLUMN_LABEL = { games_played: 'GP', goals: 'G', assists: 'A', points: 'P' }
 // The stat that decides the award is emphasised.
@@ -28,7 +29,7 @@ export default function Trophy() {
   const { data, error } = result.id === id ? result : { data: null, error: null }
   const back = <Link to="/trophy" className="back">← All trophies</Link>
   if (error) return <main>{back}<p className="status">{error}</p></main>
-  if (!data) return <main>{back}<p className="status">Loading…</p></main>
+  if (!data) return <main>{back}<PageSkeleton /></main>
 
   const columns = data.stat_columns ?? []
   const deciding = DECIDING[data.id]
