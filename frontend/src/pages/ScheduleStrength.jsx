@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
@@ -12,7 +13,7 @@ const value = (sort) => (r) => (sort === 'b2b' ? -r.back_to_backs_left : r[sort]
 const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`)
 
 /** How hard each team's remaining games are, next to the schedule it has played, the next ten games and back-to-backs. */
-export default function ScheduleStrength() {
+export default function ScheduleStrength({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [sort, setSort] = useState(initial.get('sort') ?? 'left')
   const [conf, setConf] = useState(initial.get('conf') ?? 'all')
@@ -35,9 +36,9 @@ export default function ScheduleStrength() {
   const ranks = useMemo(() => (data ? difficultyRanks(data.teams, value(sort)) : {}), [data, sort])
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Schedule strength</h1>
+        {!embedded && <h1>Schedule strength</h1>}
         <p>
           How hard each team's remaining games are: the opponents' strength, in expected points against an average schedule, next to the
           schedule already played, the next ten games and how many back-to-backs are left.
@@ -107,6 +108,6 @@ export default function ScheduleStrength() {
           </p>
         </>
       )}
-    </main>
+    </PageShell>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { useUrlSync } from '../urlState.js'
@@ -156,7 +157,7 @@ function GoalieBoard({ stat, setStat, season, setSeason }) {
   )
 }
 
-export default function Tracking() {
+export default function Tracking({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [kind, setKind] = useState(initial.get('kind') === 'goalie' ? 'goalie' : 'skater')
   const [stat, setStat] = useState(initial.get('stat') ?? '')
@@ -171,9 +172,9 @@ export default function Tracking() {
   const switchKind = (k) => { setKind(k); setStat(''); setSeason('') }
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Speed &amp; shots</h1>
+        {!embedded && <h1>Speed &amp; shots</h1>}
         <p>
           The NHL's puck and player tracking (EDGE): who shoots hardest, skates fastest and covers the most ice. Tracking
           begins in 2021-22.
@@ -186,6 +187,6 @@ export default function Tracking() {
       {kind === 'skater'
         ? <SkaterBoard stat={active} setStat={setStat} season={season} setSeason={setSeason} position={position} setPosition={setPosition} minGp={minGp} setMinGp={setMinGp} />
         : <GoalieBoard stat={active} setStat={setStat} season={season} setSeason={setSeason} />}
-    </main>
+    </PageShell>
   )
 }

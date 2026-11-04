@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RestBadge from '../components/RestBadge.jsx'
-import TeamLogo from '../components/TeamLogo.jsx'
+import TeamMark from '../components/TeamMark.jsx'
+import { teamColor } from '../teamColors.js'
 import { useFantasy } from '../fantasy.js'
 import { useWatchlist } from '../watchlist.js'
 import { useUrlSync } from '../urlState.js'
@@ -13,13 +14,17 @@ const FINISHED = ['FINAL', 'OFF']
 const pct = (p) => `${Math.round(p * 100)}%`
 
 function Goalie({ g, team }) {
-  if (!g?.name) return <span className="muted">{team}: starter unclear</span>
   return (
-    <span>
-      {team}: {g.player_id ? <Link to={`/goalie/${g.player_id}`}>{g.name}</Link> : g.name}{' '}
-      <span className={g.confirmed ? 'accent' : 'muted'}>{g.confirmed ? 'confirmed' : `likely, ${pct(g.probability)}`}</span>
-      {g.back_to_back && <sup title="Second game in two nights"> B2B</sup>}
-    </span>
+    <div className="tn-goalie">
+      <span className="tn-goalie-team">{team}</span>
+      {g?.name ? (
+        <>
+          {g.player_id ? <Link to={`/goalie/${g.player_id}`}>{g.name}</Link> : g.name}
+          <em className={g.confirmed || g.probability >= 0.7 ? 'sure' : ''}>{g.confirmed ? 'Confirmed' : pct(g.probability)}</em>
+          {g.back_to_back && <span className="badge warn" title="Second game in two nights">B2B</span>}
+        </>
+      ) : <span className="muted">Starter unclear</span>}
+    </div>
   )
 }
 
@@ -39,40 +44,69 @@ function ShotFit({ fit }) {
   )
 }
 
+function Side({ abbrev, name, win }) {
+  return (
+    <div className="tn-side">
+      <TeamMark abbrev={abbrev} size={44} />
+      <Link to={`/team/${abbrev}`} className="tn-abbrev">{abbrev}</Link>
+      <span className="tn-name">{name}</span>
+      {win != null && <strong className="tn-win">{pct(win)}</strong>}
+    </div>
+  )
+}
+
 function GameCard({ g, rank }) {
   const finished = FINISHED.includes(g.state)
-  const teamName = (side) => g[`${side}_info`]?.name ?? g[side]
+  const live = g.state === 'LIVE' || g.state === 'CRIT'
+  const name = (side) => g[`${side}_info`]?.name ?? g[side]
+  const homeWin = g.home_win
+  const stars = [...g.stars.away, ...g.stars.home]
   return (
-    <li className="card" style={{ listStyle: 'none', marginBottom: 12 }}>
-      <h3 style={{ marginTop: 0 }}>
-        {rank != null && <span className="muted">#{rank} </span>}
-        {g.away_info && <TeamLogo team={g.away_info} />} <Link to={`/team/${g.away}`}>{teamName('away')}</Link> @{' '}
-        {g.home_info && <TeamLogo team={g.home_info} />} <Link to={`/team/${g.home}`}>{teamName('home')}</Link>
-        <span className="muted"> · {startTime(g.start_time)}</span>
-        {finished && <> · <Link to={`/game/${g.game_id}`}>Final</Link></>}
-      </h3>
-      {g.reasons.length > 0 ? (
-        <ul className="roster-alerts">
-          {g.reasons.map((r) => <li key={r}>{r}</li>)}
-        </ul>
-      ) : <p className="muted">Nothing stands out on paper.</p>}
-      <p className="muted">
-        {g.home_win != null && <>On paper: {g.home} {pct(g.home_win)}, {g.away} {pct(1 - g.home_win)}; about {g.expected_goals.toFixed(1)} goals. </>}
-        <RestBadge kind={g.rest.away} /> {g.rest.away ? g.away : ''} <RestBadge kind={g.rest.home} /> {g.rest.home ? g.home : ''}
-      </p>
+    <li className={`tn-card${live ? ' live' : ''}`} style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) }}>
+      <div className="tn-head">
+        {rank != null && <span className="tn-rank">#{rank}</span>}
+        <span className="tn-time">{startTime(g.start_time)}</span>
+        {(finished || live) && <Link to={`/game/${g.game_id}`} className="tn-state">{finished ? 'Final' : 'Live'}</Link>}
+        <span className="tn-rest">
+          {['tired', 'edge'].includes(g.rest.away) && <><RestBadge kind={g.rest.away} /> {g.away}</>}{' '}
+          {['tired', 'edge'].includes(g.rest.home) && <><RestBadge kind={g.rest.home} /> {g.home}</>}
+        </span>
+      </div>
+
+      <div className="tn-matchup">
+        <Side abbrev={g.away} name={name('away')} win={homeWin != null ? 1 - homeWin : null} />
+        <div className="tn-mid">
+          <span>@</span>
+          {g.expected_goals != null && <small title="Expected total goals">{g.expected_goals.toFixed(1)} goals</small>}
+        </div>
+        <Side abbrev={g.home} name={name('home')} win={homeWin} />
+      </div>
+      {homeWin != null && (
+        <div className="tn-bar" title="Win chance on paper">
+          <span style={{ width: `${(1 - homeWin) * 100}%`, background: 'var(--away)' }} />
+          <span style={{ width: `${homeWin * 100}%`, background: 'var(--home)' }} />
+        </div>
+      )}
+
+      {g.reasons.length > 0
+        ? <ul className="tn-reasons">{g.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+        : <p className="muted tn-none">Nothing stands out on paper.</p>}
+
       {g.goalies && (
-        <p>
-          Goalies: <Goalie g={g.goalies.away} team={g.away} /> · <Goalie g={g.goalies.home} team={g.home} />
-        </p>
+        <div className="tn-goalies">
+          <Goalie g={g.goalies.away} team={g.away} />
+          <Goalie g={g.goalies.home} team={g.home} />
+        </div>
       )}
       {g.shot_fit && <ShotFit fit={g.shot_fit} />}
-      {(g.stars.away.length > 0 || g.stars.home.length > 0) && (
-        <p className="muted">
-          Top scorers:{' '}
-          {[...g.stars.away, ...g.stars.home].map((s, i) => (
-            <span key={s.player_id}>{i > 0 && ' · '}<Link to={`/player/${s.player_id}`}>{s.name}</Link> {s.points} P in {s.games_played}</span>
+      {stars.length > 0 && (
+        <div className="tn-stars">
+          {stars.map((st) => (
+            <Link key={st.player_id} to={`/player/${st.player_id}`} className="tn-star">
+              {st.name} <span>{st.points} P in {st.games_played}</span>
+            </Link>
           ))}
-        </p>
+        </div>
       )}
     </li>
   )
@@ -135,14 +169,14 @@ export default function Tonight() {
           </select>
         </label>
         <label className="h2h-pick">Date
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input type="date" value={date || data?.date || ''} onChange={(e) => setDate(e.target.value)} />
         </label>
       </div>
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && games.length === 0 && <p className="status">No games on {data.date}.</p>}
       {games.length > 0 && (
-        <ul style={{ padding: 0 }}>
+        <ul className="tn-list">
           {games.map((g, i) => <GameCard key={g.game_id} g={g} rank={sort === 'interest' ? i + 1 : null} />)}
         </ul>
       )}

@@ -10,7 +10,9 @@ export function useUrlSync(entries) {
   const [params, setParams] = useSearchParams()
   const signature = JSON.stringify(entries)
   useEffect(() => {
-    const next = new URLSearchParams()
+    // Keep query params this hook doesn't own (a tab picked by a parent page, say) and rewrite only its own.
+    const next = new URLSearchParams(params)
+    for (const [key] of entries) next.delete(key)
     for (const [key, value, fallback] of entries) {
       if (value === null || value === undefined || value === '' || value === fallback || value === false) continue
       next.set(key, value === true ? '1' : String(value))

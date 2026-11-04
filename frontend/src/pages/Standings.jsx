@@ -11,7 +11,29 @@ const VIEWS = [
   { id: 'division', label: 'Division', rank: 'division_rank', group: (t) => t.division, order: ['Atlantic', 'Metropolitan', 'Central', 'Pacific'] },
   { id: 'conference', label: 'Conference', rank: 'conference_rank', group: (t) => `${t.conference} Conference`, order: ['Eastern Conference', 'Western Conference'] },
   { id: 'league', label: 'League', rank: 'league_rank', group: () => 'League', order: ['League'] },
+  { id: 'wildcard', label: 'Wild card' },
 ]
+
+const WILD_CARD_SPOTS = 2
+const CONFERENCES = [
+  { name: 'Eastern', divisions: ['Atlantic', 'Metropolitan'] },
+  { name: 'Western', divisions: ['Central', 'Pacific'] },
+]
+
+/** The playoff bracket's view: each conference's top three per division, then everyone else ranked for the wild cards. */
+function wildCardGroups(teams) {
+  const out = []
+  for (const conf of CONFERENCES) {
+    const inConf = teams.filter((t) => t.conference.startsWith(conf.name))
+    for (const div of conf.divisions) {
+      const rows = inConf.filter((t) => t.division === div && t.division_rank <= 3).sort((a, b) => a.division_rank - b.division_rank)
+      out.push({ name: `${conf.name} Conference · ${div}`, rows, rank: 'division_rank' })
+    }
+    const rest = inConf.filter((t) => t.division_rank > 3).sort((a, b) => a.wildcard_rank - b.wildcard_rank)
+    out.push({ name: `${conf.name} Conference · Wild card`, rows: rest, rank: 'wildcard_rank', cutAfter: WILD_CARD_SPOTS })
+  }
+  return out
+}
 
 export default function Standings() {
   const [teams, setTeams] = useState(null)
@@ -38,6 +60,7 @@ export default function Standings() {
   const view = VIEWS.find((v) => v.id === viewId) ?? VIEWS[0]
   const groups = useMemo(() => {
     if (!teams) return []
+    if (view.id === 'wildcard') return wildCardGroups(teams)
     const byGroup = new Map()
     for (const t of teams) {
       const g = view.group(t)
@@ -46,7 +69,7 @@ export default function Standings() {
     }
     return view.order
       .filter((g) => byGroup.has(g))
-      .map((g) => [g, byGroup.get(g).sort((a, b) => a[view.rank] - b[view.rank])])
+      .map((g) => ({ name: g, rows: byGroup.get(g).sort((a, b) => a[view.rank] - b[view.rank]), rank: view.rank }))
   }, [teams, view])
 
   if (error) return <main><p className="status">Couldn't load standings: {error}</p></main>
@@ -95,11 +118,12 @@ export default function Standings() {
 
       {viewId === 'odds' && <PlayoffOdds teams={teams} />}
 
-      {viewId !== 'odds' && groups.map(([name, rows]) => (
+      {viewId !== 'odds' && groups.map(({ name, rows, rank, cutAfter }) => (
         <section key={name} className="standings-group">
           {view.id !== 'league' && <div className="eyebrow">{name}</div>}
+          {rows.length === 0 && <p className="status">No teams yet.</p>}
           <div className="table-wrap fit">
-            <table className="standings-table">
+            <table className={`standings-table${more ? ' more' : ''}`}>
               <colgroup>
                 <col className="col-team" />
                 {Array.from({ length: more ? 14 : 9 }, (_, i) => <col key={i} />)}
@@ -117,18 +141,18 @@ export default function Standings() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((t) => {
+                {rows.map((t, i) => {
                   const wildCard = t.wildcard_rank === 1 || t.wildcard_rank === 2
                   const inPlayoffs = t.division_rank <= 3 || wildCard
                   return (
-                    <tr key={t.abbrev} style={{ '--team': teamColor(t.abbrev) }}>
+                    <tr key={t.abbrev} className={cutAfter && i === cutAfter ? 'cut-line' : undefined} style={{ '--team': teamColor(t.abbrev) }}>
                       <td className="left team-cell">
                         <div className="team-inner">
                           <span className={`po-dot${inPlayoffs ? ' in' : ''}`} title={inPlayoffs ? 'In a playoff position' : undefined} />
-                          <span className="rank">{t[view.rank]}</span>
+                          <span className="rank">{t[rank]}</span>
                           <TeamLogo team={t} />
                           <Link to={`/team/${t.abbrev}`}>{t.name}</Link>
-                          {wildCard && <span className="badge wc" title={`Wild card ${t.wildcard_rank}`}>WC{t.wildcard_rank}</span>}
+                          {wildCard && view.id !== 'wildcard' && <span className="badge wc" title={`Wild card ${t.wildcard_rank}`}>WC{t.wildcard_rank}</span>}
                         </div>
                       </td>
                       <td>{t.games_played}</td><td>{t.wins}</td><td>{t.losses}</td>

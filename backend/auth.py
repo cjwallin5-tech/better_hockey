@@ -79,6 +79,10 @@ CREATE TABLE IF NOT EXISTS fantasy_state (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE fantasy_state ADD COLUMN IF NOT EXISTS league JSONB NOT NULL DEFAULT '{}';
+CREATE TABLE IF NOT EXISTS favorite_team (
+    user_id BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
+    team    TEXT NOT NULL
+);
 """
 
 
@@ -277,6 +281,49 @@ def put_fantasy_state(state: FantasyState, request: Request):
             (user["id"], Jsonb(players), Jsonb(scoring), Jsonb(league)),
         )
     return {"players": players, "scoring": scoring, "league": league}
+
+
+# --- The team a user follows most closely ("My team") ------------------------------------------------
+TEAM_RE = re.compile(r"^[A-Z]{2,3}$")
+
+
+class FavoriteIn(BaseModel):
+    team: str | None = None   # None clears it
+
+
+def clean_team(raw):
+    """A team abbreviation in upper case, or None when `raw` is empty or is not shaped like one."""
+    team = (raw or "").strip().upper()
+    return team if TEAM_RE.match(team) else None
+
+
+@router.get("/favorite-team")
+def get_favorite_team(request: Request):
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        row = conn.execute("SELECT team FROM favorite_team WHERE user_id = %s", (user["id"],)).fetchone()
+    return {"team": row["team"] if row else None}
+
+
+@router.put("/favorite-team")
+def put_favorite_team(body: FavoriteIn, request: Request):
+    team = clean_team(body.team)
+    if body.team and not team:
+        raise HTTPException(400, "That is not a team")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = current_user(conn, request)
+        if not user:
+            raise HTTPException(401, "Not signed in")
+        if team is None:
+            conn.execute("DELETE FROM favorite_team WHERE user_id = %s", (user["id"],))
+        else:
+            if not conn.execute("SELECT 1 FROM team_season WHERE abbrev = %s LIMIT 1", (team,)).fetchone():
+                raise HTTPException(400, "That is not a team")
+            conn.execute("INSERT INTO favorite_team (user_id, team) VALUES (%s, %s) "
+                         "ON CONFLICT (user_id) DO UPDATE SET team = EXCLUDED.team", (user["id"], team))
+    return {"team": team}
 
 
 # --- Saved leaderboard views --------------------------------------------------------------------

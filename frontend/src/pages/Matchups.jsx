@@ -154,7 +154,7 @@ export default function Matchups() {
         <h1>Matchups</h1>
         <p>
           Which teams have the softest and toughest schedules coming up, and how every team rates as an opponent. Good for
-          deciding who to start or stream, and for breaking ties. A game on the second night of a back-to-back against a rested team is rated lower (and the rested side's higher), because teams score about a quarter of a goal fewer in those; see <Link to="/rest">back-to-backs</Link>.
+          deciding who to start or stream, and for breaking ties. A game on the second night of a back-to-back against a rested team is rated lower (and the rested side's higher), because teams score about a quarter of a goal fewer in those; see <Link to="/schedule?tab=rest">back-to-backs</Link>.
         </p>
       </header>
       <div className="tabs" role="tablist">

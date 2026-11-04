@@ -102,7 +102,7 @@ export default function SpecialTeams({ abbrev }) {
             these {t.games} games: PP1 is {Math.round(data.thresholds.pp1 * 100)}% or more (five at most), PP2 {Math.round(data.thresholds.pp2 * 100)}% or more.
             The penalty kill ranks forwards and defensemen separately, two of each per unit. xG per 60 counts the quality of the shots
             in that situation, so it settles faster than goals. Early in the season a few games decide a lot. League view:{' '}
-            <Link to="/special-teams">all teams' special teams →</Link>
+            <Link to="/advanced-stats?tab=special-teams">all teams' special teams →</Link>
           </p>
         </>
       )}

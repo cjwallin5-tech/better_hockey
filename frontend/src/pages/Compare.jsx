@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CompareChart } from '../components/Charts.jsx'
 import { ageInSeason, nhlSeasons, seasonGaa, seasonLabel, seasonSvPct } from '../career.js'
@@ -44,7 +45,7 @@ function rateDomain(values, { step, pad, digits }) {
   return { min: lo, max: hi, ticks }
 }
 
-export default function Compare() {
+export default function Compare({ embedded = false }) {
   const [params, setParams] = useSearchParams()
   const { scoring } = useScoring()
   const ids = useMemo(
@@ -78,7 +79,12 @@ export default function Compare() {
     })
   }, [ids, careers])
 
-  const setIds = (next) => setParams(next.length ? { ids: next.join(',') } : {})
+  const setIds = (next) => {
+    const p = new URLSearchParams(params) // keep the rest of the query (a parent page's tab)
+    if (next.length) p.set('ids', next.join(','))
+    else p.delete('ids')
+    setParams(p)
+  }
   const skaterById = useMemo(() => new Map((skaters ?? []).map((s) => [s.player_id, s])), [skaters])
   const goalieById = useMemo(() => new Map((goalies ?? []).map((g) => [g.player_id, g])), [goalies])
 
@@ -256,9 +262,9 @@ export default function Compare() {
   }
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Compare {isGoalie ? 'goalies' : 'players'}</h1>
+        {!embedded && <h1>Compare {isGoalie ? 'goalies' : 'players'}</h1>}
         <p>Pick up to {MAX_PLAYERS} {isGoalie ? 'goalies' : 'skaters'}, past or present, to see their careers side by side. Current players also get this season's stats.</p>
       </header>
 
@@ -361,7 +367,7 @@ export default function Compare() {
           <p className="sub">Fantasy points use the league scoring on your <Link to="/fantasy">Fantasy team</Link> page.</p>
         </>
       )}
-    </main>
+    </PageShell>
   )
 }
 

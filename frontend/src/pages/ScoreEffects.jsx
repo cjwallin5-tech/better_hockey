@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
@@ -12,7 +13,7 @@ const SORTS = [
 ]
 
 /** How the score changes play, league-wide, and every team's xG share with the score effect taken out. */
-export default function ScoreEffects() {
+export default function ScoreEffects({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [season, setSeason] = useState(initial.get('season') ?? 'current')
   const [sort, setSort] = useState(initial.get('sort') ?? 'xg_pct_adj')
@@ -36,9 +37,9 @@ export default function ScoreEffects() {
   }, [data, sort])
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Score effects</h1>
+        {!embedded && <h1>Score effects</h1>}
         <p>
           Teams that trail shoot more and teams that lead sit back, so a team that spent the season ahead looks worse by raw shot
           share than it is. This page shows the effect and every team's expected-goal share with it taken out.
@@ -141,6 +142,6 @@ export default function ScoreEffects() {
           </p>
         </>
       )}
-    </main>
+    </PageShell>
   )
 }

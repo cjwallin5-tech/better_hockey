@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import BackLink from '../components/BackLink.jsx'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { call, refresh, setActive, useLeagues } from '../leagues.js'
 import { useLeague, useScoring } from '../fantasy.js'
@@ -93,7 +94,7 @@ export default function League() {
     }
   }
 
-  const back = <Link to="/leagues" className="back">← Leagues</Link>
+  const back = <BackLink to="/leagues" />
   if (!signedIn) return <main>{back}<p className="status"><Link to="/account">Log in</Link> to see your leagues.</p></main>
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>

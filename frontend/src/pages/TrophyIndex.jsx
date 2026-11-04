@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
+import TrophyImage from '../components/TrophyImage.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 
 /** Every NHL trophy by kind, each linking to its list of winners by season. */
-export default function TrophyIndex() {
+export default function TrophyIndex({ embedded = false }) {
   const [state, setState] = useState({ data: null, error: null })
   useEffect(() => {
     let ignore = false
@@ -18,13 +20,13 @@ export default function TrophyIndex() {
     return () => { ignore = true }
   }, [])
 
-  if (state.error) return <main><p className="status">{state.error}</p></main>
-  if (!state.data) return <main><PageSkeleton /></main>
+  if (state.error) return <PageShell embedded={embedded}><p className="status">{state.error}</p></PageShell>
+  if (!state.data) return <PageShell embedded={embedded}><PageSkeleton /></PageShell>
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Trophy winners</h1>
+        {!embedded && <h1>Trophy winners</h1>}
         <p>Every NHL trophy with its winners by season. Open one to see the full list. For the Art Ross and Rocket Richard, the winner's season totals are shown too.</p>
       </header>
       {state.data.groups.map((group) => (
@@ -43,7 +45,7 @@ export default function TrophyIndex() {
               <tbody>
                 {group.trophies.map((t) => (
                   <tr key={t.id}>
-                    <td className="left"><Link to={`/trophy/${t.id}`}>{t.name}</Link></td>
+                    <td className="left"><span className="trophy-name"><TrophyImage id={t.id} /><Link to={`/trophy/${t.id}`}>{t.name}</Link></span></td>
                     <td className="left">{t.description ?? '–'}</td>
                     <td className="left">
                       {t.latest ? (
@@ -61,6 +63,6 @@ export default function TrophyIndex() {
           </div>
         </section>
       ))}
-    </main>
+    </PageShell>
   )
 }

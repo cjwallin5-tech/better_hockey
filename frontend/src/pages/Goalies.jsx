@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import RankBy from '../components/RankBy.jsx'
+import Avatar from '../components/Avatar.jsx'
+import RankBadge from '../components/RankBadge.jsx'
 import { Link } from 'react-router-dom'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
@@ -14,6 +17,12 @@ const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
 const fmtSigned = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
 const fmtMinutes = (sec) => (sec == null ? '–' : `${Math.floor(sec / 60)}`)
+
+// The stats people rank goalies by most, per view.
+const QUICK_RANK = {
+  overview: [['wins', 'Wins'], ['save_pct', 'SV%'], ['gaa', 'GAA'], ['gsaa', 'GSAA'], ['shutouts', 'Shutouts'], ['quality_start_pct', 'QS%'], ['games_played', 'Games']],
+  splits: [['save_pct', 'SV%'], ['ev_save_pct', 'EV SV%'], ['pp_save_pct', 'PK SV%'], ['sh_save_pct', 'PP SV%']],
+}
 
 const VIEWS = [
   { id: 'overview', label: 'Overview', defaultSort: 'gsaa', note: 'GSAA = goals saved above average: the goals a league-average goalie would have allowed on the same shots, minus the goals actually allowed. Positive is better than average.' },
@@ -161,6 +170,11 @@ export default function Goalies() {
         ))}
       </div>
       <p className="view-note">{view.note}</p>
+      <RankBy
+        options={(QUICK_RANK[viewId] ?? []).filter(([key]) => columns.some((c) => c.key === key)).map(([key, label]) => ({ key, label }))}
+        sort={sort}
+        onPick={(key) => onSort(columns.find((c) => c.key === key))}
+      />
 
       <div className="controls">
         <input type="search" placeholder="Search goalie or team" value={search}
@@ -188,13 +202,13 @@ export default function Goalies() {
             </tr>
           </thead>
           <tbody>
-            {visible.map((g) => (
+            {visible.map((g, rankIndex) => (
               <tr key={g.player_id}>
                 {columns.map((c) => (
                   <td key={c.key}
-                    className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(g) ? 'low' : '')}>
+                    className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(g) ? 'low ' : '') + (sort.key === c.key ? 'sorted' : '')}>
                     {c.key === 'name' ? (
-                      <Link to={`/goalie/${g.player_id}`}>{g.name}</Link>
+                      <span className="player-cell"><RankBadge n={rankIndex + 1} /><Avatar playerId={g.player_id} team={g.team} name={g.name} /><Link to={`/goalie/${g.player_id}`}>{g.name}</Link></span>
                     ) : c.key === 'team' && g.team ? (
                       g.team.split(',').map((abbr, i) => (
                         <span key={abbr}>{i > 0 && ','}<Link to={`/team/${abbr}`}>{abbr}</Link></span>

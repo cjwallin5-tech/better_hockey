@@ -37,7 +37,7 @@ export default function GameBanner({ g, score, finished, goals, teams, hasShots 
         ))}
       </div>
       <p className="gb-meta">
-        {g.venue ? `${g.venue} · ` : ''}<Link to={`/head-to-head?a=${g.home}&b=${g.away}`}>Head-to-head history</Link>
+        {g.venue ? `${g.venue} · ` : ''}<Link to={`/compare?tab=head-to-head&a=${g.home}&b=${g.away}`}>Head-to-head history</Link>
       </p>
       {finished && goals.length + 0 >= 0 && (
         <table className="linescore">

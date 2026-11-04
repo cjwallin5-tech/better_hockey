@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import BackLink from '../components/BackLink.jsx'
 import { Link, useParams } from 'react-router-dom'
 import ShotMap from '../components/ShotMap.jsx'
 import { CorsiFlow, ShiftChart, WinProbability, XgFlow } from '../components/GameCharts.jsx'
@@ -37,7 +38,7 @@ export default function Game() {
   }, [id])
 
   const { data, error } = result.id === id ? result : { data: null, error: null }
-  const back = <Link to="/" className="back">← Home</Link>
+  const back = <BackLink to="/" />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>
 

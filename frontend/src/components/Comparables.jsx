@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import HhofMark from './HhofMark.jsx'
 import { Link } from 'react-router-dom'
 import { CompareChart } from './Charts.jsx'
 import { seasonLabel } from '../career.js'
@@ -80,7 +81,7 @@ export default function Comparables({ playerId }) {
               <tbody>
                 {matches.map((m) => (
                   <tr key={m.player_id}>
-                    <td className="left"><Link to={`/player/${m.player_id}`}>{m.name}</Link>{m.hall_of_fame ? ' · HHOF' : ''}</td>
+                    <td className="left"><Link to={`/player/${m.player_id}`}>{m.name}</Link>{m.hall_of_fame ? <> <HhofMark size={16} /></> : null}</td>
                     <td className="left">{m.position}</td>
                     <td className="accent">{m.similarity}</td>
                     <td>{m.seasons_compared}</td>

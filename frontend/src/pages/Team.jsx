@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import BackLink from '../components/BackLink.jsx'
 import { Link, useParams } from 'react-router-dom'
 import { TeamLines } from '../components/Lines.jsx'
 import PaceHistory from '../components/PaceHistory.jsx'
@@ -37,7 +38,7 @@ export default function Team() {
   }, [abbrev])
 
   const { data, error } = result.abbrev === abbrev ? result : { data: null, error: null }
-  const back = <Link to="/standings" className="back">← Standings</Link>
+  const back = <BackLink to="/standings" />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>
 

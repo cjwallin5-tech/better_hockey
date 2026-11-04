@@ -10,6 +10,8 @@ import { fmt1, fmtToi } from '../format.js'
 import MovingUp from '../components/MovingUp.jsx'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
+import Avatar from '../components/Avatar.jsx'
+import FeaturedGame from '../components/FeaturedGame.jsx'
 
 const longDay = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -45,10 +47,10 @@ export default function Home() {
   const bestTeam = data.teams[0]
   const goalie = data.goalies[0]
   const spot = [
-    lead && { label: 'Point pace leader', num: fmt1(lead.pace), who: `${lead.name} · ${lead.team}`, team: lead.team, to: `/player/${lead.player_id}` },
-    streak && { label: 'Longest point streak', num: streak.streak, unit: 'games', who: `${streak.name} · ${streak.team}`, team: streak.team, to: `/player/${streak.player_id}` },
+    lead && { label: 'Point pace leader', num: fmt1(lead.pace), who: `${lead.name} · ${lead.team}`, team: lead.team, to: `/player/${lead.player_id}`, player: lead },
+    streak && { label: 'Longest point streak', num: streak.streak, unit: 'games', who: `${streak.name} · ${streak.team}`, team: streak.team, to: `/player/${streak.player_id}`, player: streak },
     bestTeam && { label: 'Best team by pace', num: fmt1(bestTeam.points_pace), who: `${bestTeam.name}`, team: bestTeam.abbrev, to: `/team/${bestTeam.abbrev}` },
-    goalie && { label: 'Top goalie by GSAA', num: signed(goalie.gsaa), who: `${goalie.name} · ${goalie.team}`, team: goalie.team, to: `/goalie/${goalie.player_id}` },
+    goalie && { label: 'Top goalie by GSAA', num: signed(goalie.gsaa), who: `${goalie.name} · ${goalie.team}`, team: goalie.team, to: `/goalie/${goalie.player_id}`, player: goalie },
   ].filter(Boolean)
 
   return (
@@ -62,12 +64,17 @@ export default function Home() {
               <span className="spot-label">{t.label}</span>
               <strong className="spot-num">{t.num}{t.unit && <small>{t.unit}</small>}</strong>
               <span className="spot-who"><TeamMark abbrev={t.team} size={20} />{t.who}</span>
+              {t.player
+                ? <span className="spot-photo"><Avatar playerId={t.player.player_id} team={t.team} name={t.player.name} size={84} /></span>
+                : <span className="spot-photo logo-only" aria-hidden="true"><TeamMark abbrev={t.team} size={84} /></span>}
             </Link>
           ))}
         </div>
       </header>
 
       <LiveGames />
+
+      <FeaturedGame />
 
       {data.upcoming.length > 0 && (
         <section className="block" aria-label="Upcoming games">

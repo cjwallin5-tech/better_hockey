@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import BackLink from '../components/BackLink.jsx'
 import { Link, useParams } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { CountryFlag } from '../components/Flag.jsx'
@@ -19,7 +20,7 @@ export default function Prospect() {
     return () => { ignore = true }
   }, [id])
   const { data: p, error } = state.id === id ? state : { data: null, error: null }
-  const back = <Link to="/prospects" className="back">← Prospects</Link>
+  const back = <BackLink to="/prospects" />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!p) return <main>{back}<PageSkeleton /></main>
 

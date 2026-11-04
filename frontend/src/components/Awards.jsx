@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import HhofMark from './HhofMark.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { fetchBio } from '../playerBio.js'
 import { trophyIds, trophyKey } from '../trophies.js'
+import TrophyImage from './TrophyImage.jsx'
 
 /** Every award a player has won, with how many times and in which seasons. Nothing when they have none. */
 export default function Awards({ playerId }) {
@@ -27,11 +29,11 @@ export default function Awards({ playerId }) {
           </thead>
           <tbody>
             {bio.in_hhof ? (
-              <tr><td className="left">Hockey Hall of Fame</td><td>–</td><td className="left muted">Inducted</td></tr>
+              <tr><td className="left"><span className="trophy-name"><HhofMark size={30} />Hockey Hall of Fame</span></td><td>–</td><td className="left muted">Inducted</td></tr>
             ) : null}
             {awards.map((a) => (
               <tr key={a.name}>
-                <td className="left">{ids[trophyKey(a.name)] ? <Link to={`/trophy/${ids[trophyKey(a.name)]}`}>{a.name}</Link> : a.name}</td>
+                <td className="left"><span className="trophy-name"><TrophyImage name={a.name} />{ids[trophyKey(a.name)] ? <Link to={`/trophy/${ids[trophyKey(a.name)]}`}>{a.name}</Link> : a.name}</span></td>
                 <td>{a.seasons.length}</td>
                 <td className="left">{[...a.seasons].sort().map(seasonLabel).join(', ')}</td>
               </tr>

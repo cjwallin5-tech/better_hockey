@@ -42,7 +42,8 @@ export default function Career({ playerId }) {
 
   const rows = seasons
     .filter((s) => s.gameTypeId === (kind === 'regularSeason' ? 2 : 3) && (allLeagues || s.leagueAbbrev === 'NHL'))
-    .sort((a, b) => b.season - a.season)
+    // Newest first all the way down: within a season (mid-year trade) the most recent team comes first too.
+    .sort((a, b) => b.season - a.season || (b.sequence ?? 0) - (a.sequence ?? 0))
 
   const hasNonNhl = seasons.some((s) => s.leagueAbbrev !== 'NHL')
 

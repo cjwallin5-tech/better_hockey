@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
+import TrophyImage from '../components/TrophyImage.jsx'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
 import AwardOdds from '../components/AwardOdds.jsx'
@@ -7,7 +9,7 @@ import PageSkeleton from '../components/Skeleton.jsx'
 const STAT = { points: 'Points', goals: 'Goals', gsaa: 'GSAA' }
 const fmtValue = (stat, v) => (stat === 'gsaa' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : v)
 
-export default function TrophyRaces() {
+export default function TrophyRaces({ embedded = false }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   useEffect(() => {
@@ -17,13 +19,13 @@ export default function TrophyRaces() {
       .catch((e) => setError(e.message))
   }, [])
 
-  if (error) return <main><p className="status">{error}</p></main>
-  if (!data) return <main><PageSkeleton /></main>
+  if (error) return <PageShell embedded={embedded}><p className="status">{error}</p></PageShell>
+  if (!data) return <PageShell embedded={embedded}><PageSkeleton /></PageShell>
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Trophy races</h1>
+        {!embedded && <h1>Trophy races</h1>}
         <p>
           Who is in the running for each stat-driven award: the top {data.size} (ties included) in the stat that
           decides it. Early in the season this changes fast. Win chances for the voted Hart, Norris, Calder, Selke and Vezina are further down.
@@ -31,7 +33,7 @@ export default function TrophyRaces() {
       </header>
       {data.races.map((race) => (
         <section key={race.trophy}>
-          <h2>{race.trophy}</h2>
+          <h2 className="trophy-name"><TrophyImage name={race.trophy} />{race.trophy}</h2>
           <p className="sub">{race.basis[0].toUpperCase() + race.basis.slice(1)}.</p>
           {race.contenders.length === 0 ? <p className="status">No contenders yet.</p> : (
             <div className="table-wrap">
@@ -54,6 +56,6 @@ export default function TrophyRaces() {
       ))}
       <h2>Win chances for the voted awards</h2>
       <AwardOdds />
-    </main>
+    </PageShell>
   )
 }

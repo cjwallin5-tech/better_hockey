@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import PageSkeleton from '../components/Skeleton.jsx'
@@ -28,7 +29,7 @@ function mismatchText(u) {
 }
 
 /** Back-to-backs: how much the second night costs a team, which games coming up are lopsided on rest, and who has the most left. */
-export default function Rest() {
+export default function Rest({ embedded = false }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [sort, setSort] = useState('left')
@@ -51,15 +52,15 @@ export default function Rest() {
     return [...data.teams].sort((a, b) => key(a) - key(b) || a.name.localeCompare(b.name))
   }, [data, sort])
 
-  if (error) return <main><p className="status">Couldn't load this: {error}</p></main>
-  if (!data) return <main><PageSkeleton /></main>
+  if (error) return <PageShell embedded={embedded}><p className="status">Couldn't load this: {error}</p></PageShell>
+  if (!data) return <PageShell embedded={embedded}><PageSkeleton /></PageShell>
   const { tired, edge, both } = data.effects
   const lopsided = data.upcoming.filter((u) => u.mismatch)
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Rest and back-to-backs</h1>
+        {!embedded && <h1>Rest and back-to-backs</h1>}
         <p>
           A team on the second night of a back-to-back against a rested opponent does worse. This measures how much, using every
           game we store (this season and the previous four), and lists the coming games where one side has the rest edge.
@@ -138,6 +139,6 @@ export default function Rest() {
         </table>
       </div>
       <p className="sub">One team's record over its tired games is a small sample; the league figures above are the dependable part.</p>
-    </main>
+    </PageShell>
   )
 }

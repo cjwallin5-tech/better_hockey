@@ -4,6 +4,8 @@ import Schedule from '../components/Schedule.jsx'
 import SpecialTeams from '../components/SpecialTeams.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useFavoriteTeam } from '../favorite.js'
+import { useAuth } from '../auth.js'
+import SignInPrompt from '../components/SignInPrompt.jsx'
 import { fmt1 } from '../format.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 import TeamMark from '../components/TeamMark.jsx'
@@ -77,7 +79,12 @@ function TeamGrid({ onPick, onCancel, keep }) {
 }
 
 /** Your team, game by game: results next to what the shots said, a rolling trend, key players' form, and what's next. */
-export default function MyTeam() {
+/** Where the chosen team is kept: the account, so it follows you to any device you log in on. */
+function SaveNote() {
+  return <p className="sub save-note">Saved to your account, so your team follows you to any device you log in on.</p>
+}
+
+function MyTeamPage() {
   const { favorite, setFavorite } = useFavoriteTeam()
   const [changing, setChanging] = useState(false) // choosing another team; the saved one stays until a new one is picked
   const [state, setState] = useState({ abbrev: null, data: null, error: null })
@@ -100,6 +107,7 @@ export default function MyTeam() {
     return (
       <main>
         <header><h1>My team</h1><p>Pick the team you follow and this page tracks its season game by game, with what the shots said next to each result.</p></header>
+        <SaveNote />
         <TeamGrid onPick={(abbrev) => { setFavorite(abbrev); setChanging(false) }} onCancel={favorite ? () => setChanging(false) : null} keep={favorite} />
       </main>
     )
@@ -120,6 +128,7 @@ export default function MyTeam() {
         </div>
       </header>
       <p><button type="button" className="link-button" onClick={() => setChanging(true)}>Change team</button></p>
+      <SaveNote />
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && data.games.length === 0 && <p className="status">No finished games yet.</p>}
@@ -207,4 +216,19 @@ export default function MyTeam() {
       )}
     </main>
   )
+}
+
+/** My team is an account feature: signed out, this page asks you to log in. */
+export default function MyTeam() {
+  const { user, ready } = useAuth()
+  if (!ready) return <main><Skeleton /></main>
+  if (!user) {
+    return (
+      <main>
+        <header><h1>My team</h1><p>Follow your team game by game, with what the shots said next to each result.</p></header>
+        <SignInPrompt lead="Pick the team you follow and it is saved to your account, so it is the same on every device. The home page then leads with your team's game on the nights it plays." />
+      </main>
+    )
+  }
+  return <MyTeamPage />
 }

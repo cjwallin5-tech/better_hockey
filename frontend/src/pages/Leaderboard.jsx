@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import RankBy from '../components/RankBy.jsx'
+import PkTag from '../components/PkTag.jsx'
+import Avatar from '../components/Avatar.jsx'
+import RankBadge from '../components/RankBadge.jsx'
 import { Link } from 'react-router-dom'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
@@ -29,6 +33,14 @@ const VIEWS = [
   },
 ]
 
+// The stats people rank by most, per view (only those the current season's columns have are offered).
+const QUICK_RANK = {
+  scoring: [['points', 'Points'], ['goals', 'Goals'], ['assists', 'Assists'], ['point_pace', 'Pace'], ['plus_minus', '+/-'], ['shots', 'Shots'], ['toi_per_game_sec', 'Ice time']],
+  defense: [['hits', 'Hits'], ['blocked_shots', 'Blocks'], ['takeaways', 'Takeaways'], ['sh_toi_per_game', 'PK time'], ['hits_per60', 'Hits/60'], ['blocks_per60', 'Blocks/60'], ['takeaways_per60', 'Takeaways/60']],
+  possession: [['sat_pct', 'CF%'], ['xgf_pct', 'xGF%'], ['sat_rel', 'CF% Rel'], ['ixg', 'ixG'], ['goals_minus_ixg', 'G − ixG'], ['pdo_5v5', 'PDO']],
+  special: [['pp_toi_per_game', 'PP time'], ['sh_toi_per_game', 'PK time'], ['pp_points', 'PP points'], ['toi_per_game_sec', 'Total ice time'], ['fo_win_pct', 'Faceoff %']],
+}
+
 const fmtPct = (v) => (v == null ? '–' : `${(v * 100).toFixed(1)}`)
 const fmtSigned1 = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
 const fmtSignedPct = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}`)
@@ -40,6 +52,9 @@ const fmtToi = (sec) =>
 const CURRENT_ONLY = new Set([
   'point_pace', 'recent_points', 'recent_pace', 'ixg', 'goals_minus_ixg', 'xgf_pct', 'recent_cf_pct', 'recent_ff_pct', 'cf_pct_trend',
 ])
+
+// Columns dropped on phones so the ones that matter (GP, G, A, P ...) fit without sideways scrolling.
+const PHONE_HIDDEN = new Set(['position', 'age'])
 
 export default function Leaderboard() {
   const initial = new URLSearchParams(window.location.search) // the URL carries the saved view
@@ -137,6 +152,8 @@ export default function Leaderboard() {
         { key: 'blocks_per60', label: 'BLK/60', fmt: fmt1 },
         { key: 'takeaways_per60', label: 'TK/60', fmt: fmt1 },
         { key: 'giveaways_per60', label: 'GV/60', fmt: fmt1 },
+        { key: 'sh_toi_per_game', label: 'SH TOI', fmt: fmtToi },
+        { key: 'sh_toi_pct', label: 'SH TOI%', fmt: fmtPct },
         recent('recent_hits_per60', 'Hits/60'),
         recent('recent_blocks_per60', 'BLK/60'),
         recent('recent_takeaways_per60', 'TK/60'),
@@ -271,6 +288,12 @@ export default function Leaderboard() {
       </div>
       {view.note && <p className="view-note">{view.note}</p>}
 
+      <RankBy
+        options={(QUICK_RANK[viewId] ?? []).filter(([key]) => columns.some((c) => c.key === key)).map(([key, label]) => ({ key, label }))}
+        sort={sort}
+        onPick={(key) => onSort(columns.find((c) => c.key === key))}
+      />
+
       <div className="controls">
         <input
           type="search"
@@ -333,7 +356,7 @@ export default function Leaderboard() {
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className={c.text ? 'left' : ''}
+                  className={(c.text ? 'left ' : '') + (PHONE_HIDDEN.has(c.key) ? 'hide-sm' : '')}
                   title={describe(c.label)}
                   onClick={() => onSort(c)}
                   aria-sort={
@@ -347,24 +370,27 @@ export default function Leaderboard() {
             </tr>
           </thead>
           <tbody>
-            {visible.map((r) => (
+            {visible.map((r, rankIndex) => (
               <tr key={r.player_id}>
                 {columns.map((c) => (
                   <td
                     key={c.key}
-                    className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(r) ? 'low' : '')}
+                    className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(r) ? 'low ' : '') + (sort.key === c.key ? 'sorted ' : '') + (PHONE_HIDDEN.has(c.key) ? 'hide-sm' : '')}
                     title={c.lowIf?.(r) ? 'Small sample: treat this pace with caution' : undefined}
                   >
                     {c.key === 'name' ? (
-                      <>
+                      <span className="player-cell">
+                        <RankBadge n={rankIndex + 1} />
+                        <Avatar playerId={r.player_id} team={r.team} name={r.name} />
                         <Link to={`/player/${r.player_id}`}>{r.name}</Link>
+                        {viewId === 'defense' && <PkTag p={r} />}
                         {r.traded && <span className="badge" title="Played for more than one team this season">↔ traded</span>}
                         {r.games_out >= 2 && (
                           <span className="badge warn" title={`Not in the lineup for the team's last ${r.games_out} games (the NHL feed doesn't say why)`}>
                             out {r.games_out}
                           </span>
                         )}
-                      </>
+                      </span>
                     ) : c.key === 'team' && r.team ? (
                       r.team.split(',').map((abbr, i) => (
                         <span key={abbr}>

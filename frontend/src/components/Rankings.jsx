@@ -96,11 +96,11 @@ export function RankCards({ ranks, scope, noun }) {
 const ON_SEASON_TILES = new Set(['games_played', 'goals', 'assists', 'points', 'plus_minus', 'wins', 'shutouts', 'save_pct', 'gaa'])
 const ON_CAREER_TILES = new Set(['games_played', 'goals', 'assists', 'points', 'points_per_game', 'plus_minus', 'pim', 'pp_goals', 'game_winning_goals', 'shots', 'wins', 'shutouts', 'save_pct', 'gaa'])
 
-/** The rankings that have no tile: stats not shown elsewhere on the page, this season next to all-time. */
-export default function Rankings({ playerId, kind }) {
+/** The rankings that have no tile: stats not shown elsewhere on the page, this season next to all-time (careerOnly: all-time alone, for a player with no current season). */
+export default function Rankings({ playerId, kind, careerOnly = false }) {
   const d = useRankings(playerId)
   if (!d) return null
-  const season = Object.fromEntries(Object.entries(d.season ?? {}).filter(([k]) => !ON_SEASON_TILES.has(k)))
+  const season = careerOnly ? {} : Object.fromEntries(Object.entries(d.season ?? {}).filter(([k]) => !ON_SEASON_TILES.has(k)))
   const career = Object.fromEntries(Object.entries(d.alltime?.regular ?? {}).filter(([k]) => !ON_CAREER_TILES.has(k)))
   const stats = [...new Set([...Object.keys(season), ...Object.keys(career)])]
   if (stats.length === 0) return null
@@ -113,17 +113,17 @@ export default function Rankings({ playerId, kind }) {
     <section>
       <h2>More rankings</h2>
       <p className="sub">
-        Among every {kind} with a game played this season, and among every {kind} in NHL history. Rate stats only count
-        players with enough games. Ranks for the other stats are shown on the tiles above.
+        {careerOnly ? <>Among every {kind} in NHL history.</> : <>Among every {kind} with a game played this season, and among every {kind} in NHL history.</>}{' '}
+        Rate stats only count players with enough games. Ranks for the other stats are shown on the tiles above.
       </p>
       <div className="table-wrap">
         <table className="rank-table">
-          <thead><tr><th className="left">Stat</th><th className="left">This season</th><th className="left">All-time</th></tr></thead>
+          <thead><tr><th className="left">Stat</th>{!careerOnly && <th className="left">This season</th>}<th className="left">All-time</th></tr></thead>
           <tbody>
             {stats.map((stat) => (
               <tr key={stat}>
                 <td className="left">{(LABELS[stat] ?? [stat])[0]}</td>
-                {cell(stat, season[stat], 'season')}
+                {!careerOnly && cell(stat, season[stat], 'season')}
                 {cell(stat, career[stat], 'alltime')}
               </tr>
             ))}

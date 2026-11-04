@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import BackLink from '../components/BackLink.jsx'
+import { useParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
@@ -40,7 +41,7 @@ export default function Goalie() {
   }, [id])
 
   const { data, error } = result.id === id ? result : { data: null, error: null }
-  const back = <Link to="/goalies" className="back">← All goalies</Link>
+  const back = <BackLink to="/goalies" />
   if (error === 'Goalie not found') return <CareerPlayer id={Number(id)} goalie />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>

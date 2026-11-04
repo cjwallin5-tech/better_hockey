@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import PenaltyKill from '../components/PenaltyKill.jsx'
+import BackLink from '../components/BackLink.jsx'
+import { useParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
@@ -81,7 +83,7 @@ export default function Player() {
   const current = result.id === id ? result : { data: null, error: null }
   const { data, error } = current
 
-  const back = <Link to="/skaters" className="back">← All skaters</Link>
+  const back = <BackLink to="/skaters" />
   // No current-season data (retired or inactive): show the career page instead of an error.
   if (error === 'Player not found') return <CareerPlayer id={Number(id)} goalie={false} />
   if (error) return <main>{back}<p className="status">{error}</p></main>
@@ -115,7 +117,7 @@ export default function Player() {
               <>
                 <Context playerId={p.player_id} />
                 <div className="player-overview">
-                  <Explain playerId={p.player_id} />
+                  <Explain playerId={p.player_id} name={p.name} />
                   <aside>
                     <Projection playerId={p.player_id} />
                     <Trophies playerId={p.player_id} />
@@ -200,6 +202,7 @@ export default function Player() {
                           <Tile label="SH points" value={p.sh_points} />
                           <Tile label="Faceoff %" value={p.fo_win_pct == null ? null : `${fmtPct(p.fo_win_pct)}%`} />
                         </section>
+                        <PenaltyKill p={p} />
                       </>
                     ),
                   },

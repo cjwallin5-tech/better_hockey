@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import { useFantasy } from '../fantasy.js'
 import { describe } from '../glossary.js'
@@ -11,7 +12,7 @@ const NEXT = 4 // weeks in the "next few weeks" total
 const level = (n) => (n <= 2 ? 'low' : n >= 4 ? 'high' : 'mid')
 
 /** Games per team for every week of the season: light weeks, heavy weeks and back-to-backs at a glance. */
-export default function ScheduleGrid() {
+export default function ScheduleGrid({ embedded = false }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [players, setPlayers] = useState(null)
@@ -48,16 +49,16 @@ export default function ScheduleGrid() {
       .sort((a, b) => (sort === 'next' ? b.next - a.next || a.name.localeCompare(b.name) : a.name.localeCompare(b.name)))
   }, [data, group, sort, mine, rosterTeams])
 
-  if (error) return <main><p className="status">Couldn't load the schedule: {error}</p></main>
-  if (!data) return <main><PageSkeleton /></main>
+  if (error) return <PageShell embedded={embedded}><p className="status">Couldn't load the schedule: {error}</p></PageShell>
+  if (!data) return <PageShell embedded={embedded}><PageSkeleton /></PageShell>
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Schedule grid</h1>
+        {!embedded && <h1>Schedule grid</h1>}
         <p>
           Games each team plays per week (Monday to Sunday). Light weeks (2 or fewer) are shaded amber and heavy weeks (4 or more)
-          green. A dot marks a game on back-to-back nights. Hover a cell for the dates and opponents. <Link to="/rest">How much a back-to-back costs a team →</Link>
+          green. A dot marks a game on back-to-back nights. Hover a cell for the dates and opponents. <Link to="/schedule?tab=rest">How much a back-to-back costs a team →</Link>
         </p>
       </header>
 
@@ -113,6 +114,6 @@ export default function ScheduleGrid() {
         </table>
       </div>
       <p className="sub">"This wk" counts the whole week, including games already played. A week with no games shows 0.</p>
-    </main>
+    </PageShell>
   )
 }

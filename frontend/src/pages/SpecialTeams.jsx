@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { mmss } from '../components/Roles.jsx'
@@ -25,7 +26,7 @@ const SORTS = [...PP, ...PK].map(([label, key]) => [key, label])
 const LOW_IS_GOOD = new Set(['pk_xga60', 'pk_ga60', 'pk_toi_pg'])
 
 /** Every team's power play and penalty kill, ranked. Click a team for its units. */
-export default function SpecialTeams() {
+export default function SpecialTeams({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [last, setLast] = useState(initial.get('last') ?? '0')
   const [sort, setSort] = useState(initial.get('sort') ?? 'pp_xgf60')
@@ -50,9 +51,9 @@ export default function SpecialTeams() {
   }, [data, sort])
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Special teams</h1>
+        {!embedded && <h1>Special teams</h1>}
         <p>
           Every team's power play and penalty kill, with expected goals per 60 minutes (the quality of the chances made and allowed)
           next to the NHL's PP% and PK%. A team's units are on its page.
@@ -101,6 +102,6 @@ export default function SpecialTeams() {
         penalty kill allowing far below its xG, is running hot and tends to come back to its chances. PP% and PK% are for the whole
         season whatever the window. Early in the year a handful of power plays decide these rankings.
       </p>
-    </main>
+    </PageShell>
   )
 }

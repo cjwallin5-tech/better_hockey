@@ -114,10 +114,24 @@ export function drawRadarCard({ title, subtitle, labels, series, footer }) {
     ctx.fillText(fit(ctx, subtitle, W - PAD * 2), PAD, 112)
   }
 
+  // Legend: the full names in each series' colour. The percentile columns on the right are too narrow for names, so they get a dot each.
+  ctx.font = `600 24px ${FONT}`
+  const slot = (W - PAD * 2) / series.length
+  series.forEach((s, k) => {
+    const x = PAD + slot * k
+    ctx.fillStyle = SERIES_COLORS[k % SERIES_COLORS.length]
+    ctx.beginPath()
+    ctx.arc(x + 9, 156, 9, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = COLORS.text
+    ctx.textAlign = 'left'
+    ctx.fillText(fit(ctx, s.name, slot - 44), x + 28, 156)
+  })
+
   const n = labels.length
-  const cx = 360
+  const cx = 410 // far enough in from the left edge for the longest right-aligned label ("Shot blocking"), and short of the table at x=760
   const cy = 430
-  const r = 220
+  const r = 190
   const at = (i, pct, extra = 0) => {
     const a = (Math.PI * 2 * i) / n - Math.PI / 2
     const d = (r * Math.max(0, Math.min(100, pct ?? 0))) / 100 + extra
@@ -158,7 +172,8 @@ export function drawRadarCard({ title, subtitle, labels, series, footer }) {
 
   // Percentile list on the right: one column per series.
   const left = 760
-  const colW = Math.min(130, (W - PAD - left - 230) / Math.max(1, series.length))
+  const labelCol = 190 // room for the longest axis label ("Shot blocking"); the rest goes to the value columns
+  const colW = Math.min(130, (W - PAD - left - labelCol) / Math.max(1, series.length))
   ctx.textAlign = 'left'
   ctx.fillStyle = COLORS.muted
   ctx.font = `600 22px ${FONT}`
@@ -166,7 +181,9 @@ export function drawRadarCard({ title, subtitle, labels, series, footer }) {
   ctx.textAlign = 'right'
   series.forEach((s, k) => {
     ctx.fillStyle = SERIES_COLORS[k % SERIES_COLORS.length]
-    ctx.fillText(fit(ctx, s.name.split(' ').slice(-1)[0], colW - 8), left + 230 + colW * (k + 1) - 8, 190)
+    ctx.beginPath()
+    ctx.arc(left + labelCol + colW * (k + 1) - 8 - 20, 190, 9, 0, Math.PI * 2)
+    ctx.fill()
   })
   labels.forEach((label, i) => {
     const y = 245 + i * 50
@@ -178,7 +195,7 @@ export function drawRadarCard({ title, subtitle, labels, series, footer }) {
     ctx.font = `700 28px ${FONT}`
     series.forEach((s, k) => {
       ctx.fillStyle = SERIES_COLORS[k % SERIES_COLORS.length]
-      ctx.fillText(s.values[i] == null ? '–' : String(s.values[i]), left + 230 + colW * (k + 1) - 8, y)
+      ctx.fillText(s.values[i] == null ? '–' : String(s.values[i]), left + labelCol + colW * (k + 1) - 8, y)
     })
   })
   if (footer) {

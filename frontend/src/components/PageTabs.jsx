@@ -9,8 +9,9 @@ const HOLD_MS = 1500
  * tabs: [{ id, label, content, group? }]; the first tab is the default. `param` is the query key (a page with tabs inside a tab
  * gives the inner ones their own), and `pills` draws the tabs as small pills for an inner level. When tabs have a group, the groups show as the
  * main row and the open group's tabs as a second row, so a long list of tabs does not wrap into a wall of buttons.
+ * `resetOnSwitch` clears every other query parameter when the tab changes (for pages whose tabs are whole pages with their own filters).
  */
-export default function PageTabs({ tabs, param = 'tab', pills = false }) {
+export default function PageTabs({ tabs, param = 'tab', pills = false, resetOnSwitch = false }) {
   const [params, setParams] = useSearchParams()
   // Switching tabs unmounts the old content before the new content has loaded, which can shrink the page below the scroll
   // position and throw you to the top. Hold the panel at its old height while the new tab fills in.
@@ -24,7 +25,8 @@ export default function PageTabs({ tabs, param = 'tab', pills = false }) {
   const active = tabs.find((t) => t.id === params.get(param)) ?? tabs[0]
   const select = (id) => {
     setHold(panel.current?.offsetHeight ?? null)
-    const next = new URLSearchParams(params)
+    // resetOnSwitch: each tab keeps its own filters in the URL, so leaving a tab drops them (they would mean something else on another tab).
+    const next = resetOnSwitch ? new URLSearchParams() : new URLSearchParams(params)
     if (id === tabs[0].id) next.delete(param)
     else next.set(param, id)
     setParams(next, { replace: true })

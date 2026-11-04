@@ -4,8 +4,9 @@ import ShareButtons from './ShareButtons.jsx'
 
 const SIZE = 380
 const C = SIZE / 2
-const R = 120 // radius of the 100th-percentile ring; labels sit outside it
+const R = 134 // radius of the 100th-percentile ring; labels sit outside it
 const RINGS = [25, 50, 75, 100]
+const PAD = 70 // extra room left and right of the chart, so the longest axis labels ("Shot blocking", "Possession") are not cut off
 
 function useScouting(id) {
   const [result, setResult] = useState({ id: null, data: null })
@@ -28,7 +29,7 @@ function Radar({ series }) {
     .map((s) => `${s.name}: ${s.axes.map((a) => `${a.label} ${a.percentile == null ? 'no data' : ordinal(a.percentile)}`).join(', ')}`)
     .join('. ')
   return (
-    <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width="100%" style={{ maxWidth: SIZE }} role="img" aria-label={`Percentile radar. ${summary}`}>
+    <svg viewBox={`${-PAD} 0 ${SIZE + 2 * PAD} ${SIZE}`} width="100%" style={{ maxWidth: SIZE + 2 * PAD }} overflow="visible" role="img" aria-label={`Percentile radar. ${summary}`}>
       {RINGS.map((p) => (
         <polygon key={p} points={radarPolygon(Array(n).fill(p), C, C, R)} className="grid" fill="none" />
       ))}

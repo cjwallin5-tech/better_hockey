@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import BackLink from '../components/BackLink.jsx'
+import TrophyImage from '../components/TrophyImage.jsx'
 import { Link, useParams } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
@@ -27,7 +29,7 @@ export default function Trophy() {
   }, [id])
 
   const { data, error } = result.id === id ? result : { data: null, error: null }
-  const back = <Link to="/trophy" className="back">← All trophies</Link>
+  const back = <BackLink to="/awards?tab=winners" />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>
 
@@ -36,9 +38,12 @@ export default function Trophy() {
   return (
     <main>
       {back}
-      <header>
-        <h1>{data.name}</h1>
-        {data.description && <p>{data.description}. {data.winners.length} winners since {seasonLabel(data.winners[data.winners.length - 1]?.season_id)}.</p>}
+      <header className="trophy-head">
+        <TrophyImage id={data.id} size="lg" />
+        <div>
+          <h1>{data.name}</h1>
+          {data.description && <p>{data.description}. {data.winners.length} winners since {seasonLabel(data.winners[data.winners.length - 1]?.season_id)}.</p>}
+        </div>
       </header>
       <div className="table-wrap">
         <table className="trophy-table">

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import LuckGuide from '../components/LuckGuide.jsx'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
@@ -45,6 +47,37 @@ function Persistence({ goalie }) {
   )
 }
 
+// One real row from the table, read out loud, so the numbers have a meaning before anyone studies the columns.
+function SkaterExample({ row, dir, rank, vs }) {
+  const goals = rank === 'goals'
+  const adj = vs === 'own'
+  const actual = goals ? row.goals : row.points
+  const gap = goals ? (adj ? row.diff_adj : row.diff) : (adj ? row.points_diff_adj : row.points_diff)
+  if (actual == null || gap == null) return null
+  const expected = actual - gap // the table's own xG / xPts, so the sentence always matches the row
+  const unit = goals ? 'goals' : 'points'
+  return (
+    <p className="luck-example">
+      <strong>For example:</strong> <Link to={`/player/${row.player_id}`}>{row.name}</Link> has {actual} {unit}, and their shots{goals ? '' : ' and on-ice results'}{' '}
+      point to about {n1(expected)}. That is {signed(gap)} {unit} {dir === 'desc' ? 'above' : 'below'} expectation, so {dir === 'desc'
+        ? 'expect them to score more slowly from here.'
+        : 'expect them to score faster from here.'}
+    </p>
+  )
+}
+
+function GoalieExample({ row, dir }) {
+  if (row.xga == null || row.gsax == null) return null
+  return (
+    <p className="luck-example">
+      <strong>For example:</strong> <Link to={`/goalie/${row.player_id}`}>{row.name}</Link> has allowed {row.goals} goals on shots worth about {n1(row.xga)}.
+      That is {signed(row.gsax)} goals saved {dir === 'desc' ? 'above' : 'below'} expectation, so {dir === 'desc'
+        ? 'expect their save numbers to come back toward average.'
+        : 'expect their save numbers to improve.'}
+    </p>
+  )
+}
+
 function SkaterBoard({ dir, rank, setRank, vs, setVs, position, setPosition, min, setMin }) {
   const { data, error } = useApi(`/api/luck/skaters?dir=${dir}&rank=${rank}&vs=${vs}&position=${position}&min_attempts=${min || 0}&limit=50`)
   // vs=own measures each player against their own past seasons' finishing; the plain fields are against an average shooter
@@ -77,17 +110,11 @@ function SkaterBoard({ dir, rank, setRank, vs, setVs, position, setPosition, min
         {dir === 'desc'
           ? 'Scoring far more than their shots predict. Some of this will cool off.'
           : 'Scoring far less than their shots predict. Some of this should bounce back.'}
-        {' '}"xG" is what an average shooter would score from the same shots (our own model). "Z" is the gap measured in
-        standard deviations of chance: past {data?.z_flag ?? 1.5} is flagged, past 2 is a real outlier for the sample so far.
+        {' '}{vs === 'own'
+          ? 'Each player is measured against their own past seasons, so good finishers are not flagged just for being good.'
+          : 'Each player is measured against an average shooter, so elite finishers can show as hot even when it is just skill.'}
       </p>
-      <p className="sub">
-        Points luck = the goal gap plus an estimate of assists gained or lost: when teammates score more (or less) than their
-        shots predict while this player is on the ice, they pick up assists at their usual rate. We don't track who assisted
-        each shot, so the assist part is a rough estimate and leaves out power-play assists. "xPts" is points minus that luck.
-        {vs === 'own'
-          ? ' Compared with their own history: a player who has beaten xG for years is measured against that higher bar (past seasons come from the last four years of stored shots), so elite finishers stop looking lucky just for being good.'
-          : ' Compared with an average shooter: elite finishers will show as hot even when it is just skill.'}
-      </p>
+      {data && data.rows.length > 0 && <SkaterExample row={data.rows[0]} dir={dir} rank={rank} vs={vs} />}
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No skaters meet that minimum yet.</p>}
@@ -145,9 +172,8 @@ function GoalieBoard({ dir, min, setMin }) {
         {dir === 'desc'
           ? 'Stopping more than the shots they faced should allow. Some of this will cool off.'
           : 'Stopping fewer than the shots they faced should allow. Some of this should bounce back.'}
-        {' '}"xGA" is the goals an average goalie would allow on the same shots. Goals saved above expected (GSAx) is xGA minus
-        goals allowed.
       </p>
+      {data && data.rows.length > 0 && <GoalieExample row={data.rows[0]} dir={dir} />}
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No goalies meet that minimum yet.</p>}
@@ -181,7 +207,7 @@ function GoalieBoard({ dir, min, setMin }) {
   )
 }
 
-export default function Luck() {
+export default function Luck({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [kind, setKind] = useState(initial.get('kind') === 'goalie' ? 'goalie' : 'skater')
   const [dir, setDir] = useState(initial.get('dir') === 'asc' ? 'asc' : 'desc')
@@ -198,16 +224,15 @@ export default function Luck() {
   useUrlSync([['kind', kind, 'skater'], ['dir', dir, 'desc'], ['rank', rank, 'points'], ['vs', vs, 'own'], ['pos', position, ''], ['min', attempts, '20'], ['faced', faced, '50']])
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Luck &amp; regression</h1>
+        {!embedded && <h1>Luck &amp; regression</h1>}
         <p>
-          Who is scoring or saving more, or less, than their shots say they should{season ? ` in ${seasonLabel(season)}` : ''}. Hot
-          streaks built on lucky finishing tend to fade and cold ones tend to recover, so this is a way to spot pickups and
-          sell-highs early. It uses our own expected-goals model, which doesn't know who is shooting: elite finishers beat it
-          every year, and early in a season a few games can swing everything, so treat these as hints, not verdicts.
+          Who is scoring or saving more, or less, than their shots say they should{season ? ` in ${seasonLabel(season)}` : ''}, and what
+          that means for the rest of the season. It is a way to spot sell-highs and pickups early.
         </p>
       </header>
+      <LuckGuide goalie={kind === 'goalie'} />
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={kind === 'skater'} className={kind === 'skater' ? 'on' : ''} onClick={() => setKind('skater')}>Skaters</button>
         <button role="tab" aria-selected={kind === 'goalie'} className={kind === 'goalie' ? 'on' : ''} onClick={() => setKind('goalie')}>Goalies</button>
@@ -220,6 +245,6 @@ export default function Luck() {
       {kind === 'skater'
         ? <SkaterBoard dir={dir} rank={rank} setRank={setRank} vs={vs} setVs={setVs} position={position} setPosition={setPosition} min={attempts} setMin={setAttempts} />
         : <GoalieBoard dir={dir} min={faced} setMin={setFaced} />}
-    </main>
+    </PageShell>
   )
 }

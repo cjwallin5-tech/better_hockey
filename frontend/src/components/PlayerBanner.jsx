@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import PkTag from './PkTag.jsx'
 import FantasyStar from './FantasyStar.jsx'
 import Flag from './Flag.jsx'
 import Headshot from './Headshot.jsx'
@@ -9,20 +10,25 @@ import { teamColor } from '../teamColors.js'
 
 /**
  * The top of a skater's or goalie's page: who they are, the actions, and the season line as a strip of numbers. The current team's colour
- * edges the card and its logo sits faintly behind. stats: [{ label, value, rank?, big? }], the first few shown larger.
+ * edges the card and its logo sits faintly behind (a retired player gets the NHL shield and gray instead). stats: [{ label, value, rank?, big? }], the first few shown larger.
  */
+const RETIRED_GRAY = '#8a93a0'
+
 export default function PlayerBanner({ p, stats, kind = 'skater', retired = false, meta = null }) {
   const teams = (p.team ?? '').split(',').filter(Boolean)
   const current = teams[teams.length - 1]
   const goalie = kind === 'goalie'
+  // A retired player isn't on a team any more, so the card shows the NHL shield in gray instead of one team's logo and colour.
+  const mark = retired ? 'NHL' : current
+  const color = retired ? RETIRED_GRAY : teamColor(current)
   return (
-    <header className="player-banner" style={{ '--team': teamColor(current) }}>
-      {current && <span className="banner-mark" aria-hidden="true"><TeamMark abbrev={current} size={340} /></span>}
+    <header className="player-banner" style={{ '--team': color }}>
+      {mark && <span className="banner-mark" aria-hidden="true"><TeamMark abbrev={mark} size={340} /></span>}
       <div className="banner-id">
         <Headshot playerId={p.player_id} name={p.name} />
         <div className="banner-text">
           <div className="banner-meta">
-            {meta ?? <>{teams.map((abbr, i) => <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>)} · {goalie ? `G${p.catches ? ` · catches ${p.catches}` : ''}` : p.position}</>}
+            {meta ?? <>{teams.map((abbr, i) => <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>)} · {goalie ? `G${p.catches ? ` · catches ${p.catches}` : ''}` : p.position}{!goalie && !retired && <PkTag p={p} />}</>}
           </div>
           <h1><Flag playerId={p.player_id} />{p.name}</h1>
           <PlayerBio playerId={p.player_id} />

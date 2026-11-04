@@ -27,6 +27,7 @@ import { CATEGORY_PRESETS, GOALIE_CATEGORIES, SKATER_CATEGORIES } from '../categ
 import { fmt1 } from '../format.js'
 import { describe } from '../glossary.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import SignInPrompt from '../components/SignInPrompt.jsx'
 import { getJson } from '../lists.js'
 import NeedRoster from '../components/NeedRoster.jsx'
 
@@ -128,7 +129,7 @@ function LeagueSettings({ league, setLeague }) {
   )
 }
 
-export default function Fantasy() {
+function FantasyPage() {
   const { list, togglePlayer, replacePlayers } = useFantasy()
   const [params, setParams] = useSearchParams()
   const { user, sync } = useAuth()
@@ -470,4 +471,19 @@ export default function Fantasy() {
       />
     </main>
   )
+}
+
+/** Fantasy is an account feature: signed out, this page asks you to log in (a signed-in roster is saved to the account and synced). */
+export default function Fantasy() {
+  const { user, ready } = useAuth()
+  if (!ready) return <main><Skeleton /></main>
+  if (!user) {
+    return (
+      <main>
+        <header><h1>Your fantasy team</h1><p>Track your fantasy players under your league's scoring.</p></header>
+        <SignInPrompt lead="Your roster, lineup optimizer, waiver wire, draft helper and matchup tools are saved to a free account, so they follow you to any device and power your daily email." />
+      </main>
+    )
+  }
+  return <FantasyPage />
 }

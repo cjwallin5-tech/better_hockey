@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link, useSearchParams } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
@@ -223,7 +224,7 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam, goalie = fals
   )
 }
 
-export default function HeadToHead() {
+export default function HeadToHead({ embedded = false }) {
   const [params, setParams] = useSearchParams()
   const mode = ['player', 'goalie'].includes(params.get('mode')) ? params.get('mode') : 'team'
   const [teams, setTeams] = useState([])
@@ -241,9 +242,9 @@ export default function HeadToHead() {
   }
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Head-to-head</h1>
+        {!embedded && <h1>Head-to-head</h1>}
         <p>
           How teams, skaters and goalies have done against each other, going back to 2005-06 (the first shootout season). The
           Coyotes' games count toward Utah and the Thrashers' toward Winnipeg. A player's seasons before 2022-23 are fetched
@@ -260,6 +261,6 @@ export default function HeadToHead() {
       ) : (
         <PlayerVsTeam key={mode} goalie={mode === 'goalie'} teams={teams} playerId={params.get('p') ?? ''} team={params.get('t') ?? ''} setPlayer={(v) => update({ p: v })} setTeam={(v) => update({ t: v })} />
       )}
-    </main>
+    </PageShell>
   )
 }

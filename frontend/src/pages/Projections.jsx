@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
@@ -9,7 +10,7 @@ const POSITIONS = [['', 'All skaters'], ['F', 'Forwards'], ['C', 'Centers'], ['L
 const GOALIE_SORTS = [['final_wins', 'Projected wins'], ['final_saves', 'Projected saves'], ['final_shutouts', 'Projected shutouts'], ['final_starts', 'Projected starts'], ['rest_starts', 'Starts still to come']]
 const SORTS = [['final_points', 'Projected points'], ['final_goals', 'Projected goals'], ['final_assists', 'Projected assists'], ['rest_points', 'Points still to come']]
 
-export default function Projections() {
+export default function Projections({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [kind, setKind] = useState(initial.get('kind') === 'goalies' ? 'goalies' : 'skaters')
   const goalies = kind === 'goalies'
@@ -38,9 +39,9 @@ export default function Projections() {
   const { data, error } = state.key === key ? state : { data: null, error: null }
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Season projections</h1>
+        {!embedded && <h1>Season projections</h1>}
         {goalies ? (
           <p>
             Where each goalie's wins, saves, shutouts and goals against are headed. The rest of the season is his chance to start
@@ -137,8 +138,8 @@ export default function Projections() {
       )}
       <p className="sub">
         The range covers how lumpy scoring is and how uncertain a player's true rate is. It does not cover injuries, trades or role
-        changes. For goal luck on its own, see <Link to="/luck">Luck &amp; regression</Link>.
+        changes. For goal luck on its own, see <Link to="/projections?tab=luck">Luck &amp; regression</Link>.
       </p>
-    </main>
+    </PageShell>
   )
 }

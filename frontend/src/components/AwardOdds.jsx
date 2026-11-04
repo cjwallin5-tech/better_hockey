@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import TrophyImage from './TrophyImage.jsx'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
 
@@ -39,7 +40,7 @@ export default function AwardOdds() {
       </p>
       {Object.entries(data.awards).map(([key, award]) => (
         <section key={key}>
-          <h2>{award.trophy}</h2>
+          <h2 className="trophy-name"><TrophyImage name={award.trophy} />{award.trophy}</h2>
           <p className="sub">
             {BASIS[key]} Over {award.backtest.seasons} past seasons the model’s top pick won {Math.round(award.backtest.top_won * 100)}% of the time
             (it gave it {Math.round(award.backtest.top_chance * 100)}% on average), and the winner was in its top three in {award.backtest.top3} of them.

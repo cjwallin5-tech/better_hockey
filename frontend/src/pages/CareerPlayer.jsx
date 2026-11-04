@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import HhofMark from '../components/HhofMark.jsx'
+import BackLink from '../components/BackLink.jsx'
+import { Navigate } from 'react-router-dom'
 import Career from '../components/Career.jsx'
 import PageTabs from '../components/PageTabs.jsx'
 import PlayerBanner from '../components/PlayerBanner.jsx'
-import { RankCards, rankNote } from '../components/Rankings.jsx'
+import Rankings, { rankNote } from '../components/Rankings.jsx'
 import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
 import Awards from '../components/Awards.jsx'
@@ -25,14 +27,13 @@ function careerSpan(seasons) {
 
 /**
  * Page for a player with no games in the current season (retired, or between seasons): bio and
- * career history from the NHL, plus where their career ranks among every player in NHL history.
+ * career history from the NHL; the all-time ranks sit on the career tiles and in the More rankings table.
  * A current player is sent to their full page instead.
  */
 export default function CareerPlayer({ id, goalie }) {
   const [result, setResult] = useState({ id: null, data: null, error: null })
   const [career, setCareer] = useState({ id: null, data: null })
   const [teams, setTeams] = useState([])
-  const [kind, setKind] = useState('regular')
 
   useEffect(() => {
     fetch(`/api/players/${id}/profile`)
@@ -51,7 +52,7 @@ export default function CareerPlayer({ id, goalie }) {
   }, [id])
 
   const { data, error } = result.id === id ? result : { data: null, error: null }
-  const back = <Link to={goalie ? '/alltime/goalies' : '/alltime/skaters'} className="back">← All-time {goalie ? 'goalies' : 'skaters'}</Link>
+  const back = <BackLink to={goalie ? '/alltime/goalies' : '/alltime/skaters'} />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>
 
@@ -60,7 +61,6 @@ export default function CareerPlayer({ id, goalie }) {
   const wrongRoute = (data.kind === 'goalie') !== !!goalie
   if (wrongRoute) return <Navigate to={`/${data.kind === 'goalie' ? 'goalie' : 'player'}/${id}`} replace />
 
-  const ranks = data.ranks[kind] ?? {}
   const reg = data.ranks.regular ?? {}
   const isGoalie = data.kind === 'goalie'
   const status = data.active_season ? 'Not in the lineup this season' : 'Retired or inactive'
@@ -74,7 +74,7 @@ export default function CareerPlayer({ id, goalie }) {
     <>
       {isGoalie ? 'G' : data.position} · {status}
       {span && ` · ${span.from}–${span.to} · ${span.count} NHL ${span.count === 1 ? 'season' : 'seasons'}`}
-      {data.hall_of_fame && <span className="badge">Hockey Hall of Fame</span>}
+      {data.hall_of_fame && <HhofMark size={24} />}
     </>
   )
   const stats = isGoalie
@@ -96,25 +96,7 @@ export default function CareerPlayer({ id, goalie }) {
                 <p className="sub">No games in the current season, so this page shows career history.</p>
                 <Career playerId={id} />
                 <Awards playerId={id} />
-              </>
-            ),
-          },
-          {
-            id: 'rankings',
-            label: 'All-time rankings',
-            content: (
-              <>
-                <p className="sub">
-                  Where this career stands among every {data.kind} in NHL history. Rate stats only count
-                  players with enough games to be meaningful.
-                </p>
-                <div className="subtabs" role="tablist">
-                  <button role="tab" aria-selected={kind === 'regular'} className={kind === 'regular' ? 'on' : ''} onClick={() => setKind('regular')}>Regular season</button>
-                  {data.ranks.playoffs && (
-                    <button role="tab" aria-selected={kind === 'playoffs'} className={kind === 'playoffs' ? 'on' : ''} onClick={() => setKind('playoffs')}>Playoffs</button>
-                  )}
-                </div>
-                <RankCards ranks={ranks} scope="alltime" />
+                <Rankings playerId={id} kind={data.kind} careerOnly />
               </>
             ),
           },
