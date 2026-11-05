@@ -16,6 +16,7 @@ import era
 import html_shifts
 import oldgames
 import prospects as prospectlib
+import nhle
 import shots as shotlib
 
 FINAL_STATES = ('OFF', 'FINAL')
@@ -307,7 +308,12 @@ def ingest_alltime(conn):
 
 
 HISTORY_SEASONS = 4  # how many past seasons feed the pace-history charts
-HISTORY_GAMES_PER_SEASON = 1312  # 32 teams x 82 games / 2 (past seasons were 82 games)
+HISTORY_WINDOW = 220   # games per request: ~38 skaters a game keeps each window under 10,000 rows
+
+
+def game_windows(total, step=HISTORY_WINDOW):
+    """[(lo, hi)] game-number windows (hi exclusive) that together cover games 1..total of a season."""
+    return [(lo, lo + step) for lo in range(1, total + 1, step)]
 
 
 def ingest_history(conn):
@@ -335,8 +341,7 @@ def ingest_history(conn):
             time.sleep(1)
         if not have_skater:
             total = 0
-            for lo in range(1, HISTORY_GAMES_PER_SEASON + 1, 220):  # ~38 skaters/game keeps each window under 10,000 rows
-                hi = lo + 220
+            for lo, hi in game_windows(config.regular_season_games(season)):
                 data = get_json(
                     f"{config.STATS_API}/skater/summary", isGame="true", limit=-1,
                     cayenneExp=f"seasonId={season} and gameTypeId={config.GAME_TYPE} and gameId>={first_game + lo} and gameId<{first_game + hi}",
@@ -1459,6 +1464,51 @@ def ingest_toi(conn):
     print(f"toi: {len(data)} skater games")
 
 
+LEAGUE_WORKERS = 6   # a landing page the NHL has not cached takes ~3 s, so this backfill runs wider than the others (429s back off in get_json)
+
+
+def backfill_leagues(conn, limit=None):
+    """Every NHL skater's season-by-season record in every league they have played in (player_league_season), for the NHLe factors in
+    nhle.py: one landing-page request per player who first appears in our stored NHL seasons from 2006-07 on (a few thousand, about
+    an hour at the NHL's rate limits). Resumable: players already fetched are skipped, and a run cut short is simply run again."""
+    todo = [r[0] for r in conn.execute(
+        """SELECT player_id FROM skater_season GROUP BY player_id HAVING min(season_id) >= %s
+           AND player_id NOT IN (SELECT player_id FROM player_league_fetched) ORDER BY player_id""", (nhle.FIRST_NHL_SEASON,))]
+    if limit:
+        todo = todo[:limit]
+    done = conn.execute("SELECT count(*) FROM player_league_fetched").fetchone()[0]
+    print(f"league history: {len(todo)} players to fetch, {done} already fetched", flush=True)
+
+    def fetch(pid):
+        try:
+            return pid, get_json(f"{config.WEB_API}/player/{pid}/landing")
+        except requests.HTTPError:
+            return pid, None
+
+    started = time.time()
+    failed = 0
+    with ThreadPoolExecutor(max_workers=LEAGUE_WORKERS) as pool, conn.cursor() as cur:
+        for n, (pid, landing) in enumerate(pool.map(fetch, todo), 1):
+            if landing is None:      # left unmarked, so the next run tries again
+                failed += 1
+                continue
+            birth, position, seasons = nhle.landing_rows(landing)
+            cur.executemany(
+                """INSERT INTO player_league_season (player_id, season_id, game_type, league, team_name, games, goals, assists, points)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                [(pid, s["season_id"], s["game_type"], s["league"] or "", s["team_name"], s["games"], s["goals"], s["assists"], s["points"])
+                 for s in seasons])
+            cur.execute("INSERT INTO player_league_fetched (player_id, birth_date, position) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                        (pid, birth, position))
+            if n % 25 == 0:
+                conn.commit()
+                left = (len(todo) - n) / (n / (time.time() - started)) / 60
+                print(f"  {n}/{len(todo)} ({left:.0f} min left, {failed} failed)", flush=True)
+        conn.commit()
+    total = conn.execute("SELECT count(*) FROM player_league_season").fetchone()[0]
+    print(f"league history: {total} player-seasons stored, {failed} players failed this run (run again to retry)", flush=True)
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -1503,6 +1553,13 @@ if __name__ == "__main__":
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             ingest_game_hist(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-leagues"]:
+        # python ingest.py backfill-leagues [--limit N]   (every NHL skater's record in every league, for NHLe)
+        _, limit = parse_backfill_args(sys.argv[2:], None)
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            backfill_leagues(conn, limit)
     elif sys.argv[1:2] == ["prospects"]:
         # python ingest.py prospects   (just the prospect lists and their stats; the nightly run includes it)
         with psycopg.connect(config.DATABASE_URL) as conn:

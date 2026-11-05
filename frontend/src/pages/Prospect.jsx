@@ -7,6 +7,7 @@ import Headshot from '../components/Headshot.jsx'
 import WatchButton from '../components/WatchButton.jsx'
 import { Line, draftText, height, ppg, svp } from '../components/ProspectBits.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
+import { nhleSentence, nhleText, nhleTitle } from '../nhle.js'
 
 export default function Prospect() {
   const { id } = useParams()
@@ -38,6 +39,7 @@ export default function Prospect() {
               {' · '}Age {p.age ?? '–'} · {height(p.height_in)}, {p.weight_lb ?? '–'} lb · Shoots {p.shoots ?? '–'} · {draftText(p.draft)}
             </p>
             <p>This season: <Line p={p} /> {p.league && <span className="muted">({p.league}, {p.club})</span>}</p>
+            {p.nhle && <p className="muted" title={nhleTitle(p.nhle)}>{nhleSentence(p.nhle, p.league)}</p>}
             <p className="header-actions"><WatchButton kind="prospect" refId={p.player_id} name={p.name} /></p>
           </div>
         </div>
@@ -48,7 +50,7 @@ export default function Prospect() {
           <thead>
             <tr>
               <th className="left">Season</th><th className="left">League</th><th className="left">Club</th><th className="left">Type</th><th>GP</th>
-              {goalie ? <><th>W</th><th>SV%</th><th>GAA</th></> : <><th>G</th><th>A</th><th>P</th><th>P/GP</th><th>PIM</th><th>+/-</th></>}
+              {goalie ? <><th>W</th><th>SV%</th><th>GAA</th></> : <><th>G</th><th>A</th><th>P</th><th>P/GP</th><th title="NHL-equivalent points over a full season at this rate">NHLe</th><th>PIM</th><th>+/-</th></>}
             </tr>
           </thead>
           <tbody>
@@ -58,13 +60,13 @@ export default function Prospect() {
                 <td className="left">{s.game_type === 3 ? 'Playoffs' : 'Regular'}</td><td>{s.games}</td>
                 {goalie
                   ? <><td>{s.wins ?? '–'}</td><td>{svp(s.save_pct)}</td><td>{s.gaa?.toFixed(2) ?? '–'}</td></>
-                  : <><td>{s.goals ?? '–'}</td><td>{s.assists ?? '–'}</td><td>{s.points ?? '–'}</td><td className="accent">{ppg(s.points_per_game)}</td><td>{s.pim ?? '–'}</td><td>{s.plus_minus ?? '–'}</td></>}
+                  : <><td>{s.goals ?? '–'}</td><td>{s.assists ?? '–'}</td><td>{s.points ?? '–'}</td><td className="accent">{ppg(s.points_per_game)}</td><td title={nhleTitle(s.nhle)}>{nhleText(s.nhle)}</td><td>{s.pim ?? '–'}</td><td>{s.plus_minus ?? '–'}</td></>}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="sub">Every league the player has played in, from the NHL's player record. Leagues aren't comparable with one another, so judge the climb from league to league rather than the raw totals.</p>
+      <p className="sub">Every league the player has played in, from the NHL's player record. Leagues aren't comparable with one another, so judge the climb from league to league rather than the raw totals; the NHLe column translates each regular season into NHL points over a full season (see the Prospects page for how).</p>
     </main>
   )
 }

@@ -4,6 +4,8 @@ import { CountryFlag } from '../components/Flag.jsx'
 import { ProspectName, draftText, ppg, svp } from '../components/ProspectBits.jsx'
 import { useUrlSync } from '../urlState.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import NhleFactors from '../components/NhleFactors.jsx'
+import { nhleText, nhleTitle } from '../nhle.js'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -19,7 +21,7 @@ function useApi(url) {
 }
 
 const POSITIONS = [['', 'All'], ['F', 'Forwards'], ['D', 'Defensemen'], ['G', 'Goalies']]
-const SORTS = [['points_per_game', 'Points per game'], ['points', 'Points'], ['goals', 'Goals'], ['games', 'Games'], ['age', 'Youngest'], ['draft', 'Draft pick'], ['save_pct', 'Save %'], ['name', 'Name']]
+const SORTS = [['points_per_game', 'Points per game'], ['nhle', 'NHLe points'], ['points', 'Points'], ['goals', 'Goals'], ['games', 'Games'], ['age', 'Youngest'], ['draft', 'Draft pick'], ['save_pct', 'Save %'], ['name', 'Name']]
 
 function TeamProspects() {
   const initial = new URLSearchParams(window.location.search)
@@ -76,6 +78,7 @@ function TeamProspects() {
                 <th className="left">Prospect</th><th className="left">Pos</th><th>Age</th><th className="left">Team</th>
                 <th className="left" title="The league and club where they played the most games this season">Playing for</th>
                 <th title="Games played">GP</th><th title="Goals">G</th><th title="Assists">A</th><th title="Points">P</th><th title="Points per game">P/GP</th>
+                <th title="NHL-equivalent points over a full season at this rate (NHLe): a skater's league points per game times a factor fitted on players who went from that league to the NHL">NHLe</th>
                 <th title="Save percentage (goalies)">SV%</th><th className="left">Drafted</th>
               </tr>
             </thead>
@@ -87,7 +90,7 @@ function TeamProspects() {
                   <td className="left"><Link to={`/team/${p.team}`}>{p.team}</Link></td>
                   <td className="left">{p.league ? <>{p.league} <span className="muted">{p.club}</span></> : <span className="muted">–</span>}</td>
                   <td>{p.games || '–'}</td><td>{p.goals ?? '–'}</td><td>{p.assists ?? '–'}</td><td>{p.points ?? '–'}</td>
-                  <td className="accent">{ppg(p.points_per_game)}</td><td>{svp(p.save_pct)}</td>
+                  <td className="accent">{ppg(p.points_per_game)}</td><td className={p.nhle?.earlier ? 'muted' : ''} title={nhleTitle(p.nhle)}>{nhleText(p.nhle)}</td><td>{svp(p.save_pct)}</td>
                   <td className="left">{draftText(p.draft)}</td>
                 </tr>
               ))}
@@ -98,8 +101,10 @@ function TeamProspects() {
       <p className="sub">
         {data ? `${data.total} prospects. ` : ''}Prospects are the players on NHL teams' prospect lists, so someone who has made the NHL
         drops off. Leagues are not comparable: a point a game in the OHL is a different thing from a point a game in the AHL or
-        the SHL, so compare players inside a league, and read a small sample lightly. Stats update with the nightly refresh.
+        the SHL, so compare players inside a league, and read a small sample lightly. Stats update with the nightly refresh. NHLe in grey
+        comes from last season (the latest one of 20 or more games), because this season is still too short.
       </p>
+      <NhleFactors />
     </>
   )
 }
@@ -130,7 +135,8 @@ function DraftClass() {
       {data?.already_drafted && (
         <p className="notice">
           The NHL hasn't published rankings for the {data.upcoming_year} draft yet, so this is the {data.draft_year} class, which has already been
-          drafted. Those players are on the Team prospects tab with their stats.
+          drafted. {data.linked} of its {data.rows.length} ranked players are tracked here: their names link to their pages, with the
+          draft slot beside them.
         </p>
       )}
       {data && (
@@ -138,7 +144,9 @@ function DraftClass() {
           <table>
             <thead>
               <tr>
-                <th>Rank</th><th className="left">Player</th><th className="left">Pos</th><th>Age</th>
+                <th>Rank</th><th className="left">Player</th>
+                {data.already_drafted && <th className="left" title="Where the player went, for those we track">Drafted</th>}
+                <th className="left">Pos</th><th>Age</th>
                 <th className="left">Club</th><th className="left">League</th><th>Height</th><th>Weight</th>
                 <th title="NHL Central Scouting's midterm ranking">Midterm</th>
               </tr>
@@ -147,7 +155,8 @@ function DraftClass() {
               {rows.map((r, i) => (
                 <tr key={`${r.name}-${i}`}>
                   <td className="accent">{r.rank ?? '–'}</td>
-                  <td className="left"><CountryFlag code={r.birth_country} /> {r.name}</td>
+                  <td className="left"><CountryFlag code={r.birth_country} /> {r.prospect_id ? <Link to={`/prospect/${r.prospect_id}`}>{r.name}</Link> : r.name}</td>
+                  {data.already_drafted && <td className="left">{r.draft ? draftText(r.draft) : '–'}</td>}
                   <td className="left">{r.position}</td><td>{r.age ?? '–'}</td>
                   <td className="left">{r.club ?? '–'}</td><td className="left">{r.league ?? '–'}</td>
                   <td>{r.height_in ? `${Math.floor(r.height_in / 12)}'${r.height_in % 12}"` : '–'}</td><td>{r.weight_lb ?? '–'}</td>
@@ -160,8 +169,8 @@ function DraftClass() {
       )}
       <p className="sub">
         {data ? `${data.draft_year} NHL Draft, ` : ''}NHL Central Scouting's rankings, separate for North American and international
-        players. They list each player's last amateur club and league but no player ids, so stats for the draft class aren't linked here;
-        a player appears on the team prospects tab after being drafted.
+        players. They list each player's last amateur club and league but no player ids, so a name links to a prospect page only when
+        exactly one drafted prospect we track has it; everyone else appears on the team prospects tab once a team lists them.
       </p>
     </>
   )

@@ -9,6 +9,7 @@ import { GoalieShots } from '../components/Shots.jsx'
 import GoalieZones from '../components/GoalieZones.jsx'
 import TrackingProfile from '../components/TrackingProfile.jsx'
 import LuckPanel from '../components/Luck.jsx'
+import GoalieProjection from '../components/GoalieProjection.jsx'
 import { GoalieForm } from '../components/Form.jsx'
 import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
@@ -77,6 +78,7 @@ export default function Goalie() {
               <>
                 <Context playerId={g.player_id} goalie />
                 <Trophies playerId={g.player_id} />
+                <GoalieProjection playerId={g.player_id} />
                 <section className="tiles tiles-sm">
                   <Tile label="Quality starts" value={`${g.quality_starts ?? '–'} (${fmtSv(g.quality_start_pct)})`} />
                   <Tile label="GSAA / 60" value={fmtSigned(g.gsaa_per60)} />

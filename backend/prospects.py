@@ -10,6 +10,9 @@ a prospect on loan or called up can have several. Leagues aren't comparable (a p
 game in the AHL), so nothing here converts between them.
 """
 
+import re
+import unicodedata
+
 POSITIONS = {"L", "R", "C", "D", "G"}
 
 
@@ -18,6 +21,42 @@ def _name(d):
     if isinstance(d, dict):
         return d.get("default")
     return d
+
+
+SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
+
+
+def match_key(name):
+    """A name reduced to what two sources agree on: lower case, accents folded, punctuation and generation suffixes dropped
+    ('Zachary L'Heureux Jr.' and "Zachary L'Heureux" match)."""
+    folded = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    words = [w for w in re.sub(r"[^a-z ]", "", folded.replace("-", " ")).split() if w not in SUFFIXES]
+    return " ".join(words)
+
+
+def link_rankings(rows, prospects, year):
+    """Attach the stored prospect to each Central Scouting ranking row of the `year` draft, matched by name among the prospects drafted
+    that year. The rankings have no player ids, so a row is linked only when exactly one prospect of that class has its name and no
+    other ranked row shares it; everyone else is left alone. Adds `prospect_id` and `draft` ({year, round, pick, overall, team})
+    to the linked rows and returns how many were linked."""
+    classmates = {}
+    for p in prospects:
+        if p.get("draft_year") == year:
+            classmates.setdefault(match_key(p["name"]), []).append(p)
+    seen = {}
+    for r in rows:
+        seen[match_key(r["name"])] = seen.get(match_key(r["name"]), 0) + 1
+    linked = 0
+    for r in rows:
+        key = match_key(r["name"])
+        found = classmates.get(key, [])
+        if len(found) == 1 and seen[key] == 1:
+            p = found[0]
+            r["prospect_id"] = p["player_id"]
+            r["draft"] = {"year": p["draft_year"], "round": p["draft_round"], "pick": p["draft_pick"], "overall": p["draft_overall"],
+                          "team": p["draft_team"]}
+            linked += 1
+    return linked
 
 
 def parse_list(data):

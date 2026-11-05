@@ -28,6 +28,8 @@ import luck_db
 import mail
 import matchupfit
 import prospects
+import teamlog
+import teamstreaks
 import roles_db
 import tradewatch
 import weekly
@@ -324,7 +326,35 @@ def gather_watch(conn, items, roster_ids, ms=None, league=None):
         by_team[g["home"]] = {"opp": g["away"], "home": True, "start": g["start_time"]}
         by_team[g["away"]] = {"opp": g["home"], "home": False, "start": g["start_time"]}
     d["teams"] = [{"team": t, "game": by_team.get(t)} for t in teams]
+    d["team_streaks"] = [line for _, text in team_streaks(conn, items, d["today"]) for line in text]
     return d
+
+
+def team_streaks(conn, items, today):
+    """Streak lines for the watched teams: [(team name, [line, ...])] for those with something to say. A streak that has just
+    ended is only reported while the latest game is from the last two days, so it is not repeated through a long break."""
+    out = []
+    for i in items:
+        if i["kind"] != "team":
+            continue
+        team = i["ref"]
+        rows = conn.execute(
+            """SELECT game_date, home, away, home_score, away_score, last_period FROM game
+               WHERE season_id = %s AND state IN ('OFF', 'FINAL') AND (home = %s OR away = %s)
+               ORDER BY game_date, game_id""", (config.SEASON_ID, team, team)).fetchall()
+        results = []
+        for g in rows:
+            home = g["home"] == team
+            gf, ga = (g["home_score"], g["away_score"]) if home else (g["away_score"], g["home_score"])
+            results.append({"result": teamlog.result(gf, ga, g["last_period"]), "gf": gf, "ga": ga,
+                            "opponent": g["away"] if home else g["home"], "date": g["game_date"]})
+        info = teamstreaks.analyze(results)
+        if info["ended"] and (today - results[-1]["date"]).days > 1:
+            info["ended"] = None
+        text = teamstreaks.lines(i.get("name") or team, info)
+        if text:
+            out.append((team, text))
+    return out
 
 
 def milestone_line(a):
@@ -362,6 +392,7 @@ def watch_lines(w):
         ("Role changes", w.get("roles", []), role_line),
         ("Luck check", w.get("luck", []), luck_line),
         ("Milestones", w.get("milestones", []), milestone_line),
+        ("Team streaks", w.get("team_streaks", []), str),
         ("Prospects", w.get("prospects", []), prospects.alert_line),
         ("Reached the NHL", w.get("called_up", []), str),
         ("Watch", w.get("watch", []), str),

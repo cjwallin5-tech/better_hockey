@@ -15,16 +15,19 @@ const currentSeason = () => {
 
 /**
  * A small round headshot ringed in the team's colour, built straight from the season, team and player id (no per-player request).
- * Lazy, since a table can hold hundreds; initials stand in until the season is known and when there is no picture.
+ * Lazy, since a table can hold hundreds; initials stand in until the season is known and when there is no picture. Pass `season` (and
+ * that season's `team`) for a player who is not on a current roster, such as a retired player on the all-time board.
  */
-export default function Avatar({ playerId, team, name, size = 32 }) {
-  const [seasonId, setSeasonId] = useState(null)
+export default function Avatar({ playerId, team, name, size = 32, season: fixedSeason }) {
+  const [currentId, setCurrentId] = useState(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
+    if (fixedSeason) return undefined
     let ignore = false
-    currentSeason().then((s) => !ignore && setSeasonId(s))
+    currentSeason().then((s) => !ignore && setCurrentId(s))
     return () => { ignore = true }
-  }, [])
+  }, [fixedSeason])
+  const seasonId = fixedSeason ?? currentId
   const current = (team ?? '').split(',').filter(Boolean).pop()
   const style = { '--team': teamColor(current), '--s': `${size}px` }
   if (!current || !seasonId || failed) return <span className="avatar blank" style={style} aria-hidden="true">{initials(name)}</span>

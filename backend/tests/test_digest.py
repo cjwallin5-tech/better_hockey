@@ -94,6 +94,23 @@ class ProspectBlock(unittest.TestCase):
         self.assertIn("no games on record this season yet", out[1])
 
 
+class TeamStreakBlock(unittest.TestCase):
+    LINE = "Edmonton Oilers have won 5 straight, outscoring opponents 17-8."
+
+    def test_team_streaks_appear_in_the_watchlist_block(self):
+        lines = digest.watch_lines({"playing": [], "idle": [], "teams": [], "team_streaks": [self.LINE]})
+        self.assertEqual(lines[lines.index("Team streaks") + 1], "  " + self.LINE)
+
+    def test_a_watchlist_with_only_a_streak_is_enough_for_an_email(self):
+        d = {"today": dt.date(2026, 12, 3), "roster_size": 0, "playing": [], "idle": [], "hot": [], "watch": []}
+        out = digest.render(d, {"playing": [], "idle": [], "teams": [], "team_streaks": [self.LINE]})
+        self.assertIsNotNone(out)
+        self.assertIn("have won 5 straight", out[1])
+
+    def test_no_streaks_means_no_section(self):
+        self.assertNotIn("Team streaks", digest.watch_lines({"playing": [], "idle": [], "teams": [{"team": "EDM", "game": None}], "team_streaks": []}))
+
+
 class SendRetry(unittest.TestCase):
     def test_retries_until_the_network_is_back(self):
         waits = []

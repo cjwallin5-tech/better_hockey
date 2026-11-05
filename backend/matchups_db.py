@@ -24,6 +24,19 @@ def league_rates(conn, season):
     return (r["on_goal"] / team_games, r["goals"] / team_games) if team_games else (None, None)
 
 
+def starter_rates(conn, season):
+    """(shots against, goals against) in a game a goalie starts, averaged over this season's starts: (None, None) before any.
+
+    Smaller than the league's per-team-game rates (league_rates) for two reasons: empty-net goals are charged to nobody, and a
+    starter who gets pulled leaves the rest of the game's shots to a reliever. A backtest on four past seasons found the per-team-game
+    rates made a start look worth 0.2 more goals against and 0.7 more saves than a starter's real line; this is what the goalie
+    projection and the streaming finder use for the line of a start."""
+    r = conn.execute(
+        """SELECT count(*) AS starts, sum(shots_against) AS shots, sum(goals_against) AS goals FROM goalie_game
+           WHERE season_id = %s AND started AND shots_against IS NOT NULL AND goals_against IS NOT NULL""", (season,)).fetchone()
+    return (float(r["shots"]) / r["starts"], float(r["goals"]) / r["starts"]) if r["starts"] else (None, None)
+
+
 def goalie_effects(conn, season, shots_pg, goals_pg):
     """{team: expected goalie factor} weighted by this season's starts, plus {goalie_id: per-100 estimate}."""
     pooled = conn.execute(
@@ -63,4 +76,6 @@ def team_table(conn, season):
                      **r, "goalie_mult": gm, "skater_ratio": skater, "goalie_ratio": goalie,
                      "skater_label": matchups.label(skater), "goalie_label": matchups.label(goalie)})
     rows.sort(key=lambda r: r["team"])
-    return rows, {"xg_pg": league_xg, "shots_pg": shots_pg, "goals_pg": goals_pg}
+    start_shots, start_goals = starter_rates(conn, season)
+    return rows, {"xg_pg": league_xg, "shots_pg": shots_pg, "goals_pg": goals_pg,
+                  "start_shots": start_shots, "start_goals": start_goals}

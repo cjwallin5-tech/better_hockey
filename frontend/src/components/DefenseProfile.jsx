@@ -3,6 +3,9 @@ import { CompareChart } from './Charts.jsx'
 import { seasonLabel } from '../career.js'
 import { fmtToi } from '../format.js'
 import { describe } from '../glossary.js'
+import { Link } from 'react-router-dom'
+import { CareerSummary } from './Career.jsx'
+import { rankNote, useRankings } from './Rankings.jsx'
 
 const STATS = [
   { id: 'hits', label: 'Hits' },
@@ -41,6 +44,45 @@ const EXPLAIN =
   '(1.00× is average, 1.50× is 50% higher), which keeps seasons comparable even though the NHL has counted these ' +
   'events differently over time. Hits and blocks describe style, not quality.'
 
+
+/** Career hits, blocks, takeaways and giveaways since 2005-06 with where they rank among every skater in NHL history, like the career box for
+ *  points, and a link for each into the all-time leaderboard sorted by that stat. */
+function DefenseCareer({ playerId, seasons }) {
+  const ranks = useRankings(playerId)
+  const all = ranks?.alltime?.regular
+  const num = (n) => (n == null ? '–' : n.toLocaleString())
+  const games = seasons.reduce((t, s) => t + s.games_played, 0)
+  const item = (label, key, mostNote) => {
+    const r = all?.[key]
+    const note = rankNote(r, 'alltime')
+    return [label, num(r?.value), note && mostNote ? note.replace('all-time', 'most all-time') : note]
+  }
+  const per = (key) => (all?.[key] && games ? (all[key].value / games).toFixed(2) : null)
+  const net = all?.takeaways && all?.giveaways ? all.takeaways.value - all.giveaways.value : null
+  if (!all) return null
+  return (
+    <>
+      <CareerSummary
+        main={[item('Hits', 'hits'), item('Blocks', 'blocked_shots'), item('Takeaways', 'takeaways'), item('Giveaways', 'giveaways', true)]}
+        more={[
+          ['Games', num(games)],
+          ['Hits / game', per('hits')],
+          ['Blocks / game', per('blocked_shots')],
+          ['Takeaways / game', per('takeaways')],
+          ['Giveaways / game', per('giveaways')],
+          ['Takeaways minus giveaways', net == null ? null : `${net > 0 ? '+' : ''}${net.toLocaleString()}`],
+        ]}
+      />
+      <p className="sub">
+        Career totals since {seasonLabel(seasons[0].season_id)}, the first season these were recorded, so a career that began earlier is only
+        counted from then. All-time leaders: {[['hits', 'Hits'], ['blocked_shots', 'Blocks'], ['takeaways', 'Takeaways'], ['giveaways', 'Giveaways']].map(([key, label], i) => (
+          <span key={key}>{i > 0 && ' · '}<Link to={`/alltime/skaters?v=defense&sort=${key}`}>{label}</Link></span>
+        ))}.
+      </p>
+    </>
+  )
+}
+
 /** One player's hits, blocks, takeaways and giveaways against the league, season by season (2005-06 on). */
 export default function DefenseProfile({ playerId }) {
   const data = useDefense(playerId)
@@ -51,6 +93,7 @@ export default function DefenseProfile({ playerId }) {
   return (
     <section>
       <h2>Defensive profile vs. the league</h2>
+      <DefenseCareer playerId={playerId} seasons={seasons} />
       <p className="sub">{EXPLAIN} Seasons under {data.min_gp} games are greyed out. Tracked since {seasonLabel(data.first_tracked)}.</p>
       <div className="table-wrap">
         <table>

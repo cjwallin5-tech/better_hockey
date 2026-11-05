@@ -395,10 +395,11 @@ table.mini thead th { font-size: 11px; color: var(--muted); cursor: default; pos
 .tabs-gap { width: 12px; }
 
 /* Trade analyzer: the two sides sit next to each other, stacked on a phone */
-.trade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 18px 0; }
+/* One side above the other: each side's table is 750-830px wide (Projected FP and Value included), which does not fit half of a 1,134px page. */
+.trade-grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin: 18px 0; }
 .trade-side { min-width: 0; }
 .trade-side select { margin: 8px 0; max-width: 100%; }
-@media (max-width: 800px) { .trade-grid { grid-template-columns: 1fr; } }
+@media (min-width: 1800px) { .trade-grid { grid-template-columns: 1fr 1fr; } }
 
 
 /* Abbreviated headers that carry a tooltip get a dotted underline as a hint */
@@ -791,6 +792,8 @@ main { position: relative; isolation: isolate; }
 .proj-row dd { margin: 0; font-family: var(--num); font-stretch: 112%; font-weight: 800; font-size: 24px; line-height: 1.1; }
 .proj-row dt { color: var(--muted); font-size: 12px; }
 .projection .sub { margin: 0; font-size: 13px; line-height: 1.55; }
+.goalie-projection { max-width: 520px; margin: 0 0 24px; }
+.goalie-projection .proj-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 22px; }
 
 .tiles-compact { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 14px; }
 .tiles-compact .tile { padding: 14px 16px; }
@@ -1013,7 +1016,9 @@ main { position: relative; isolation: isolate; }
   .hide-sm { display: none; }
   .table-wrap table:not(.standings-table) th, .table-wrap table:not(.standings-table) td { padding: 9px 8px; font-size: 13.5px; }
   .table-wrap table:not(.standings-table) th { font-size: 11.5px; }
-  .table-wrap table:not(.standings-table) td:first-child, .table-wrap table:not(.standings-table) th:first-child { max-width: 142px; overflow: hidden; text-overflow: ellipsis; padding-left: 12px; }
+  .table-wrap table:not(.standings-table) td:first-child, .table-wrap table:not(.standings-table) th:first-child { max-width: 160px; overflow: hidden; text-overflow: ellipsis; padding-left: 12px; }
+  /* a smaller flag leaves the name room: at full size it took half the column and cut "Michael Hage" to "Michae…" */
+  .table-wrap td:first-child .flag { height: 14px; width: 21px; object-fit: cover; margin: -2px 6px 0 0; }
 }
 
 /* Grouped "More" menu: labelled columns on wide screens */
@@ -1241,3 +1246,15 @@ h2 .role-tag { font-size: 13px; }
 .rankby-chip i { font-style: normal; color: var(--accent); font-size: 11px; }
 td.sorted { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 @media (max-width: 700px) { .rankby { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .rankby-chip, .rankby-label { flex: none; white-space: nowrap; } }
+
+/* Phones: decorations that bleed off the edge (the hero's faceoff circle) must not make the page scroll sideways. `clip` on main (it
+   spans the viewport) rather than on body, which some mobile browsers ignore; unlike `hidden`, `clip` makes no scroll container. */
+@media (max-width: 600px) { main { overflow-x: clip; } }
+
+/* Standings on a phone: the abbreviation instead of a full name that would be cut off ("Montréal Canadi…") */
+.team-short { display: none; }
+@media (max-width: 600px) { .team-full { display: none; } .team-short { display: inline; } }
+
+/* The career table with the hit, block, takeaway and giveaway columns is 17 wide: tighter cells keep all of them inside the page on desktop
+   (phones keep their own compact padding and scroll the table). */
+@media (min-width: 701px) { .table-wrap table.career-tight th, .table-wrap table.career-tight td { padding-left: 12px; padding-right: 12px; } }

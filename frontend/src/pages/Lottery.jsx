@@ -143,7 +143,7 @@ export default function Lottery() {
           <p className="sub">
             Not modelled: who owns each pick (a traded or conditional pick changes who drafts there), and the NHL's limit on a team moving up in the
             lottery more than twice in five years. The rules are the NHL's 2026 ones; check its guide for any change before next spring. Who is in the
-            class is on the <Link to="/prospects">Prospects</Link> page.
+            class is on the <Link to="/prospects?tab=draft">Prospects</Link> page.
           </p>
         </>
       )}

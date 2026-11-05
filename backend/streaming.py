@@ -42,7 +42,9 @@ def expected_line(own, opp, league_goals, league_shots, goalie_mult=1.0, otl_sha
 
 
 def goalie_game(own, opp, goalie_estimate, league, otl_share):
-    """expected_line for one goalie's start: league = {goals_pg, shots_pg}; goalie_estimate = goals saved above expected
-    per 100 shots from matchups.goalie_estimate (0 for an unknown goalie)."""
+    """expected_line for one goalie's start: league = {goals_pg, shots_pg} and, when known, start_goals / start_shots (what a
+    starter faces in a game he starts, see matchups_db.starter_rates; used for the line when present); goalie_estimate = goals
+    saved above expected per 100 shots from matchups.goalie_estimate (0 for an unknown goalie)."""
     mult = matchups.goalie_multiplier(goalie_estimate, league["shots_pg"], league["goals_pg"])
-    return expected_line(own, opp, league["goals_pg"], league["shots_pg"], mult, otl_share)
+    return expected_line(own, opp, league.get("start_goals") or league["goals_pg"], league.get("start_shots") or league["shots_pg"],
+                         mult, otl_share)

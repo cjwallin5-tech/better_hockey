@@ -87,13 +87,51 @@ def project(r, prior, averages, factor, team_left, team_played):
     }
 
 
+START_SHARE_K = 20   # games' worth of weight: the share of starts so far counts n / (n + K) against the model, n = team games played
+
+
+def blend_starts(chain, team_left, starts, team_played):
+    """Starts still to come for a goalie: the starter model's total blended with his share of his team's starts so far.
+
+    chain: the model's expected starts (the sum of his start chances over the rest of the season). team_left, team_played: his
+    team's games left and played. starts: his starts so far for this team. Backtest (analysis/backtest_goalie_projection.py, four
+    past seasons): the model alone is best after about 10 games, the share so far is better from about 25, and weighting the share
+    n / (n + 20) was within 1% of the best at 10, 25 and 40 games and cut the error against the model alone by 11% at 25 and 20%
+    at 40 games."""
+    if not team_played:
+        return chain
+    weight = team_played / (team_played + START_SHARE_K)
+    return (1 - weight) * chain + weight * team_left * starts / team_played
+
+
+def scale_starts(games, factor):
+    """The same games with every start chance multiplied by factor (never above 1), to land on a blended start count."""
+    return [{**g, "probability": min(1.0, (g.get("probability") or 0.0) * factor)} for g in games]
+
+
+# 80% ranges for a goalie's rest-of-season totals: variance = A x (starts to come) + B x (predicted rest total)^2. Fitted on the
+# new pipeline over four past seasons at 10, 25 and 40 team games (analysis/backtest_goalie_projection.py, section D): the first term
+# is the luck in each start's result, the second the uncertainty in the number of starts and in his rate. The ranges held the
+# real total 71% (after 10 games) to 88% (after 40) of the time and 84% for goalies with 10+ starts still to come.
+GOALIE_RANGE = {"wins": (1.2962, 0.01733), "saves": (1993.4, 0.02346), "goals_against": (25.76, 0.00901), "shutouts": (0.0524, 0.07522)}
+SECONDS_PER_START = 3600
+
+
+def goalie_interval(stat, starts_left, rest):
+    """(low, high) 80% range for the part of `stat` still to come, given the expected starts left and the expected rest total."""
+    a, b = GOALIE_RANGE[stat]
+    sd = math.sqrt(a * starts_left + b * rest * rest)
+    return max(0.0, rest - Z80 * sd), rest + Z80 * sd
+
+
 def goalie_final(now, games):
     """One goalie's projected finish: what he has now plus the expected rest of the season.
 
     now: his season row (games_started, wins, losses, ot_losses, saves, shots_against, goals_against, shutouts; None counts
-    as 0). games: his remaining games from the streaming plan, each with the chance he starts it and the line a start there
-    is worth (streaming.py). The rest is the sum of those lines weighted by the start chance; no range is given because the
-    start count comes from recent usage and cannot see injuries or trades."""
+    as 0; toi_sec is optional). games: his remaining games from the streaming plan, each with the chance he starts it and the line
+    a start there is worth (streaming.py). The rest is the sum of those lines weighted by the start chance. Ranges (GOALIE_RANGE)
+    cover the luck in results and the uncertainty in the start count, not injuries or trades. Save % is the season's saves plus the
+    expected rest over the shots, and GAA the goals against over the minutes, counting each expected start as 60 minutes."""
     have = lambda k: now.get(k) or 0
     rest = {"starts": 0.0, "win": 0.0, "loss": 0.0, "otl": 0.0, "saves": 0.0, "shots": 0.0, "ga": 0.0, "shutout": 0.0}
     for g in games:
@@ -102,7 +140,7 @@ def goalie_final(now, games):
         for k in rest:
             if k != "starts":
                 rest[k] += p * (g["line"].get(k) or 0.0)
-    return {
+    out = {
         "games_played": have("games_played"), "starts": have("games_started"), "wins": have("wins"), "saves": have("saves"),
         "goals_against": have("goals_against"), "shutouts": have("shutouts"),
         "rest_starts": rest["starts"], "rest_wins": rest["win"], "rest_saves": rest["saves"], "rest_goals_against": rest["ga"],
@@ -111,3 +149,12 @@ def goalie_final(now, games):
         "final_saves": have("saves") + rest["saves"], "final_goals_against": have("goals_against") + rest["ga"],
         "final_shutouts": have("shutouts") + rest["shutout"],
     }
+    final_saves, final_shots = out["final_saves"], out["final_shots"]
+    out["final_save_pct"] = final_saves / final_shots if final_shots else None
+    minutes_sec = have("toi_sec") + rest["starts"] * SECONDS_PER_START
+    out["final_gaa"] = out["final_goals_against"] * 3600 / minutes_sec if have("toi_sec") and minutes_sec else None
+    for stat, rest_key, final_key in (("wins", "rest_wins", "final_wins"), ("saves", "rest_saves", "final_saves"),
+                                      ("goals_against", "rest_goals_against", "final_goals_against"), ("shutouts", "rest_shutouts", "final_shutouts")):
+        low, high = goalie_interval(stat, out["rest_starts"], out[rest_key])
+        out["low_" + stat], out["high_" + stat] = out[final_key] - out[rest_key] + low, out[final_key] - out[rest_key] + high
+    return out

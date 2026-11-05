@@ -80,6 +80,18 @@ class GoalieGame(unittest.TestCase):
         # +1 per 100 shots over 27 shots is 0.27 goals, 9% of 3 goals a game
         self.assertAlmostEqual(good["ga"], 3.0 * (1 - 0.27 / 3.0))
 
+    def test_a_starters_own_rates_set_the_line_when_known(self):
+        league = {**LEAGUE, "start_goals": 2.8, "start_shots": 26.0}   # a starter faces less than the team does (pulled goalies, empty nets)
+        x = streaming.goalie_game(AVG, AVG, 0.0, league, 0.23)
+        self.assertAlmostEqual(x["ga"], 2.8)
+        self.assertAlmostEqual(x["shots"], 26.0)
+        self.assertAlmostEqual(x["win"], 0.5)
+
+    def test_missing_starter_rates_fall_back_to_the_league_rates(self):
+        x = streaming.goalie_game(AVG, AVG, 0.0, {**LEAGUE, "start_goals": None, "start_shots": None}, 0.23)
+        self.assertAlmostEqual(x["ga"], 3.0)
+        self.assertAlmostEqual(x["shots"], 27.0)
+
 
 if __name__ == "__main__":
     unittest.main()

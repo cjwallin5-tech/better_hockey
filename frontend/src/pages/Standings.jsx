@@ -151,7 +151,7 @@ export default function Standings() {
                           <span className={`po-dot${inPlayoffs ? ' in' : ''}`} title={inPlayoffs ? 'In a playoff position' : undefined} />
                           <span className="rank">{t[rank]}</span>
                           <TeamLogo team={t} />
-                          <Link to={`/team/${t.abbrev}`}>{t.name}</Link>
+                          <Link to={`/team/${t.abbrev}`}><span className="team-full">{t.name}</span><span className="team-short" title={t.name}>{t.abbrev}</span></Link>
                           {wildCard && view.id !== 'wildcard' && <span className="badge wc" title={`Wild card ${t.wildcard_rank}`}>WC{t.wildcard_rank}</span>}
                         </div>
                       </td>

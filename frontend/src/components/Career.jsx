@@ -46,6 +46,8 @@ export default function Career({ playerId }) {
     .sort((a, b) => b.season - a.season || (b.sequence ?? 0) - (a.sequence ?? 0))
 
   const hasNonNhl = seasons.some((s) => s.leagueAbbrev !== 'NHL')
+  // hits, blocks, takeaways and giveaways are stored for regular seasons only, and not for goalies
+  const tracking = !goalie && kind === 'regularSeason' && Object.keys(data.tracked ?? {}).length > 0
 
   return (
     <section>
@@ -109,7 +111,7 @@ export default function Career({ playerId }) {
         )}
       </h3>
       <div className="table-wrap">
-        <table>
+        <table className={tracking ? 'career-tight' : undefined}>
           <thead>
             <tr>
               <th className="left">Season</th><th className="left" title={describe('Team')}>Team</th>
@@ -118,7 +120,7 @@ export default function Career({ playerId }) {
               {goalie ? (
                 <><th title={describe('GS')}>GS</th><th title={describe('W')}>W</th><th title={describe('L')}>L</th><th title={describe('OTL')}>OTL</th><th title={describe('SV%')}>SV%</th><th title={describe('GAA')}>GAA</th><th title={describe('SO')}>SO</th></>
               ) : (
-                <><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th><th title={describe('+/-')}>+/-</th><th title={describe('PIM')}>PIM</th><th title={describe('PPP')}>PPP</th><th title={describe('GWG')}>GWG</th><th title={describe('S')}>S</th><th title={describe('S%')}>S%</th><th title={describe('TOI')}>TOI</th></>
+                <><th title={describe('G')}>G</th><th title={describe('A')}>A</th><th title={describe('P')}>P</th><th title={describe('+/-')}>+/-</th><th title={describe('PIM')}>PIM</th><th title={describe('PPP')}>PPP</th><th title={describe('GWG')}>GWG</th><th title={describe('S')}>S</th><th title={describe('S%')}>S%</th><th title={describe('TOI')}>TOI</th>{tracking && <><th title={describe('Hits')}>H</th><th title={describe('BLK')}>BLK</th><th title={describe('TK')}>TK</th><th title={describe('GV')}>GV</th></>}</>
               )}
             </tr>
           </thead>
@@ -132,11 +134,11 @@ export default function Career({ playerId }) {
                 {goalie ? (
                   <><td>{dash(s.gamesStarted)}</td><td>{dash(s.wins)}</td><td>{dash(s.losses)}</td><td>{dash(s.otLosses)}</td><td>{sv(s.savePctg)}</td><td>{dec(s.goalsAgainstAvg)}</td><td>{dash(s.shutouts)}</td></>
                 ) : (
-                  <><td>{s.goals}</td><td>{s.assists}</td><td>{s.points}</td><td>{dash(s.plusMinus)}</td><td>{dash(s.pim)}</td><td>{dash(s.powerPlayPoints)}</td><td>{dash(s.gameWinningGoals)}</td><td>{dash(s.shots)}</td><td>{pct(s.shootingPctg)}</td><td>{dash(s.avgToi)}</td></>
+                  <><td>{s.goals}</td><td>{s.assists}</td><td>{s.points}</td><td>{dash(s.plusMinus)}</td><td>{dash(s.pim)}</td><td>{dash(s.powerPlayPoints)}</td><td>{dash(s.gameWinningGoals)}</td><td>{dash(s.shots)}</td><td>{pct(s.shootingPctg)}</td><td>{dash(s.avgToi)}</td>{tracking && <TrackedCells t={s.leagueAbbrev === 'NHL' ? data.tracked?.[s.season] : null} split={rows.filter((r) => r.season === s.season && r.leagueAbbrev === 'NHL').length > 1} />}</>
                 )}
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="left" colSpan="14">No seasons to show.</td></tr>}
+            {rows.length === 0 && <tr><td className="left" colSpan="18">No seasons to show.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -144,8 +146,15 @@ export default function Career({ playerId }) {
   )
 }
 
+/** Hits, blocks, takeaways and giveaways for one season row (empty dashes when the season is not tracked or is not an NHL one). A season's counts
+ *  cover every team he played for, so on a traded player's team rows they are greyed and say so. */
+function TrackedCells({ t, split }) {
+  const cell = (v) => <td className={split ? 'muted' : ''} title={split ? 'Whole-season total, all teams' : undefined}>{dash(v)}</td>
+  return <>{cell(t?.hits)}{cell(t?.blocks)}{cell(t?.takeaways)}{cell(t?.giveaways)}</>
+}
+
 /** The career totals as one card: the few numbers that matter large, with their all-time rank, and the rest as a quiet list. */
-function CareerSummary({ main, more }) {
+export function CareerSummary({ main, more }) {
   return (
     <div className="card career-summary">
       <dl className="career-key">

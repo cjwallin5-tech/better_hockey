@@ -476,3 +476,33 @@ CREATE TABLE IF NOT EXISTS player_game_old_fetched (
     player_id  INTEGER PRIMARY KEY,
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- NHLe: every NHL skater's season-by-season record in every league (nhle.py), loaded by `python ingest.py backfill-leagues`.
+CREATE TABLE IF NOT EXISTS player_league_season (
+    player_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
+    game_type INTEGER NOT NULL,
+    league    TEXT NOT NULL,
+    team_name TEXT NOT NULL,
+    games     INTEGER NOT NULL,
+    goals     INTEGER,
+    assists   INTEGER,
+    points    INTEGER,
+    PRIMARY KEY (player_id, season_id, game_type, league, team_name)
+);
+CREATE INDEX IF NOT EXISTS player_league_season_league ON player_league_season (league, season_id);
+CREATE TABLE IF NOT EXISTS player_league_fetched (   -- players already pulled, so the backfill can resume
+    player_id  INTEGER PRIMARY KEY,
+    birth_date DATE,
+    position   TEXT,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- NHLe factors per league (analysis/nhle_factors.py --save): NHL points per game as a multiple of the league's, with a 90% interval.
+CREATE TABLE IF NOT EXISTS nhle_factor (
+    league TEXT PRIMARY KEY, factor REAL NOT NULL, lo REAL, hi REAL,
+    pairs INTEGER NOT NULL, players INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- NHLe age multipliers (analysis/nhle_factors.py --save): how much a player of each age outscores (>1) or undershoots (<1) the plain factor.
+CREATE TABLE IF NOT EXISTS nhle_age (bucket TEXT PRIMARY KEY, multiplier REAL NOT NULL);

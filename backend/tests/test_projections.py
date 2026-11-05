@@ -100,5 +100,86 @@ class GoalieFinal(unittest.TestCase):
         self.assertEqual(out["final_wins"], 0)
 
 
+class GoalieRangeAndRates(unittest.TestCase):
+    NOW = {"games_played": 10, "games_started": 10, "wins": 5, "saves": 250, "shots_against": 275, "goals_against": 25,
+           "shutouts": 1, "toi_sec": 36000}
+
+    def games(self, starts=4):
+        line = {"win": 0.5, "loss": 0.4, "otl": 0.1, "saves": 25.0, "shots": 28.0, "ga": 3.0, "shutout": 0.05}
+        return [{"probability": 1.0, "line": line} for _ in range(starts)]
+
+    def test_range_brackets_the_projection_and_widens_with_more_starts_left(self):
+        short, long_ = pj.goalie_final(self.NOW, self.games(2)), pj.goalie_final(self.NOW, self.games(40))
+        for out in (short, long_):
+            self.assertLess(out["low_wins"], out["final_wins"])
+            self.assertGreater(out["high_wins"], out["final_wins"])
+        self.assertGreater(long_["high_wins"] - long_["low_wins"], short["high_wins"] - short["low_wins"])
+
+    def test_range_never_goes_below_what_he_already_has(self):
+        out = pj.goalie_final(self.NOW, self.games(1))
+        self.assertGreaterEqual(out["low_wins"], self.NOW["wins"])
+        self.assertGreaterEqual(out["low_shutouts"], self.NOW["shutouts"])
+
+    def test_no_starts_left_gives_a_zero_width_range(self):
+        out = pj.goalie_final(self.NOW, [])
+        self.assertAlmostEqual(out["low_wins"], 5)
+        self.assertAlmostEqual(out["high_wins"], 5)
+
+    def test_interval_matches_the_fitted_variance(self):
+        a, b = pj.GOALIE_RANGE["wins"]
+        low, high = pj.goalie_interval("wins", 20.0, 10.0)
+        sd = (a * 20 + b * 100) ** 0.5
+        self.assertAlmostEqual(high, 10 + pj.Z80 * sd)
+        self.assertAlmostEqual(low, 10 - pj.Z80 * sd)
+
+    def test_save_pct_is_all_saves_over_all_shots(self):
+        out = pj.goalie_final(self.NOW, self.games(4))
+        self.assertAlmostEqual(out["final_save_pct"], (250 + 100) / (275 + 112))
+
+    def test_gaa_counts_each_expected_start_as_sixty_minutes(self):
+        out = pj.goalie_final(self.NOW, self.games(4))
+        self.assertAlmostEqual(out["final_gaa"], (25 + 12) * 3600 / (36000 + 4 * 3600))
+
+    def test_missing_ice_time_or_shots_gives_no_rate(self):
+        out = pj.goalie_final({"games_played": 0}, [])
+        self.assertIsNone(out["final_save_pct"])
+        self.assertIsNone(out["final_gaa"])
+
+
+class BlendStarts(unittest.TestCase):
+    def test_early_on_the_model_leads(self):
+        # 10 games played: the share gets 10 / 30 of the weight
+        out = pj.blend_starts(chain=40.0, team_left=72, starts=10, team_played=10)
+        self.assertAlmostEqual(out, (2 / 3) * 40.0 + (1 / 3) * 72)
+
+    def test_later_the_share_so_far_leads(self):
+        out = pj.blend_starts(chain=30.0, team_left=42, starts=20, team_played=40)   # shares 50% of 42 = 21, weight 2/3
+        self.assertAlmostEqual(out, (1 / 3) * 30.0 + (2 / 3) * 21.0)
+
+    def test_an_agreeing_model_and_record_change_nothing(self):
+        self.assertAlmostEqual(pj.blend_starts(21.0, 42, 20, 40), 21.0)
+
+    def test_no_games_played_yet_keeps_the_model(self):
+        self.assertEqual(pj.blend_starts(30.0, 82, 0, 0), 30.0)
+
+    def test_a_backup_who_never_started_is_pulled_down_not_to_zero(self):
+        out = pj.blend_starts(10.0, 42, 0, 40)
+        self.assertGreater(out, 0)
+        self.assertLess(out, 10.0)
+
+
+class ScaleStarts(unittest.TestCase):
+    def test_scales_each_chance_and_caps_at_one(self):
+        games = [{"probability": 0.5, "line": {"win": 0.5}}, {"probability": 0.9, "line": {"win": 0.4}}]
+        out = pj.scale_starts(games, 1.5)
+        self.assertAlmostEqual(out[0]["probability"], 0.75)
+        self.assertEqual(out[1]["probability"], 1.0)
+        self.assertEqual(out[0]["line"], {"win": 0.5})
+        self.assertEqual(games[0]["probability"], 0.5)   # the input is left alone
+
+    def test_a_missing_chance_stays_zero(self):
+        self.assertEqual(pj.scale_starts([{"probability": None, "line": {}}], 2.0)[0]["probability"], 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

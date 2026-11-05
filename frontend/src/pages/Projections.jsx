@@ -1,3 +1,4 @@
+import { fmtGaa, fmtSavePct, goalieRange } from '../goalieProjection.js'
 import { useEffect, useState } from 'react'
 import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
@@ -7,7 +8,7 @@ import { Skeleton } from '../components/Skeleton.jsx'
 
 const n0 = (v) => Math.round(v)
 const POSITIONS = [['', 'All skaters'], ['F', 'Forwards'], ['C', 'Centers'], ['L', 'Left wings'], ['R', 'Right wings'], ['D', 'Defensemen']]
-const GOALIE_SORTS = [['final_wins', 'Projected wins'], ['final_saves', 'Projected saves'], ['final_shutouts', 'Projected shutouts'], ['final_starts', 'Projected starts'], ['rest_starts', 'Starts still to come']]
+const GOALIE_SORTS = [['final_wins', 'Projected wins'], ['final_saves', 'Projected saves'], ['final_save_pct', 'Projected save %'], ['final_shutouts', 'Projected shutouts'], ['final_starts', 'Projected starts'], ['rest_starts', 'Starts still to come']]
 const SORTS = [['final_points', 'Projected points'], ['final_goals', 'Projected goals'], ['final_assists', 'Projected assists'], ['rest_points', 'Points still to come']]
 
 export default function Projections({ embedded = false }) {
@@ -45,10 +46,13 @@ export default function Projections({ embedded = false }) {
         {goalies ? (
           <p>
             Where each goalie's wins, saves, shutouts and goals against are headed. The rest of the season is his chance to start
-            each remaining game of his team (from how the team has been using its goalies) times what a start in that game is worth,
-            from the two teams' strength. Results barely repeat from year to year for goalies, so the team's strength does the work
-            here rather than the goalie's own record. The start counts assume recent usage continues: injuries, trades and a
-            backup taking over are not predicted, and there is no range.
+            each remaining game of his team times what a start in that game is worth, from the two teams' strength and what
+            starters face in a game. The chance to start comes from how the team has been using its goalies, leaning more on his
+            share of the team's starts so far as the season goes on (checked against four past seasons). Results barely repeat from
+            year to year for goalies, so the team's strength does the work here rather than the goalie's own record, and a goalie's
+            save % is pulled to what his team's situation supports as the season goes on. The range is where the wins land 80% of the
+            time (about 84% for goalies with ten or more starts to come, in the backtest); it covers luck and uncertainty in the start
+            count, not injuries, trades or a backup taking over.
           </p>
         ) : (
         <p>
@@ -90,8 +94,11 @@ export default function Projections({ embedded = false }) {
                 <th title="Games started so far">GS</th><th title="Wins so far">W</th>
                 <th title="Starts the goalie is expected to get for the rest of the season">Starts left</th>
                 <th title="Projected wins at the end of the season">Proj. W</th>
+                <th title="80% range for the wins, if no one gets hurt or traded">Range</th>
                 <th title="Projected saves at the end of the season">Proj. SV</th>
+                <th title="Projected save percentage at the end of the season">Proj. SV%</th>
                 <th title="Projected goals against at the end of the season">Proj. GA</th>
+                <th title="Projected goals against average at the end of the season">Proj. GAA</th>
                 <th title="Projected shutouts at the end of the season">Proj. SO</th>
               </tr>
             </thead>
@@ -100,8 +107,9 @@ export default function Projections({ embedded = false }) {
                 <tr key={r.player_id}>
                   <td className="left"><Link to={`/goalie/${r.player_id}`}>{r.name}</Link></td>
                   <td className="left">{r.team}</td><td>{r.starts}</td><td>{r.wins}</td><td>{n0(r.rest_starts)}</td>
-                  <td className="accent">{n0(r.final_wins)}</td><td>{n0(r.final_saves)}</td>
-                  <td>{n0(r.final_goals_against)}</td><td>{r.final_shutouts.toFixed(1)}</td>
+                  <td className="accent">{n0(r.final_wins)}</td><td>{goalieRange(r, 'wins')}</td>
+                  <td>{n0(r.final_saves)}</td><td>{fmtSavePct(r.final_save_pct)}</td>
+                  <td>{n0(r.final_goals_against)}</td><td>{fmtGaa(r.final_gaa)}</td><td>{r.final_shutouts.toFixed(1)}</td>
                 </tr>
               ))}
             </tbody>
@@ -137,8 +145,8 @@ export default function Projections({ embedded = false }) {
         </div>
       )}
       <p className="sub">
-        The range covers how lumpy scoring is and how uncertain a player's true rate is. It does not cover injuries, trades or role
-        changes. For goal luck on its own, see <Link to="/projections?tab=luck">Luck &amp; regression</Link>.
+        The range covers how lumpy results are and how uncertain a player's true rate is{goalies ? ', and how many starts a goalie gets' : ''}.
+        It does not cover injuries, trades or role changes. For goal luck on its own, see <Link to="/projections?tab=luck">Luck &amp; regression</Link>.
       </p>
     </PageShell>
   )

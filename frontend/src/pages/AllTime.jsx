@@ -1,3 +1,4 @@
+import Avatar from '../components/Avatar.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import HhofMark from '../components/HhofMark.jsx'
 import { Link } from 'react-router-dom'
@@ -196,11 +197,12 @@ export default function AllTime({ kind }) {
   const nameCell = (r) => {
     const route = kind === 'goalie' ? 'goalie' : 'player'
     return (
-      <>
+      <span className="player-cell">
+        <Avatar playerId={r.player_id} team={r.last_team} season={r.last_season} name={r.name} />
         <Link to={`/${route}/${r.player_id}`}>{r.name}</Link>
         {r.hall_of_fame === 'Y' && <HhofMark size={18} />}
         {r.active_season && <span className="badge">active</span>}
-      </>
+      </span>
     )
   }
 

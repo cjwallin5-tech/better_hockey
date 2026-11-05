@@ -6,6 +6,11 @@ GAME_TYPE = 2  # regular season
 
 # The NHL moved to an 84-game schedule.
 GAMES_PER_SEASON = 84
+
+
+def regular_season_games(season_id):
+    """Games in a season's regular schedule: 32 teams x 82 games / 2 = 1312 up to 2025-26, 32 x 84 / 2 = 1344 from 2026-27."""
+    return 1344 if season_id >= 20262027 else 1312
 RECENT_WINDOW = 10  # games used for the "last N" pace
 RECENT_GOALIE_GAMES = 5  # goalies play far less often, so their "recent form" window is shorter
 

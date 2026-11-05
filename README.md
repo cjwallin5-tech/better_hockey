@@ -44,15 +44,26 @@ Things worth knowing:
 
 ## Season rollover (each October)
 
-The nightly job only keeps the current season (`SEASON_ID` in `backend/config.py`) up to date. Past seasons are loaded by hand
-and never refreshed, so when a new season starts the one that just finished stops being updated and needs a final pass:
+The nightly job only keeps the current season (`SEASON_ID`, the default in `backend/config.py`) up to date, and past seasons are
+loaded by other commands. When a new season starts, one command does the whole changeover:
 
-- Run `python ingest.py backfill-onice`, `backfill-edge` and `backfill-shots` from `backend/` (all resumable; the EDGE one takes
-  hours, see Speed & shots below). The EDGE speed extras (bursts, average shot speed, bands) refresh only weekly during the
-  season, so this pass is what settles the finished season's final numbers.
-- Before relying on `backfill-onice`, check that the finished season's games are in `skater_game_hist`, since that table is what
-  the backfill reads. This hasn't been checked for a season ending yet (as of 2026-10).
-- The season's data is already correct while it's the current season; this is housekeeping, not a correctness check.
+```bash
+cd backend
+.venv/bin/python rollover.py 20272028 --dry-run   # checks the finished season and prints the plan, changes nothing
+.venv/bin/python rollover.py 20272028             # does it; hours long, mostly the EDGE pass
+```
+
+It checks that the season that just ended is complete (every game final, a full schedule from `config.regular_season_games`, player
+stats refreshed after the last game) and refuses otherwise (`--force` overrides); changes the `SEASON_ID` default in `config.py`
+(the launchd jobs set no `SEASON_ID`, so this is what moves them); runs the regular ingest once, which loads the finished season's
+game-by-game history; then the resumable backfills (`games-hist`, `shots`, `shot-locations`, `shot-times`, `onice`, `edge`); clears the
+per-player old-games markers so head-to-head refetches with the moved boundary; and checks the history counts. Every step is safe
+to repeat, so if it is cut short run the same command again. `--skip edge,onice` leaves steps out and `--only onice` runs one. It
+logs to `backend/logs/rollover-*.log` and never touches git.
+
+Afterwards, by hand: restart the API, commit `config.py`, and optionally refit the xG model on the finished season
+(`train_xg_fetch.py` then `train_xg.py`). Schedule length lives in `config.regular_season_games` (82 games to 2025-26, 84 from
+2026-27); if the league changes it again, update it there first.
 
 ## Features worth knowing about
 
@@ -64,7 +75,7 @@ and never refreshed, so when a new season starts the one that just finished stop
   (`/api/fantasy/priors`), chosen by a backtest on four past seasons; every other stat is pulled toward the position average by its
   own weight (heavy for luck-driven ones like plus/minus and game-winning goals, light for shots and hits; these weights are
   reasoned, not backtested). Games left come from the stored schedule
-  (`/api/fantasy/games-left`). League size is saved in the browser only, unlike the roster and scoring, which sync with an account.
+  (`/api/fantasy/games-left`). The roster, scoring and league settings (teams, format, slots) sync with an account.
   **Category leagues** (head-to-head or roto): choose "Category league" and the categories your league counts in Scoring & backup.
   Values, the trade analyzer, the roster table and pickups then switch to z-scores above replacement across those categories
   (`frontend/src/categories.js` explains the method), with a per-category breakdown in the trade analyzer. Each stat's early-season
@@ -224,9 +235,17 @@ and never refreshed, so when a new season starts the one that just finished stop
   (past seasons are paired into opponents by `ingest_team_abbrevs`); earlier seasons come from `game_hist`, each club's season
   schedule, loaded once by `python ingest.py backfill-games-hist` from `backend/` (resumable; about 540 requests), and from a player's
   NHL game logs, fetched and stored the first time someone looks that player up (`oldgames.py`, `oldgames_db.py`). The Coyotes' games
-  count toward Utah and the Thrashers' toward Winnipeg. When a new season starts, the oldest stored season falls into the older group
-  and the `backfill-games-hist` command needs another run to pick it up (the lookups for individual players also won't include it until
-  their stored games are refetched).
+  count toward Utah and the Thrashers' toward Winnipeg. When a new season starts, the oldest stored season falls into the older group;
+  `rollover.py` reruns `backfill-games-hist` and clears the stored per-player games so lookups refetch.
+- **NHLe** (Prospects page column and each prospect's page): a skater prospect's points per game in his league translated into NHL
+  points over 84 games, so players in the OHL, NCAA, the AHL or Europe sit on one scale. The league factors are fitted on our own data:
+  `python ingest.py backfill-leagues` (from `backend/`, resumable, about 40 minutes) stores every NHL skater's record in every league
+  since 2006-07, and `python analysis/nhle_factors.py --save` pairs each league season with the player's next NHL season (20+ games each),
+  fits a factor per league with 90% intervals, and fits an age multiplier (players 20 and under outscore the plain factor, 23 and over
+  fall short). Checked on later seasons than it was fitted on, it predicted NHL points per game about 16% better than the average
+  (`analysis/nhle_factors.py` prints the backtest). Only players who reached the NHL are in the pairs, so it answers "if he gets there".
+  It needs 20+ games in a season, so early in a season the table shows last season's figure in grey. Re-run both commands once a year
+  after the rollover to add the new season's pairs.
 - **Saved views**: signed-in users can save the current filters and sort on the skater, goalie and all-time leaderboards under
   a name (up to 30) and reopen them with one click. A view is just the page's URL query string, kept per account.
 - **Era-adjusted scoring**: the All-Time page's "Era-adjusted" view and the Compare page's adjusted charts rescale each season's

@@ -10,7 +10,7 @@ import config, ingest, shots
 
 year = int(sys.argv[1])
 out = Path(sys.argv[2] if len(sys.argv) > 2 else f"data/shots_{year}.jsonl.gz")
-GAMES = 1312  # 32 teams x 82 games / 2
+GAMES = config.regular_season_games(year * 10000 + year + 1)  # 1312 up to 2025-26, 1344 from 2026-27
 
 done = set()
 if out.exists():
