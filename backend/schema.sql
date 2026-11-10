@@ -417,6 +417,17 @@ CREATE TABLE IF NOT EXISTS prospect (
     on_list       BOOLEAN NOT NULL DEFAULT true,   -- false once they leave every team's list (usually: made the NHL)
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Drafted players that the NHL's team lists leave out are found from the draft itself (ingest_draft_picks): from_draft marks them, so the
+-- nightly list refresh doesn't treat "on no list" as "has left the lists". draft_pick_lookup remembers which picks have been matched to a
+-- player id (player_id NULL: tried, not found yet) so each night only asks about the rest.
+ALTER TABLE prospect ADD COLUMN IF NOT EXISTS from_draft BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS draft_pick_lookup (
+    draft_year INTEGER NOT NULL,
+    overall    INTEGER NOT NULL,
+    player_id  INTEGER,
+    tried_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (draft_year, overall)
+);
 CREATE TABLE IF NOT EXISTS prospect_season (
     player_id  INTEGER NOT NULL,
     season_id  INTEGER NOT NULL,

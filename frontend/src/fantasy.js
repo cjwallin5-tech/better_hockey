@@ -181,21 +181,27 @@ export function useLeague() {
 export const fantasyPoints = (row, cats, scoring) =>
   cats.reduce((t, [key]) => t + (row[key] ?? 0) * (Number(scoring[key]) || 0), 0)
 
-/** Replace the whole local state (roster, scoring and, when the account has one, league), e.g. with what's stored on the account. */
-export function applyState({ players, scoring, league }) {
-  write({ players: clean(players) })
-  if (league && Object.keys(league).length > 0) {
-    try {
-      localStorage.setItem(LEAGUE_KEY, JSON.stringify({ ...readLeague(), ...league }))
-    } catch {
-      // storage unavailable: the change simply won't persist
-    }
-    window.dispatchEvent(new Event(LEAGUE_EVENT))
-  }
+/** Take the account's league settings (teams, format, slots) into this browser, leaving the roster and scoring alone. A league with nothing saved changes nothing. */
+export function applyLeague(league) {
+  if (!league || Object.keys(league).length === 0) return
   try {
-    localStorage.setItem(SCORING_KEY, JSON.stringify(scoring ?? {}))
+    localStorage.setItem(LEAGUE_KEY, JSON.stringify({ ...readLeague(), ...league }))
   } catch {
     // storage unavailable: the change simply won't persist
   }
-  window.dispatchEvent(new Event(SCORING_EVENT))
+  window.dispatchEvent(new Event(LEAGUE_EVENT))
+}
+
+/** Replace the whole local state (roster, scoring and, when the account has one, league), e.g. with what's stored on the account. */
+export function applyState({ players, scoring, league }) {
+  write({ players: clean(players) })
+  applyLeague(league)
+  if (scoring && Object.keys(scoring).length > 0) {   // an account with no scoring saved must not blank this browser's
+    try {
+      localStorage.setItem(SCORING_KEY, JSON.stringify(scoring))
+    } catch {
+      // storage unavailable: the change simply won't persist
+    }
+    window.dispatchEvent(new Event(SCORING_EVENT))
+  }
 }

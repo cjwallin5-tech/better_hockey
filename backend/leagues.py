@@ -1,12 +1,19 @@
 """Private fantasy leagues: friends share their rosters so the site can see who is actually taken.
 
-A league has an owner, an invite code and optional shared settings (scoring and slots). Each member has one team whose
-roster is that member's own synced fantasy roster (fantasy_state), so it stays current without extra steps. The owner can also add
-teams managed by hand for friends who don't use the site, so a league can be complete. Rosters are visible only to the league's
-members, and only team names are shown to other members, never emails.
+A league has an owner, an invite code and optional shared settings (scoring and slots). Each member has one team. A team has its
+own roster (league_team.roster) once its member has started one, either by copying their personal fantasy roster or from empty, so
+a user in several leagues can hold a different roster in each. Until then (roster IS NULL, which is every team made before this
+existed) the team follows the member's personal synced roster (fantasy_state). The owner can also add teams managed by hand for
+friends who don't use the site, so a league can be complete. Rosters are visible only to the league's members, and only team names
+are shown to other members, never emails.
 
-Limits worth knowing: a user has one synced roster, so the same roster shows in every league they are in; and a team's roster is
-only as current as its owner's last sync (a signed-in browser syncs on every change).
+Scoring and league settings work the same way: the league's owner can share settings with everyone (league.settings), and each
+member can keep their own for the league (league_team.settings, NULL until they change something). A member's effective settings
+are their own where they have them, else the league's shared ones, else their account-wide settings (the frontend and the daily
+email resolve them in that order).
+
+Limit worth knowing: a team that still follows the personal roster is only as current as its owner's last sync (a signed-in browser
+syncs on every change).
 """
 import re
 import secrets
@@ -51,6 +58,10 @@ CREATE TABLE IF NOT EXISTS league_team (
     UNIQUE (league_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS league_team_user_idx ON league_team (user_id);
+-- A member's own roster for this league; NULL means the team still follows the member's personal fantasy roster.
+ALTER TABLE league_team ADD COLUMN IF NOT EXISTS roster JSONB;
+-- A member's own scoring and league settings for this league (same shape as league.settings plus teams); NULL means none.
+ALTER TABLE league_team ADD COLUMN IF NOT EXISTS settings JSONB;
 """
 
 
@@ -119,26 +130,49 @@ def clean_settings(raw):
     return out
 
 
+def clean_my_settings(raw):
+    """A member's own settings for a league: what clean_settings keeps, plus how many teams they say the league has (2-32)."""
+    raw = raw if isinstance(raw, dict) else {}
+    out = clean_settings(raw)
+    teams = _whole(raw.get("teams"), MIN_TEAMS, MAX_TEAMS)
+    if teams is not None:
+        out["teams"] = teams
+    return out
+
+
 def taken_ids(teams):
     """Every player id on any team: [{players: [{id}...]}...] -> set of ids."""
     return {p["id"] for t in teams for p in t["players"]}
 
 
+def team_roster(row, personal):
+    """The players on one team row: a hand-managed team's list, a member's own league roster once started, otherwise the
+    member's personal synced roster (personal: {user_id: players})."""
+    if row["user_id"] is None:
+        return clean_players(row["players"])
+    own = row.get("roster")
+    return clean_players(own if own is not None else personal.get(row["user_id"], []))
+
+
 def team_view(row, viewer_id, roster):
-    """One team as members see it. roster: the team's players (the owner's synced roster, or the hand-managed list).
-    No email is shown: a member is identified by the team name."""
+    """One team as members see it. roster: the team's players (see team_roster). own_roster says whether the member has
+    started a roster for this league (False: it still shows their personal roster). No email is shown: a member is
+    identified by the team name."""
     return {"id": row["id"], "name": row["name"], "manual": row["user_id"] is None,
-            "mine": row["user_id"] is not None and row["user_id"] == viewer_id, "players": roster}
+            "mine": row["user_id"] is not None and row["user_id"] == viewer_id, "players": roster,
+            "own_roster": row["user_id"] is not None and row.get("roster") is not None}
 
 
 def league_view(league, team_rows, rosters, viewer_id):
-    """The league as a member sees it. rosters: {user_id: players} for user-linked teams."""
+    """The league as a member sees it. rosters: {user_id: personal players}, used by user-linked teams that have no roster of their own."""
     teams = []
     for r in team_rows:
-        roster = clean_players(r["players"]) if r["user_id"] is None else clean_players(rosters.get(r["user_id"], []))
-        teams.append(team_view(r, viewer_id, roster))
+        teams.append(team_view(r, viewer_id, team_roster(r, rosters)))
     owner_team = next((t for t, r in zip(teams, team_rows) if r["user_id"] == league["owner_id"]), None)
+    mine = next((r for r in team_rows if r["user_id"] is not None and r["user_id"] == viewer_id), None)
+    my_settings = (clean_my_settings(mine.get("settings")) or None) if mine and mine.get("settings") is not None else None
     return {"id": league["id"], "name": league["name"], "teams_allowed": league["teams"], "settings": league["settings"] or {},
+            "my_settings": my_settings,
             "is_owner": league["owner_id"] == viewer_id, "owner_team": owner_team["name"] if owner_team else None,
             "teams": teams, "taken": sorted(taken_ids(teams)), "created_at": league["created_at"]}
 
@@ -362,9 +396,56 @@ class PlayersIn(BaseModel):
     players: list[dict]
 
 
+@router.put("/leagues/{league_id}/my-roster")
+def set_my_roster(league_id: int, body: PlayersIn, request: Request):
+    """Save the caller's own roster for this league (this also starts one if the team still followed the personal roster)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = _user(conn, request)
+        league, mine = _league_for_member(conn, league_id, user)
+        conn.execute("UPDATE league_team SET roster = %s WHERE id = %s", (Jsonb(clean_players(body.players)), mine["id"]))
+        return _detail(conn, league, user["id"])
+
+
+class MySettingsIn(BaseModel):
+    settings: dict | None = None   # None or empty: forget the member's own settings (the league's shared ones apply again)
+
+
+@router.put("/leagues/{league_id}/my-settings")
+def set_my_settings(league_id: int, body: MySettingsIn, request: Request):
+    """Save the caller's own scoring and league settings for this league, or clear them."""
+    cleaned = clean_my_settings(body.settings) if body.settings else {}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = _user(conn, request)
+        league, mine = _league_for_member(conn, league_id, user)
+        conn.execute("UPDATE league_team SET settings = %s WHERE id = %s", (Jsonb(cleaned) if cleaned else None, mine["id"]))
+        return _detail(conn, league, user["id"])
+
+
+class StartIn(BaseModel):
+    mode: str   # 'copy' (from the personal roster) or 'empty'
+
+
+@router.post("/leagues/{league_id}/my-roster/start")
+def start_my_roster(league_id: int, body: StartIn, request: Request):
+    """Give the caller's team its own roster: a copy of their personal roster, or empty. A roster that already exists is left
+    alone, so a repeated click or a second tab can't overwrite it."""
+    if body.mode not in ("copy", "empty"):
+        raise HTTPException(400, "mode must be 'copy' or 'empty'")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        user = _user(conn, request)
+        league, mine = _league_for_member(conn, league_id, user)
+        if mine.get("roster") is None:
+            players = []
+            if body.mode == "copy":
+                row = conn.execute("SELECT players FROM fantasy_state WHERE user_id = %s", (user["id"],)).fetchone()
+                players = clean_players(row["players"] if row else [])
+            conn.execute("UPDATE league_team SET roster = %s WHERE id = %s AND roster IS NULL", (Jsonb(players), mine["id"]))
+        return _detail(conn, league, user["id"])
+
+
 @router.put("/leagues/{league_id}/teams/{team_id}/players")
 def set_manual_roster(league_id: int, team_id: int, body: PlayersIn, request: Request):
-    """The owner sets the roster of a hand-managed team. Members' own teams follow their synced fantasy roster instead."""
+    """The owner sets the roster of a hand-managed team. Members set their own teams' rosters themselves (my-roster)."""
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         user = _user(conn, request)
         league, _ = _owner_league(conn, league_id, user)
@@ -372,7 +453,7 @@ def set_manual_roster(league_id: int, team_id: int, body: PlayersIn, request: Re
         if not team:
             raise HTTPException(404, "Team not found")
         if team["user_id"] is not None:
-            raise HTTPException(400, "That team follows its owner's fantasy roster")
+            raise HTTPException(400, "A member sets their own team's roster")
         conn.execute("UPDATE league_team SET players = %s WHERE id = %s", (Jsonb(clean_players(body.players)), team_id))
         return _detail(conn, league, user["id"])
 

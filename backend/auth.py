@@ -491,6 +491,7 @@ def put_digest(pref: DigestPref, request: Request):
 # --- Password reset ---------------------------------------------------------------------------
 RESET_MINUTES = 60
 RESET_LIMIT = 5  # reset emails per address / client per hour
+RESET_SEND_ATTEMPTS = 3  # tries to hand the email to the mail server (waits 5 s, then 10 s, between them)
 _RESETS: dict[str, list[float]] = {}
 
 
@@ -516,7 +517,8 @@ def _send_reset_email(email: str, link: str):
     if not config.SMTP_HOST:
         log.warning("SMTP_HOST is not set, so no email was sent. Reset link for %s: %s", email, link)
         return
-    mail.send(email, "Reset your NHL Stats password", body)
+    if not mail.send_with_retry(email, "Reset your NHL Stats password", body, attempts=RESET_SEND_ATTEMPTS):
+        log.error("Couldn't send a password reset email to %s after %d tries", email, RESET_SEND_ATTEMPTS)
 
 
 class ForgotRequest(BaseModel):

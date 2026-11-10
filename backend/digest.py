@@ -428,9 +428,68 @@ def luck_line(a):
             f"(z {a['z']:+.1f}). A bounce back may be coming.")
 
 
-def render(d, w=None, week=None):
+def combine_rosters(personal, leagues):
+    """One roster for the email from a personal roster plus each league's own: (players, labels). Each player appears once
+    (personal first); labels maps a player id to the names of the leagues whose roster holds them, so the email can say
+    which team a player is on. leagues: [{"name", "players"}]."""
+    players, labels = {}, {}
+    for p in personal:
+        players.setdefault(p["id"], p)
+    for lg in leagues:
+        for p in lg["players"]:
+            players.setdefault(p["id"], p)
+            names = labels.setdefault(p["id"], [])
+            if lg["name"] not in names:
+                names.append(lg["name"])
+    return list(players.values()), labels
+
+
+def league_tag(labels, player_id):
+    """' [League A, League B]' for a player on league rosters, else ''."""
+    names = (labels or {}).get(player_id)
+    return f" [{', '.join(names)}]" if names else ""
+
+
+def league_inputs(scoring, league, shared, own=None):
+    """The scoring and league shape the week-ahead section should use for one league's roster: the member's own settings for the
+    league where they have set them, else the league's shared ones, else the account's (field by field for format and slots)."""
+    shape = dict(league or {})
+    chosen = scoring or {}
+    for source in (shared or {}, own or {}):   # the later one wins
+        for key in ("format", "slots"):
+            if source.get(key):
+                shape[key] = source[key]
+        if source.get("scoring"):
+            chosen = source["scoring"]
+    return chosen, shape
+
+
+def week_text(sections):
+    """Join week-ahead sections [(label, text)]. A single one stands alone; several each get a label line."""
+    sections = [(label, text) for label, text in sections if text]
+    if len(sections) <= 1:
+        return sections[0][1] if sections else None
+    return "\n\n".join(f"-- {label} --\n{text}" for label, text in sections)
+
+
+def league_rosters(conn, user_ids):
+    """{user_id: [{"name", "players", "settings", "own"}]} for the started, non-empty rosters of the users' league teams. settings
+    are the league's shared settings; own are the member's own for it."""
+    if not user_ids:
+        return {}
+    out = {}
+    for r in conn.execute(
+            """SELECT t.user_id, l.name, t.roster, l.settings, t.settings AS own FROM league_team t JOIN league l ON l.id = t.league_id
+               WHERE t.user_id = ANY(%s) AND t.roster IS NOT NULL AND jsonb_array_length(t.roster) > 0
+               ORDER BY l.created_at, l.id""", (list(user_ids),)):
+        out.setdefault(r["user_id"], []).append({"name": r["name"], "players": r["roster"], "settings": r["settings"] or {},
+                                         "own": r["own"] or {}})
+    return out
+
+
+def render(d, w=None, week=None, labels=None):
     """(subject, plain-text body), or None when there is nothing worth an email. `w` is gather_watch()'s result; `week` is
-    the Sunday week-ahead text (weekly.section), shown first."""
+    the Sunday week-ahead text (weekly.section), shown first; `labels` is combine_rosters()'s league labels."""
     watch = watch_lines(w) if w else []
     if not (week or d["playing"] or d["hot"] or d["watch"] or d.get("luck") or d.get("roles") or d.get("sell") or d.get("buy") or d.get("absent") or d.get("matchups") or watch):
         return None
@@ -448,10 +507,10 @@ def render(d, w=None, week=None):
                 note = " - confirmed starter" if confirmed else f" - likely starter ({round(prob * 100)}%, a guess)"
             elif e["kind"] == "goalie":
                 note = " - starter unclear"
-            lines.append(f"  {e['name']} ({e['team']}) {'vs' if g['home'] else '@'} {g['opp']}, {when}{note}{rest_note(g)}")
+            lines.append(f"  {e['name']} ({e['team']}){league_tag(labels, e.get('id'))} {'vs' if g['home'] else '@'} {g['opp']}, {when}{note}{rest_note(g)}")
         lines.append("")
     if d["idle"]:
-        lines += ["NO GAME TODAY: " + ", ".join(e["name"] for e in d["idle"]), ""]
+        lines += ["NO GAME TODAY: " + ", ".join(e["name"] + league_tag(labels, e.get("id")) for e in d["idle"]), ""]
     if d["hot"]:
         lines.append("HOT")
         for h in d["hot"]:
@@ -500,18 +559,15 @@ def due_users(conn):
                   coalesce(f.league, '{}'::jsonb) AS league, p.last_sent_on
            FROM digest_pref p JOIN app_user u ON u.id = p.user_id LEFT JOIN fantasy_state f ON f.user_id = u.id
            WHERE p.enabled AND (coalesce(jsonb_array_length(f.players), 0) > 0
-                                OR EXISTS (SELECT 1 FROM watch_item w WHERE w.user_id = u.id))
+                                OR EXISTS (SELECT 1 FROM watch_item w WHERE w.user_id = u.id)
+                                OR EXISTS (SELECT 1 FROM league_team t WHERE t.user_id = u.id AND t.roster IS NOT NULL
+                                           AND jsonb_array_length(t.roster) > 0))
              AND (p.last_sent_on IS NULL OR p.last_sent_on < (now() AT TIME ZONE 'America/New_York')::date)""").fetchall()
 
 
 def send_with_retry(to, subject, body, attempts=SEND_ATTEMPTS, wait=SEND_WAIT_SECONDS, sleep=time.sleep):
     """mail.send, retried: launchd often fires right as the Mac wakes, before the network is back."""
-    for i in range(attempts):
-        if mail.send(to, subject, body):
-            return True
-        if i < attempts - 1:
-            sleep(wait * (i + 1))
-    return False
+    return mail.send_with_retry(to, subject, body, attempts, wait, sleep)
 
 
 def main(argv):
@@ -532,15 +588,26 @@ def main(argv):
         ms = None  # api.milestones() scans every player, so it runs once and only if someone watches a player
         absent = absences_db.current(conn, config.SEASON_ID)   # who is out, shared by every email
         fits = shot_fits(conn)                                  # today's goalie matchup fits, shared by every email
-        for u in due_users(conn):
+        users = due_users(conn)
+        in_leagues = league_rosters(conn, [u["id"] for u in users])
+        for u in users:
             items = conn.execute("SELECT kind, ref, name FROM watch_item WHERE user_id = %s", (u["id"],)).fetchall()
             if ms is None and any(i["kind"] == "player" for i in items):
                 ms = api.milestones()
-            roster_ids = {p["id"] for p in u["players"]}
+            mine = in_leagues.get(u["id"], [])
+            players, labels = combine_rosters(u["players"], mine)
+            roster_ids = {p["id"] for p in players}
             league = league or league_luck(conn)
             watched = {int(i["ref"]) for i in items if i["kind"] == "player"}
-            week = weekly.section(u["players"], u["scoring"], u["league"], shared) if sunday and u["players"] else None
-            out = render(gather(conn, u["players"], league, watched=watched, absent=absent, fits=fits), gather_watch(conn, items, roster_ids, ms, league), week)
+            week = None
+            if sunday and players:   # one week-ahead section per roster, each under its own league's scoring and slots
+                parts = [("Personal roster", weekly.section(u["players"], u["scoring"], u["league"], shared))] if u["players"] else []
+                for lg in mine:
+                    scoring, shape = league_inputs(u["scoring"], u["league"], lg["settings"], lg["own"])
+                    parts.append((lg["name"], weekly.section(lg["players"], scoring, shape, shared)))
+                week = week_text(parts)
+            out = render(gather(conn, players, league, watched=watched, absent=absent, fits=fits),
+                         gather_watch(conn, items, roster_ids, ms, league), week, labels)
             if out is None:
                 skipped += 1
                 continue

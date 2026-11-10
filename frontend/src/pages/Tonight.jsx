@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import RestBadge from '../components/RestBadge.jsx'
 import TeamMark from '../components/TeamMark.jsx'
 import { teamColor } from '../teamColors.js'
-import { useFantasy } from '../fantasy.js'
+import { useRoster } from '../roster.js'
 import { useWatchlist } from '../watchlist.js'
 import { useUrlSync } from '../urlState.js'
 import { notableTips } from '../matchupTip.js'
@@ -118,7 +118,7 @@ export default function Tonight() {
   const [sort, setSort] = useState(initial.get('sort') === 'time' ? 'time' : 'interest')
   const [date, setDate] = useState(initial.get('date') ?? '')
   useUrlSync([['sort', sort, 'interest'], ['date', date, '']])
-  const { list } = useFantasy()
+  const { list } = useRoster()
   const watch = useWatchlist()
   const [state, setState] = useState({ key: null, data: null, error: null })
 

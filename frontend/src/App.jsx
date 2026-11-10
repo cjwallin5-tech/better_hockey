@@ -10,6 +10,8 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import GlobalSearch from './components/GlobalSearch.jsx'
 import { pages, warm } from './routes.js'
 import PageSkeleton from './components/Skeleton.jsx'
+import { usePageTitle } from './pageTitle.js'
+import { installTabScroll } from './tabScroll.js'
 
 // Pages load on demand, so the first visit downloads the shell and the page you opened, not all of the site.
 const Leaderboard = lazy(pages.Leaderboard)
@@ -62,55 +64,56 @@ function RedirectToTab({ to, tab }) {
 /** The routes, wrapped so a crash on one page shows a message, and moving to another page clears it. */
 function Pages() {
   const { pathname } = useLocation()
+  usePageTitle()
   return (
     <ErrorBoundary key={pathname}>
       <Suspense fallback={<main><PageSkeleton /></main>}>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/skaters" element={<Leaderboard />} />
-        <Route path="/player/:id" element={<Player />} />
-        <Route path="/goalies" element={<Goalies />} />
-        <Route path="/goalie/:id" element={<Goalie />} />
-        <Route path="/milestones" element={<Milestones />} />
-        <Route path="/alltime" element={<AllTimeRedirect />} />
-        <Route path="/alltime/skaters" element={<AllTime key="skater" kind="skater" />} />
-        <Route path="/alltime/goalies" element={<AllTime key="goalie" kind="goalie" />} />
-        <Route path="/game/:id" element={<Game />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/schedule" element={<Schedule />} />
-        <Route path="/schedule-strength" element={<RedirectToTab to="/schedule" tab="strength" />} />
-        <Route path="/rest" element={<RedirectToTab to="/schedule" tab="rest" />} />
-        <Route path="/advanced-stats" element={<AdvancedStats />} />
-        <Route path="/special-teams" element={<RedirectToTab to="/advanced-stats" tab="special-teams" />} />
-        <Route path="/score-effects" element={<RedirectToTab to="/advanced-stats" tab="score-effects" />} />
-        <Route path="/tracking" element={<RedirectToTab to="/advanced-stats" tab="tracking" />} />
-        <Route path="/head-to-head" element={<RedirectToTab to="/compare" tab="head-to-head" />} />
-        <Route path="/luck" element={<RedirectToTab to="/projections" tab="luck" />} />
-        <Route path="/roles" element={<Roles />} />
-        <Route path="/matchups" element={<Matchups />} />
-        <Route path="/awards" element={<Awards />} />
-        <Route path="/trophy" element={<RedirectToTab to="/awards" tab="winners" />} />
-        <Route path="/trophies" element={<Navigate to="/awards" replace />} />
-        <Route path="/trophy/:id" element={<Trophy />} />
-        <Route path="/account" element={<Account />} />
-        <Route path="/fantasy" element={<Fantasy />} />
-        <Route path="/lottery" element={<Lottery />} />
-        <Route path="/prospects" element={<Prospects />} />
-        <Route path="/prospect/:id" element={<Prospect />} />
-        <Route path="/projections" element={<Projections />} />
-        <Route path="/tonight" element={<Tonight />} />
-        <Route path="/my-team" element={<MyTeam />} />
-        <Route path="/leagues" element={<Leagues />} />
-        <Route path="/accuracy" element={<Accuracy />} />
-        <Route path="/absences" element={<Absences />} />
-        <Route path="/league/:id" element={<League />} />
-        <Route path="/watchlist" element={<Watchlist />} />
-        <Route path="/compare" element={<Compare />} />
-        <Route path="/standings" element={<Standings />} />
-        <Route path="/team/:abbrev" element={<Team />} />
-      </Routes>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/skaters" element={<Leaderboard />} />
+          <Route path="/player/:id" element={<Player />} />
+          <Route path="/goalies" element={<Goalies />} />
+          <Route path="/goalie/:id" element={<Goalie />} />
+          <Route path="/milestones" element={<Milestones />} />
+          <Route path="/alltime" element={<AllTimeRedirect />} />
+          <Route path="/alltime/skaters" element={<AllTime key="skater" kind="skater" />} />
+          <Route path="/alltime/goalies" element={<AllTime key="goalie" kind="goalie" />} />
+          <Route path="/game/:id" element={<Game />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/schedule-strength" element={<RedirectToTab to="/schedule" tab="strength" />} />
+          <Route path="/rest" element={<RedirectToTab to="/schedule" tab="rest" />} />
+          <Route path="/advanced-stats" element={<AdvancedStats />} />
+          <Route path="/special-teams" element={<RedirectToTab to="/advanced-stats" tab="special-teams" />} />
+          <Route path="/score-effects" element={<RedirectToTab to="/advanced-stats" tab="score-effects" />} />
+          <Route path="/tracking" element={<RedirectToTab to="/advanced-stats" tab="tracking" />} />
+          <Route path="/head-to-head" element={<RedirectToTab to="/compare" tab="head-to-head" />} />
+          <Route path="/luck" element={<RedirectToTab to="/projections" tab="luck" />} />
+          <Route path="/roles" element={<Roles />} />
+          <Route path="/matchups" element={<Matchups />} />
+          <Route path="/awards" element={<Awards />} />
+          <Route path="/trophy" element={<RedirectToTab to="/awards" tab="winners" />} />
+          <Route path="/trophies" element={<Navigate to="/awards" replace />} />
+          <Route path="/trophy/:id" element={<Trophy />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/fantasy" element={<Fantasy />} />
+          <Route path="/lottery" element={<Lottery />} />
+          <Route path="/prospects" element={<Prospects />} />
+          <Route path="/prospect/:id" element={<Prospect />} />
+          <Route path="/projections" element={<Projections />} />
+          <Route path="/tonight" element={<Tonight />} />
+          <Route path="/my-team" element={<MyTeam />} />
+          <Route path="/leagues" element={<Leagues />} />
+          <Route path="/accuracy" element={<Accuracy />} />
+          <Route path="/absences" element={<Absences />} />
+          <Route path="/league/:id" element={<League />} />
+          <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/compare" element={<Compare />} />
+          <Route path="/standings" element={<Standings />} />
+          <Route path="/team/:abbrev" element={<Team />} />
+        </Routes>
       </Suspense>
-      </ErrorBoundary>
+    </ErrorBoundary>
   )
 }
 
@@ -195,6 +198,7 @@ export default function App() {
   const { dark, toggle } = useTheme()
   const { user } = useAuth()
   useEffect(initAuth, [])
+  useEffect(() => installTabScroll(), [])   // fades and scroll-into-view for tab rows that scroll sideways on a phone
   return (
     <BrowserRouter>
       <TopBar dark={dark} toggle={toggle} user={user} />

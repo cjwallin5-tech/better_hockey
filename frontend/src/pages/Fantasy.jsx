@@ -10,11 +10,14 @@ import DraftHelper from '../components/DraftHelper.jsx'
 import MockDraft from '../components/MockDraft.jsx'
 import PlayoffPlanner from '../components/PlayoffPlanner.jsx'
 import { useAuth } from '../auth.js'
-import { refresh as refreshLeagues, setActive as setActiveLeague, takenByOthers, useLeagues } from '../leagues.js'
+import { refresh as refreshLeagues, setActive as setActiveLeague, startLeagueRoster, takenByOthers, useLeagues } from '../leagues.js'
+import { useRoster } from '../roster.js'
+import { markOwners } from '../searchOwners.js'
 import RosterTools from '../components/RosterTools.jsx'
 import { LuckBadge, useLuck } from '../components/Luck.jsx'
 import { RoleBadge, useRoles } from '../components/Roles.jsx'
-import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints, useFantasy, useLeague, useScoring } from '../fantasy.js'
+import { GOALIE_CATS, SCORING_PRESETS, SKATER_CATS, fantasyPoints } from '../fantasy.js'
+import { useLeague, useScoring } from '../settings.js'
 import PlayerValues from '../components/PlayerValues.jsx'
 import FantasyStart from '../components/FantasyStart.jsx'
 import TradeAnalyzer from '../components/TradeAnalyzer.jsx'
@@ -67,6 +70,26 @@ function ScoringSettings({ scoring, setScoring }) {
   )
 }
 
+/** A number box that lets you type through values outside the range (the "1" on the way to "14") and only saves in-range ones.
+ *  What you typed is shown only while the saved value is still the one you started from, so a change made elsewhere (another
+ *  league selected, a sync) is never hidden behind stale text. */
+function NumberField({ value, min, max, onChange }) {
+  const [draft, setDraft] = useState(null)   // { text, from }
+  const shown = draft && draft.from === value ? draft.text : value
+  return (
+    <input
+      type="number" min={min} max={max} value={shown}
+      onChange={(e) => {
+        const v = e.target.value
+        setDraft({ text: v, from: draft?.from ?? value })
+        const n = Number(v)
+        if (v !== '' && Number.isFinite(n) && n >= min && n <= max) onChange(Math.round(n))
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  )
+}
+
 function LeagueSettings({ league, setLeague }) {
   const cfg = cleanLeague(league)
   const set = (patch) => setLeague({ ...cfg, ...patch })
@@ -89,7 +112,7 @@ function LeagueSettings({ league, setLeague }) {
       <summary>League format and size</summary>
       <p className="muted">
         Used for player values and the trade analyzer. Replacement level is the best player at a position who wouldn't be
-        starting in your league (teams × starting slots). Saved in this browser only.
+        starting in your league (teams × starting slots). Saved to your account.
       </p>
       <div className="tabs" role="group" aria-label="League format">
         <button className={cfg.format === 'points' ? 'on' : ''} onClick={() => set({ format: 'points' })}>Points league</button>
@@ -97,12 +120,12 @@ function LeagueSettings({ league, setLeague }) {
       </div>
       <div className="scoring-grid">
         <label className="scoring-field">
-          <input type="number" min="2" max="32" value={cfg.teams} onChange={(e) => set({ teams: e.target.value })} />
+          <NumberField min={2} max={32} value={cfg.teams} onChange={(v) => set({ teams: v })} />
           <span>Teams</span>
         </label>
         {GROUPS.map((g) => (
           <label key={g} className="scoring-field">
-            <input type="number" min="0" max="10" value={cfg.slots[g]} onChange={(e) => set({ slots: { ...cfg.slots, [g]: e.target.value } })} />
+            <NumberField min={0} max={10} value={cfg.slots[g]} onChange={(v) => set({ slots: { ...cfg.slots, [g]: v } })} />
             <span>{{ C: 'Center slots', L: 'Left wing slots', R: 'Right wing slots', D: 'Defense slots', G: 'Goalie slots' }[g]}</span>
           </label>
         ))}
@@ -129,14 +152,54 @@ function LeagueSettings({ league, setLeague }) {
   )
 }
 
+/** Says whose scoring and league settings the tab below is editing: the selected league's, or the account-wide ones. */
+function SettingsNote({ source, leagueName }) {
+  if (source === 'personal') return <p className="muted">These are your account-wide settings, used when no league is selected. Select a league above to give it settings of its own.</p>
+  const text = {
+    account: 'Until you change something here it uses your account-wide settings.',
+    shared: 'It uses the settings its owner shared; change anything here and they become your own for this league.',
+    own: 'These are your own settings for this league.',
+  }[source]
+  return <p className="notice">Settings for <strong>{leagueName}</strong>. {text} Your other leagues and your account-wide settings are not affected.</p>
+}
+
+/** Shown when a league is active but your team there still follows your personal roster: choose how it gets a roster of its own. */
+function StartRoster({ leagueName, personalCount }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const start = async (mode) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await startLeagueRoster(mode)
+    } catch (e) {
+      setError(e.message)
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="notice" role="group" aria-label={`Start a roster for ${leagueName}`}>
+      <p>
+        <strong>{leagueName}</strong> doesn't have its own roster yet, so it is showing your personal roster ({personalCount} {personalCount === 1 ? 'player' : 'players'}).
+        Give it one of its own so changes here don't touch your other leagues.
+      </p>
+      <p>
+        <button disabled={busy || personalCount === 0} onClick={() => start('copy')}>Copy my personal roster</button>{' '}
+        <button disabled={busy} onClick={() => start('empty')}>Start empty</button>
+      </p>
+      {error && <p className="error">{error}</p>}
+    </div>
+  )
+}
+
 function FantasyPage() {
-  const { list, togglePlayer, replacePlayers } = useFantasy()
+  const { list, togglePlayer, replacePlayers, source, personalCount } = useRoster()
   const [params, setParams] = useSearchParams()
   const { user, sync } = useAuth()
   const leagues = useLeagues()
   const leagueTaken = useMemo(() => takenByOthers(leagues.active), [leagues.active])
   useEffect(() => { if (user) refreshLeagues() }, [user])   // other members' rosters change, so reload them when you come here
-  const { scoring, setScoring } = useScoring()
+  const { scoring, setScoring, source: settingsSource, leagueName: settingsLeague } = useScoring()
   const { league, setLeague } = useLeague()
   const [extras, setExtras] = useState(null) // games left per team and each skater's record, for player values
   const [data, setData] = useState(null)
@@ -178,8 +241,9 @@ function FantasyPage() {
     const q = query.trim().toLowerCase()
     if (!q || !data) return []
     const pool = kind === 'goalie' ? data.goalies : data.skaters
-    return pool.filter((r) => r.name.toLowerCase().includes(q) && !taken.has(r.player_id)).slice(0, 8)
-  }, [query, kind, data, taken])
+    // players held by a league-mate are still offered (their roster may be out of date, or you may be after a trade) but come last, labelled
+    return markOwners(pool.filter((r) => r.name.toLowerCase().includes(q) && !taken.has(r.player_id)), leagueTaken).slice(0, 8)
+  }, [query, kind, data, taken, leagueTaken])
 
   const loadRoster = ({ players, scoring: sc }) => {
     replacePlayers(players)
@@ -202,7 +266,12 @@ function FantasyPage() {
     <main>
       <header>
         <h1>Your fantasy team</h1>
-        <p>Track your fantasy players under your league's scoring. {user ? <>Synced to your account ({user.email}).</> : <>The roster is saved in this browser only. <Link to="/account">Log in</Link> to sync it across devices.</>}</p>
+        <p>
+          Track your fantasy players under your league's scoring.{' '}
+          {source.kind === 'league'
+            ? <>This is your roster for <Link to={`/league/${source.id}`}>{source.name}</Link>; choose League: None to see your personal roster. It is saved to your account.</>
+            : user ? <>Synced to your account ({user.email}).</> : <>The roster is saved in this browser only. <Link to="/account">Log in</Link> to sync it across devices.</>}
+        </p>
       </header>
 
       <div className="tabs" role="tablist">
@@ -221,8 +290,9 @@ function FantasyPage() {
             <ul className="results">
               {matches.map((m) => (
                 <li key={m.player_id}>
-                  <button onClick={() => add(m)}>
-                    {m.name} <span>{m.team} · {kind === 'goalie' ? 'G' : m.position}</span>
+                  <button onClick={() => add(m)} title={m.ownedBy ? `On ${m.ownedBy} in ${leagues.active?.name ?? 'your league'}` : undefined}>
+                    <span className="who">{m.name}{m.ownedBy && <> <span className="badge warn">on {m.ownedBy}</span></>}</span>
+                    <span>{m.team} · {kind === 'goalie' ? 'G' : m.position}</span>
                   </button>
                 </li>
               ))}
@@ -230,6 +300,8 @@ function FantasyPage() {
           )}
         </div>
       </div>
+
+      {source.kind === 'personal' && source.needsStart && <StartRoster leagueName={source.leagueName} personalCount={personalCount} />}
 
       {leagues.signedIn && (
         <p className="sub">
@@ -461,6 +533,7 @@ function FantasyPage() {
             label: 'Scoring & backup',
             content: (
               <>
+                <SettingsNote source={settingsSource} leagueName={settingsLeague} />
                 {isCats ? <p className="notice">Your league counts categories, so points-per-stat scoring doesn't apply. Switch to a points league below to use it.</p> : <ScoringSettings scoring={scoring} setScoring={setScoring} />}
                 <LeagueSettings league={league} setLeague={setLeague} />
                 <RosterTools only="buttons" players={list.players} scoring={scoring} onLoad={loadRoster} />

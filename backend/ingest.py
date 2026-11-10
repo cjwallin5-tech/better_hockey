@@ -1162,6 +1162,24 @@ def ingest_game_hist(conn, seasons=None, limit=None):
 PROSPECT_FRESH_HOURS = 18   # a prospect fetched this recently is skipped, so an interrupted run resumes
 
 
+def store_prospect_seasons(cur, pid, seasons):
+    """Save a prospect's season rows (prospects.parse_landing), keeping the games and points from before a change so the nightly
+    alerts can say what moved."""
+    cur.executemany(
+        """INSERT INTO prospect_season (player_id, season_id, game_type, league, team_name, games, goals, assists, points,
+                                        pim, plus_minus, wins, save_pct, gaa)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+           ON CONFLICT (player_id, season_id, game_type, league, team_name) DO UPDATE SET
+               prev_games = CASE WHEN EXCLUDED.games <> prospect_season.games THEN prospect_season.games ELSE prospect_season.prev_games END,
+               prev_points = CASE WHEN EXCLUDED.games <> prospect_season.games THEN prospect_season.points ELSE prospect_season.prev_points END,
+               changed_at = CASE WHEN EXCLUDED.games <> prospect_season.games THEN now() ELSE prospect_season.changed_at END,
+               games = EXCLUDED.games,
+               goals = EXCLUDED.goals, assists = EXCLUDED.assists, points = EXCLUDED.points, pim = EXCLUDED.pim,
+               plus_minus = EXCLUDED.plus_minus, wins = EXCLUDED.wins, save_pct = EXCLUDED.save_pct, gaa = EXCLUDED.gaa""",
+        [(pid, s["season_id"], s["game_type"], s["league"] or "", s["team_name"], s["games"], s["goals"], s["assists"],
+          s["points"], s["pim"], s["plus_minus"], s["wins"], s["save_pct"], s["gaa"]) for s in seasons])
+
+
 def ingest_prospects(conn):
     """Every NHL team's prospect list, then each prospect's draft details and season-by-season stats (the nightly run
     refreshes all of them: a few hundred requests, committed as it goes, and a run cut short resumes where it stopped).
@@ -1186,8 +1204,11 @@ def ingest_prospects(conn):
             return pid, None
 
     with conn.cursor() as cur:
-        # who is on a list now; everyone else keeps their rows with on_list = false
-        cur.execute("UPDATE prospect SET on_list = (player_id = ANY(%s))", (list(bios),))
+        # who is on a list now; everyone else keeps their rows with on_list = false, except players found from the draft (from_draft),
+        # who are on no list but stay prospects until they have played in the NHL
+        cur.execute("""UPDATE prospect p SET on_list = (p.player_id = ANY(%s) OR (p.from_draft AND NOT EXISTS (
+                           SELECT 1 FROM prospect_season s WHERE s.player_id = p.player_id AND s.league = 'NHL' AND s.games > 0)))""",
+                    (list(bios),))
         # a run that was interrupted resumes where it stopped: prospects fetched in the last PROSPECT_FRESH_HOURS are skipped
         cur.execute("SELECT player_id FROM prospect WHERE updated_at > now() - make_interval(hours => %s)", (PROSPECT_FRESH_HOURS,))
         fresh = {r[0] for r in cur.fetchall()}
@@ -1211,25 +1232,95 @@ def ingest_prospects(conn):
                        draft_team = coalesce(EXCLUDED.draft_team, prospect.draft_team), on_list = true, updated_at = now()""",
                 (pid, b["team"], b["name"], b["position"], b["shoots"], b["birth_date"], b["birth_country"], b["height_in"],
                  b["weight_lb"], b["headshot"], *drafted))
-            cur.executemany(
-                """INSERT INTO prospect_season (player_id, season_id, game_type, league, team_name, games, goals, assists, points,
-                                                pim, plus_minus, wins, save_pct, gaa)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                   ON CONFLICT (player_id, season_id, game_type, league, team_name) DO UPDATE SET
-                       prev_games = CASE WHEN EXCLUDED.games <> prospect_season.games THEN prospect_season.games ELSE prospect_season.prev_games END,
-                       prev_points = CASE WHEN EXCLUDED.games <> prospect_season.games THEN prospect_season.points ELSE prospect_season.prev_points END,
-                       changed_at = CASE WHEN EXCLUDED.games <> prospect_season.games THEN now() ELSE prospect_season.changed_at END,
-                       games = EXCLUDED.games,
-                       goals = EXCLUDED.goals, assists = EXCLUDED.assists, points = EXCLUDED.points, pim = EXCLUDED.pim,
-                       plus_minus = EXCLUDED.plus_minus, wins = EXCLUDED.wins, save_pct = EXCLUDED.save_pct, gaa = EXCLUDED.gaa""",
-                [(pid, s["season_id"], s["game_type"], s["league"] or "", s["team_name"], s["games"], s["goals"], s["assists"],
-                  s["points"], s["pim"], s["plus_minus"], s["wins"], s["save_pct"], s["gaa"]) for s in seasons])
+            store_prospect_seasons(cur, pid, seasons)
             if n % 25 == 0:
                 conn.commit()
                 left = (len(todo) - n) / (n / (time.time() - started)) / 60
                 print(f"  {n}/{len(todo)} ({left:.0f} min left)", flush=True)
         conn.commit()
     print(f"prospects: stored {len(bios)}", flush=True)
+
+
+PICK_RETRY_DAYS = 7   # a pick that could not be matched to a player is asked about again after this long (the NHL adds players over time)
+PLAYER_SEARCH = "https://search.d3.nhle.com/api/v1/search/player"
+
+
+def resolve_pick(pick):
+    """(player id, landing record) for a draft pick, or (None, None): the pick's name is searched, and a candidate is accepted only
+    when his landing record says he was drafted in that year at that overall pick. When the exact name finds nobody (the pick list
+    says 'Thomas', the NHL's records say 'Tommy'), the last name is searched and the same check applies."""
+    for query, loose in ((pick["name"], False), (prospectlib.last_word(pick["name"]), True)):
+        if not query:
+            continue
+        try:
+            results = get_json(PLAYER_SEARCH, culture="en-us", limit=10, q=query)
+        except requests.RequestException:
+            continue
+        for pid in prospectlib.search_candidates(pick["name"], results, loose=loose)[:4]:
+            time.sleep(0.2)
+            try:
+                landing = get_json(f"{config.WEB_API}/player/{pid}/landing")
+            except requests.HTTPError:
+                continue
+            if prospectlib.confirms_pick(landing, pick["year"], pick["overall"]):
+                return pid, landing
+    return None, None
+
+
+def ingest_draft_picks(conn, years=None):
+    """Prospect pages for the drafted players that the NHL's team prospect lists leave out. The lists hold only some of a draft class
+    (about a quarter of 2026's); the draft's pick list names every player but carries no player ids, so each pick that has no stored
+    prospect is matched by name and confirmed by his draft year and pick number (resolve_pick), then stored with his bio, draft details
+    and every season line, marked from_draft. By default the latest draft; `years` picks others. Safe to repeat: matched picks are
+    remembered, unmatched ones are retried weekly."""
+    teams = {r[0] for r in conn.execute("SELECT abbrev FROM team_season WHERE season_id = %s", (config.SEASON_ID,))}
+    if years is None:
+        latest = get_json(f"{config.WEB_API}/draft/picks/now").get("draftYear")
+        years = [latest] if latest else []
+    for year in years:
+        try:
+            picks = prospectlib.parse_picks(get_json(f"{config.WEB_API}/draft/picks/{year}/all"))
+        except requests.HTTPError as e:
+            print(f"draft picks {year}: {e}", flush=True)
+            continue
+        with conn.cursor() as cur:
+            cur.execute("SELECT draft_overall FROM prospect WHERE draft_year = %s AND draft_overall IS NOT NULL", (year,))
+            have = {r[0] for r in cur.fetchall()}
+            cur.execute("""SELECT overall FROM draft_pick_lookup WHERE draft_year = %s
+                           AND (player_id IS NOT NULL OR tried_at > now() - make_interval(days => %s))""", (year, PICK_RETRY_DAYS))
+            skip = {r[0] for r in cur.fetchall()}
+        todo = [p for p in picks if p["overall"] not in have and p["overall"] not in skip]
+        print(f"draft {year}: {len(picks)} picks, {len(have)} already stored, {len(todo)} to look up", flush=True)
+        found = 0
+        with conn.cursor() as cur:
+            for n, pick in enumerate(todo, 1):
+                pid, landing = resolve_pick(pick)
+                if pid:
+                    draft, seasons = prospectlib.parse_landing(landing)
+                    bio = prospectlib.parse_bio(landing)
+                    d = tuple(draft[k] for k in ("year", "round", "pick", "overall", "team"))
+                    cur.execute(
+                        """INSERT INTO prospect (player_id, team, name, position, shoots, birth_date, birth_country, height_in, weight_lb,
+                                                 headshot, draft_year, draft_round, draft_pick, draft_overall, draft_team, on_list, from_draft, updated_at)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true,now())
+                           ON CONFLICT (player_id) DO UPDATE SET headshot = coalesce(EXCLUDED.headshot, prospect.headshot),
+                               draft_year = coalesce(EXCLUDED.draft_year, prospect.draft_year), draft_round = coalesce(EXCLUDED.draft_round, prospect.draft_round),
+                               draft_pick = coalesce(EXCLUDED.draft_pick, prospect.draft_pick), draft_overall = coalesce(EXCLUDED.draft_overall, prospect.draft_overall),
+                               draft_team = coalesce(EXCLUDED.draft_team, prospect.draft_team), updated_at = now()""",
+                        (pid, prospectlib.class_team(landing, pick, teams), bio["name"], bio["position"], bio["shoots"], bio["birth_date"],
+                         bio["birth_country"], bio["height_in"], bio["weight_lb"], bio["headshot"], *d, not prospectlib.reached_nhl(seasons)))
+                    store_prospect_seasons(cur, pid, seasons)
+                    found += 1
+                cur.execute(
+                    """INSERT INTO draft_pick_lookup (draft_year, overall, player_id, tried_at) VALUES (%s, %s, %s, now())
+                       ON CONFLICT (draft_year, overall) DO UPDATE SET player_id = EXCLUDED.player_id, tried_at = now()""",
+                    (year, pick["overall"], pid))
+                if n % 20 == 0:
+                    conn.commit()
+                    print(f"  {n}/{len(todo)} looked up, {found} matched", flush=True)
+                time.sleep(0.2)
+        conn.commit()
+        print(f"draft {year}: matched {found} of {len(todo)} new picks", flush=True)
 
 
 EDGE_FIRST_SEASON = 20212022   # the NHL's tracking data starts here
@@ -1467,17 +1558,58 @@ def ingest_toi(conn):
 LEAGUE_WORKERS = 6   # a landing page the NHL has not cached takes ~3 s, so this backfill runs wider than the others (429s back off in get_json)
 
 
-def backfill_leagues(conn, limit=None):
+def parse_league_args(args):
+    """(limit, refresh season) from `[--limit N] [--refresh 20262027]`; either is None when not given. Raises ValueError on a bad value."""
+    rest = list(args)
+    values = {}
+    for flag in ("--limit", "--refresh"):
+        if flag in rest:
+            i = rest.index(flag)
+            if i + 1 >= len(rest):
+                raise ValueError(f"{flag} needs a value")
+            values[flag] = rest[i + 1]
+            del rest[i:i + 2]
+    limit = int(values["--limit"]) if "--limit" in values else None
+    refresh = None
+    if "--refresh" in values:
+        v = values["--refresh"]
+        if not (v.isdigit() and len(v) == 8 and int(v[4:]) == int(v[:4]) + 1):
+            raise ValueError(f"--refresh needs a season id like 20262027, not {v!r}")
+        refresh = int(v)
+    if rest:
+        raise ValueError(f"unexpected arguments: {' '.join(rest)}")
+    return limit, refresh
+
+
+def stale_league_players(conn, season):
+    """Players who played in `season` (they have a skater_season row for it) whose league history was fetched before that season's last
+    game day ended, so the season's rows in player_league_season may hold partial totals from mid-season."""
+    return [r[0] for r in conn.execute(
+        """SELECT f.player_id FROM player_league_fetched f
+           WHERE f.player_id IN (SELECT player_id FROM skater_season WHERE season_id = %(s)s)
+             AND f.fetched_at < (SELECT max(game_date) FROM game WHERE season_id = %(s)s) + interval '1 day'
+           ORDER BY f.player_id""", {"s": season})]
+
+
+def backfill_leagues(conn, limit=None, refresh_season=None):
     """Every NHL skater's season-by-season record in every league they have played in (player_league_season), for the NHLe factors in
     nhle.py: one landing-page request per player who first appears in our stored NHL seasons from 2006-07 on (a few thousand, about
-    an hour at the NHL's rate limits). Resumable: players already fetched are skipped, and a run cut short is simply run again."""
-    todo = [r[0] for r in conn.execute(
+    an hour at the NHL's rate limits). Resumable: players already fetched are skipped, and a run cut short is simply run again.
+
+    refresh_season (the season that just finished, e.g. at the October rollover) also fetches again every player of that season whose
+    history was fetched before it ended. A player is fetched once, mid-career, so his rows for the season in progress then are partial
+    (stored games and points fall behind the NHL's within a day), and the NHLe pairs use the NHL season that follows a league season:
+    without this, last season's partial rows would stay in the factors for good. Rows are updated in place."""
+    new = [r[0] for r in conn.execute(
         """SELECT player_id FROM skater_season GROUP BY player_id HAVING min(season_id) >= %s
            AND player_id NOT IN (SELECT player_id FROM player_league_fetched) ORDER BY player_id""", (nhle.FIRST_NHL_SEASON,))]
+    stale = stale_league_players(conn, refresh_season) if refresh_season else []
+    is_new = set(new)
+    todo = new + [p for p in stale if p not in is_new]
     if limit:
         todo = todo[:limit]
     done = conn.execute("SELECT count(*) FROM player_league_fetched").fetchone()[0]
-    print(f"league history: {len(todo)} players to fetch, {done} already fetched", flush=True)
+    print(f"league history: {len(todo)} players to fetch ({len(new)} new, {len(stale)} to refresh), {done} already fetched", flush=True)
 
     def fetch(pid):
         try:
@@ -1495,10 +1627,15 @@ def backfill_leagues(conn, limit=None):
             birth, position, seasons = nhle.landing_rows(landing)
             cur.executemany(
                 """INSERT INTO player_league_season (player_id, season_id, game_type, league, team_name, games, goals, assists, points)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (player_id, season_id, game_type, league, team_name) DO UPDATE SET
+                       games = EXCLUDED.games, goals = EXCLUDED.goals, assists = EXCLUDED.assists, points = EXCLUDED.points""",
                 [(pid, s["season_id"], s["game_type"], s["league"] or "", s["team_name"], s["games"], s["goals"], s["assists"], s["points"])
                  for s in seasons])
-            cur.execute("INSERT INTO player_league_fetched (player_id, birth_date, position) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+            cur.execute("""INSERT INTO player_league_fetched (player_id, birth_date, position) VALUES (%s, %s, %s)
+                           ON CONFLICT (player_id) DO UPDATE SET fetched_at = now(),
+                               birth_date = coalesce(EXCLUDED.birth_date, player_league_fetched.birth_date),
+                               position = coalesce(EXCLUDED.position, player_league_fetched.position)""",
                         (pid, birth, position))
             if n % 25 == 0:
                 conn.commit()
@@ -1528,6 +1665,10 @@ def main():
         ingest_team_abbrevs(conn)
         ingest_home_flags(conn)
         ingest_prospects(conn)
+        try:
+            ingest_draft_picks(conn)
+        except requests.RequestException as e:   # an optional extra: never let it stop the rest of the nightly run
+            print(f"draft picks skipped: {e}", flush=True)
         ingest_edge(conn, [config.SEASON_ID])
 
 
@@ -1554,18 +1695,28 @@ if __name__ == "__main__":
             conn.commit()
             ingest_game_hist(conn, seasons, limit)
     elif sys.argv[1:2] == ["backfill-leagues"]:
-        # python ingest.py backfill-leagues [--limit N]   (every NHL skater's record in every league, for NHLe)
-        _, limit = parse_backfill_args(sys.argv[2:], None)
+        # python ingest.py backfill-leagues [--limit N] [--refresh 20262027]
+        # (every NHL skater's record in every league, for NHLe; --refresh also re-fetches that season's players whose history predates its end)
+        try:
+            limit, refresh = parse_league_args(sys.argv[2:])
+        except ValueError as e:
+            sys.exit(f"backfill-leagues: {e}")
         with psycopg.connect(config.DATABASE_URL) as conn:
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
-            backfill_leagues(conn, limit)
+            backfill_leagues(conn, limit, refresh)
     elif sys.argv[1:2] == ["prospects"]:
         # python ingest.py prospects   (just the prospect lists and their stats; the nightly run includes it)
         with psycopg.connect(config.DATABASE_URL) as conn:
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             ingest_prospects(conn)
+    elif sys.argv[1:2] == ["draft-picks"]:
+        # python ingest.py draft-picks [2025 2026 ...]   (prospect pages for drafted players the team lists leave out; the nightly run does the latest draft)
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            ingest_draft_picks(conn, [int(y) for y in sys.argv[2:]] or None)
     elif sys.argv[1:2] == ["backfill-seasons"]:
         # python ingest.py backfill-seasons [20222023,20232024,...]   (default: every season since 2005-06)
         seasons, _ = parse_backfill_args(sys.argv[2:], past_season_ids())

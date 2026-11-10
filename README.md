@@ -56,7 +56,8 @@ cd backend
 It checks that the season that just ended is complete (every game final, a full schedule from `config.regular_season_games`, player
 stats refreshed after the last game) and refuses otherwise (`--force` overrides); changes the `SEASON_ID` default in `config.py`
 (the launchd jobs set no `SEASON_ID`, so this is what moves them); runs the regular ingest once, which loads the finished season's
-game-by-game history; then the resumable backfills (`games-hist`, `shots`, `shot-locations`, `shot-times`, `onice`, `edge`); clears the
+game-by-game history; then the resumable backfills (`games-hist`, `shots`, `shot-locations`, `shot-times`, `leagues`, `nhle`, `onice`, `edge`; `leagues` and `nhle` are the
+NHLe refresh, described under NHLe below, and run before the two long ones); clears the
 per-player old-games markers so head-to-head refetches with the moved boundary; and checks the history counts. Every step is safe
 to repeat, so if it is cut short run the same command again. `--skip edge,onice` leaves steps out and `--only onice` runs one. It
 logs to `backend/logs/rollover-*.log` and never touches git.
@@ -133,13 +134,20 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   starts, so a verdict is a clue, not proof of fit. Until a game's xG is stored the page falls back to the shot-attempt (Corsi) lift.
 - **Private leagues** (`/leagues`, `/league/:id`; nav "More" -> Leagues; a league picker sits on the Fantasy page): friends in a fantasy league
   share rosters so the site knows who is actually taken. The owner starts a league (name, size, optionally the shared scoring and slots) and
-  sends an invite link or code; each member's team is their own fantasy roster from the Fantasy page, kept current by the existing sync. The
+  sends an invite link or code; each member's team has its own roster, so someone in several leagues can hold a different team in each. The
   owner can also add and fill teams by hand (paste names) for friends without accounts. With a league active, the waiver wire hides players
   on other teams exactly instead of guessing ("likely available") and labels who owns each one, and the matchup projector can load a
   league-mate's team as the opponent. Only members can see rosters, and only team names are shown, never emails; the owner can rename or
-  remove teams, reset the invite code or delete the league, and members can leave. A user has one synced roster, so it shows in every league
-  they are in, and a member's team is only as current as their last sync. Tables `league` and `league_team` are created when the API starts
-  (`backend/leagues.py`).
+  remove teams, reset the invite code or delete the league, and members can leave. **One roster per league**: the league picker on the Fantasy
+  page chooses which roster you are working on, and the Fantasy page, the "Add to team" stars, Tonight, Absences and the schedule grid all use
+  it ("League: None" is your personal roster, which still syncs as before). When you switch to a league whose team has no roster yet, the page
+  asks whether to copy your personal roster or start empty; until you choose, that team keeps showing your personal roster, which is also how
+  teams made before this existed behave. **Scoring, league format, slots, team count and categories are per league too.** They resolve in order: your own
+  settings for the league (set by editing them on the Fantasy page's Scoring & backup tab with the league selected; the first edit saves everything
+  that applies at that moment, so later changes elsewhere don't shift the league), else the settings its owner shared on the league page, else your
+  account-wide settings (what you see with "League: None"). The league's team count always applies. The league page can clear your own settings, and
+  the owner can share theirs with everyone. The daily email's Sunday section follows the same order. Tables `league` and `league_team` (its `roster` column is NULL until a member starts one) are created when
+  the API starts (`backend/leagues.py`, where `league_team.settings` holds a member's own settings; the frontend side is `roster.js`/`rosterSource.js` for rosters, `settings.js`/`settingsSource.js` for settings, and the store in `leagues.js`).
 - **Trade partners** (Fantasy -> Trade partners, needs an active league): trades that make both you and another team in your league better.
   Each team is scored by its lineup value (the best players it can start in each position group under the league's slots, with anyone at or
   below replacement level adding nothing), so a team with a spare center gains from a winger and the other way round. One-for-one,
@@ -237,6 +245,19 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   NHL game logs, fetched and stored the first time someone looks that player up (`oldgames.py`, `oldgames_db.py`). The Coyotes' games
   count toward Utah and the Thrashers' toward Winnipeg. When a new season starts, the oldest stored season falls into the older group;
   `rollover.py` reruns `backfill-games-hist` and clears the stored per-player games so lookups refetch.
+- **Draft class pages**: the NHL's team prospect lists hold only some of a draft class (about a quarter of 2026's), so the Prospects page's
+  Draft class tab used to link only a few names. The draft's own pick list names all 223 picks with their slot and team but carries no
+  player ids, so `ingest_draft_picks` (`python ingest.py draft-picks [YEAR ...]` from `backend/`; the nightly run does the latest draft,
+  and a failure there never stops the rest of the run) finds each missing pick by searching the NHL's player records for his name and
+  accepts a match only when his landing record says he was drafted that year at that overall pick, falling back to a last-name search for
+  nicknames ("Thomas" and "Tommy" Bleyl). Matched players are stored as prospects marked `from_draft` (table `draft_pick_lookup` remembers
+  which picks are done; ones with no match are retried weekly; forfeited picks are skipped), so the nightly refresh that sets `on_list`
+  from the team lists leaves them alone until they have played an NHL game. Players who have already reached the NHL (McKenna, for one)
+  keep their page, which then links to their NHL stats, but drop out of the prospects table. The Central Scouting rankings carry no ids
+  either, so `link_rankings` matches a ranked name to the class by exact name, then by birth date plus the same last name or a
+  near-identical spelling ("Ilya" and "Ilia" Morozov); ambiguous matches are left unlinked. In 2026 that took the North American
+  skater list from 34 to 125 linked of 253, and all four lists to 203 of 472: the rest were ranked but never drafted, so the NHL has no
+  record of them yet. Before a draft there is nothing to find, so the tab only helps once a class has been picked.
 - **NHLe** (Prospects page column and each prospect's page): a skater prospect's points per game in his league translated into NHL
   points over 84 games, so players in the OHL, NCAA, the AHL or Europe sit on one scale. The league factors are fitted on our own data:
   `python ingest.py backfill-leagues` (from `backend/`, resumable, about 40 minutes) stores every NHL skater's record in every league
@@ -244,8 +265,42 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   fits a factor per league with 90% intervals, and fits an age multiplier (players 20 and under outscore the plain factor, 23 and over
   fall short). Checked on later seasons than it was fitted on, it predicted NHL points per game about 16% better than the average
   (`analysis/nhle_factors.py` prints the backtest). Only players who reached the NHL are in the pairs, so it answers "if he gets there".
-  It needs 20+ games in a season, so early in a season the table shows last season's figure in grey. Re-run both commands once a year
-  after the rollover to add the new season's pairs.
+  It needs 20+ games in a season, so early in a season the table shows last season's figure in grey.
+  **Yearly refresh**: `rollover.py` does it (steps `leagues` then `nhle`), so there is nothing to remember each October. A player is fetched
+  once, mid-career, and his rows for the season then in progress are partial (they fall behind the NHL's own numbers within a day), and
+  the pairs read the NHL season that follows a league season. So `python ingest.py backfill-leagues --refresh 20262027` also fetches again
+  every player of that season whose history was fetched before the season's last game day ended (about 750 players, 13 minutes when measured), updating
+  rows in place, alongside any new players; `backfill-leagues` without `--refresh` only adds players not fetched yet. Then
+  `analysis/nhle_factors.py --save` refits the factors with the new pairs (under a second). Until the refresh, the season in progress
+  counts with partial totals in the fit; refreshing the in-progress 2026-27 season did not move any factor at the precision shown.
+- **League-mates in the Fantasy search**: with a league active, the "Add a skater" search still offers players a league-mate holds (their roster
+  may be out of date, or you may be after a trade) but lists them after the available ones, each with an "on <team>" badge like the waiver
+  wire's and a hover note naming the league (`frontend/src/searchOwners.js`). The ordering happens before the eight-result cut, so a
+  league-mate's star can't push available players out of the list.
+- **Controls look the same everywhere** (`frontend/src/index.css`, end of the file): a bare `<button>`, `<select>`, `<input>` or `<textarea>` with no
+  class gets the site's pill button and field look through `:where()` rules at zero specificity, so every control that has its own styling
+  (tabs, chips, pagers, search lists, the `.controls` filter rows) keeps exactly its own look and a new control can't fall back to the
+  browser default. Labelled fields (`.h2h-pick`, label above the control: Prospects, Projections, Matchups, Lottery, Advanced stats, Leagues, Compare,
+  Tonight, the Fantasy draft and pickups) keep their small label but the control itself is 15px like the filter rows on the main pages, a checkbox
+  in one is a checkbox with its words beside it, and a bare input in a table cell stays compact. Found by measuring every page's header,
+  intro text, tabs, tables, headings, notices and controls against the main pages and by diffing the computed style of all 84 unstyled controls
+  before and after: 47 changed (all browser-default or 13px ones) and the 37 already-styled ones did not.
+- **Tab rows on phones**: rows of tabs that don't fit a phone (the game page's five, a team's four, the all-time stat groups) scroll sideways.
+  `frontend/src/tabScroll.js` finds every `.tabs` and `.subtabs` row (including ones that appear as pages change) and sets
+  `data-scroll` (none, start, middle, end) on it, which `index.css` turns into a soft fade on the side where more tabs are hidden, and it scrolls
+  the open tab into view (a link or a click can land on a tab that was off-screen). Rows that fit are untouched, so desktop is unchanged.
+- **Link previews**: pasting a link to the site into a chat app or social network shows the right title, description and a 1200x630 picture
+  instead of the same generic card for every page. Those services fetch the page without running JavaScript, so `frontend/vite.config.js`
+  has a small plugin (dev server and `vite preview`, not the build) that asks the API for each page's `<head>` tags
+  (`GET /api/share/head?url=/player/8478402`, from `backend/previews.py`) and writes them into `index.html`; if the API is slow (2.5 s)
+  or down the page is served unchanged. Players, goalies (retired ones show career totals), teams, games, prospects, comparisons
+  (`/compare?ids=...`) and the main list pages get their own text; everything else gets the generic preview; account, fantasy, league and
+  reset-password pages also ask not to be indexed. The picture (`GET /api/share/image.png?url=...`) is drawn with Pillow: name, a few
+  headline numbers, the team's color and the player's NHL headshot (fetched from assets.nhle.com only). Tags and pictures are cached
+  for 10 minutes. Only the page's path goes into the tags (a `?token=` on the reset page never does); `/compare` keeps just its ids.
+  `PUBLIC_URL` must be the real site address for the links inside the tags to work from outside (in dev it is localhost, so a real chat app
+  can't fetch the picture until the site is deployed). `GET /api/share/title` gives the app each page's tab title (`frontend/src/pageTitle.js`)
+  so the tab stays right as you move around. Pillow is in `backend/requirements.txt`.
 - **Saved views**: signed-in users can save the current filters and sort on the skater, goalie and all-time leaderboards under
   a name (up to 30) and reopen them with one click. A view is just the page's URL query string, kept per account.
 - **Era-adjusted scoring**: the All-Time page's "Era-adjusted" view and the Compare page's adjusted charts rescale each season's
@@ -267,7 +322,8 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   shots predict, judged against their own finishing history), buy-low ideas (good players not on your roster scoring below it,
   watchlist players first; `backend/tradewatch.py`) and a luck check for your cold players, at most once per Eastern
   day, using the same SMTP settings as password reset. Preview without sending: `.venv/bin/python digest.py --dry`, or
-  `--preview 8478402,8480069` for a list of player ids. To send every morning, follow the steps at the top of `backend/com.hockeystats.digest.plist.example` (a launchd template with
+  `--preview 8478402,8480069` for a list of player ids. With several leagues, the email covers every roster once (a player on more than one is listed
+  once) and tags each player with their leagues, e.g. `[Friends, Office]`; the Sunday week-ahead part then has one section per roster, using that league's settings (yours, else the shared ones, else the account's). To send every morning, follow the steps at the top of `backend/com.hockeystats.digest.plist.example` (a launchd template with
   the SMTP settings and an 8:00 AM schedule; logs in `backend/logs/digest.log`).
 - **Goalie matchups in the daily email** (a "GOALIE MATCHUPS" section, roster only, at most four lines): for tonight's games, any fit of 0.1 goals or more from the What to
   watch page's goalie zones where one of your skaters is on the shooting team, or the likely goalie is yours, in the same words as the site but from your side

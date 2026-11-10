@@ -66,9 +66,9 @@ export default function Leagues() {
       <header>
         <h1>Leagues</h1>
         <p>
-          A league shares each member's fantasy roster with the others in it. With one set as your active league, the waiver wire shows
+          A league shares each member's roster for it with the others in it, and you can hold a different roster in each league. With one set as your active league, the waiver wire shows
           who is really available and the matchup projector can load a league-mate's team. Only league members can see rosters, and only
-          team names are shown, never emails. Your roster is the one on the Fantasy page, kept current while you are signed in.
+          team names are shown, never emails. Your roster for a league is the one on the Fantasy page while that league is selected, kept current while you are signed in.
         </p>
       </header>
       {error && <p className="notice" role="alert">{error}</p>}

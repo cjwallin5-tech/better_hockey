@@ -1,6 +1,7 @@
 """Outgoing email over SMTP (settings in config.py). With SMTP_HOST unset nothing is sent."""
 import logging
 import smtplib
+import time
 from email.message import EmailMessage
 
 import config
@@ -25,3 +26,14 @@ def send(to: str, subject: str, body: str) -> bool:
     except (OSError, smtplib.SMTPException):
         log.exception("Couldn't send an email to %s", to)
         return False
+
+
+def send_with_retry(to: str, subject: str, body: str, attempts: int = 3, wait: float = 5, sleep=time.sleep) -> bool:
+    """send(), tried up to `attempts` times with a growing wait between tries (wait, 2 x wait, ...), for a network that is briefly
+    down. False only when every try failed."""
+    for i in range(attempts):
+        if send(to, subject, body):
+            return True
+        if i < attempts - 1:
+            sleep(wait * (i + 1))
+    return False

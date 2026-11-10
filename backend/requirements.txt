@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 psycopg[binary]
 requests
+pillow  # draws the link-preview pictures (previews.py)
 # only needed to retrain the xG model (train_xg.py), not to run the site:
 numpy  # also used by the playoff-odds simulation
 scikit-learn

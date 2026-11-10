@@ -216,6 +216,9 @@ section > .chart { margin-top: 12px; }
 .results button { width: 100%; display: flex; justify-content: space-between; gap: 12px; text-align: left; padding: 6px 8px; background: none; border: 0; border-radius: 4px; color: var(--text); cursor: pointer; font: inherit; }
 .results button:hover { background: var(--accent-bg); }
 .results span { color: var(--muted); font-size: 12px; }
+.results span.who { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; color: var(--text); font-size: inherit; }
+.results span.who .badge { margin-left: 0; font-size: 11px; }
+.results button > span:last-child { flex: none; white-space: nowrap; }
 
 /* Series colors, validated with the dataviz palette script (slots 1-3), available site-wide. */
 :root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; }
@@ -1147,6 +1150,7 @@ main > header:not(.player-banner) > h1::after {
 .player-cell { display: inline-flex; align-items: center; gap: 10px; }
 .avatar { flex: none; width: var(--s, 32px); height: var(--s, 32px); border-radius: 50%; object-fit: cover; object-position: top;
   background: color-mix(in srgb, var(--team, var(--muted)) 28%, var(--card)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--team, var(--muted)) 75%, transparent); }
+.avatar.retired { background: color-mix(in srgb, var(--muted) 22%, var(--card)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--muted) 80%, transparent); }
 .avatar.blank { display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--muted); }
 @media (max-width: 700px) { .player-cell .avatar { display: none; } }
 
@@ -1258,3 +1262,39 @@ td.sorted { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 /* The career table with the hit, block, takeaway and giveaway columns is 17 wide: tighter cells keep all of them inside the page on desktop
    (phones keep their own compact padding and scroll the table). */
 @media (min-width: 701px) { .table-wrap table.career-tight th, .table-wrap table.career-tight td { padding-left: 12px; padding-right: 12px; } }
+
+/* Tab rows that scroll sideways on a phone fade out on the side where more tabs are hidden, so a cut-off tab reads as "scroll for more".
+   tabScroll.js sets data-scroll (none | start | middle | end); rows that fit have none and are untouched. */
+.tabs[data-scroll="start"], .subtabs[data-scroll="start"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+}
+.tabs[data-scroll="middle"], .subtabs[data-scroll="middle"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+}
+.tabs[data-scroll="end"], .subtabs[data-scroll="end"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 36px); mask-image: linear-gradient(to right, transparent, #000 36px);
+}
+
+/* A base look for controls nothing else styles (a bare <button>, <select>, <input>, <textarea>), so a new control never falls back to the
+   browser's default: the pill button and the field look of the filter rows. :where() keeps this at zero specificity, so every control
+   that has its own rules (tabs, chips, pagers, search lists, the filter rows) keeps exactly its own look. */
+:where(button:not([class])) {
+  padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: border-color .15s ease;
+}
+:where(button:not([class])):hover:not(:disabled) { border-color: color-mix(in srgb, var(--text) 30%, var(--line)); }
+:where(button:not([class])):disabled { opacity: .5; cursor: default; }
+:where(select:not([class]), textarea:not([class]), input:not([class]):not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]):not([type=range])) {
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font: inherit;
+}
+
+/* Labelled fields (label above the control: Prospects, Projections, Matchups, Lottery, Advanced stats, Leagues, Compare): the label stays
+   small, but the control matches the filter rows on the main pages instead of inheriting the label's 13px. */
+.h2h-pick select, .h2h-pick input:not([type=checkbox]):not([type=radio]) { font-size: 15px; }
+/* A checkbox in a labelled field is a checkbox with its words beside it, not a 200px-wide field stacked above them. */
+.h2h-pick input[type=checkbox], .h2h-pick input[type=radio] { min-width: 0; width: auto; padding: 0; border: 0; background: none; }
+.h2h-pick:has(> input[type=checkbox]) { display: flex; align-items: center; gap: 8px; }
+/* A bare input inside a table cell stays compact, so it doesn't make its row taller than the others. */
+td input:not([class]):not([type=checkbox]):not([type=radio]) { padding: 5px 8px; }
+

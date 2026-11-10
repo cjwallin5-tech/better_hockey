@@ -95,12 +95,55 @@ class Plan(unittest.TestCase):
         self.assertEqual(ro.plan(only="onice"), ["onice"])
         self.assertEqual(ro.plan(skip={"onice"}, only="onice"), [])
 
-    def test_every_step_names_a_real_ingest_command(self):
-        import re
+    def test_every_step_names_a_real_ingest_command_or_script(self):
         src = (ro.HERE / "ingest.py").read_text()
         for name, args, _ in ro.STEPS:
-            if args:
+            if not args:
+                continue
+            if args[0].endswith(".py"):
+                self.assertTrue((ro.HERE / args[0]).is_file(), f"{name}: {args[0]} does not exist")
+            else:
                 self.assertIn(f'"{args[0]}"', src)
+
+    def test_league_history_is_refreshed_before_the_nhle_factors_are_fitted_from_it(self):
+        names = ro.plan()
+        self.assertIn("leagues", names)
+        self.assertIn("nhle", names)
+        self.assertLess(names.index("leagues"), names.index("nhle"))
+        self.assertLess(names.index("ingest"), names.index("leagues"))   # the finished season's rows must be stored first
+        self.assertLess(names.index("nhle"), names.index("markers"))
+
+    def test_the_quick_steps_run_before_the_hours_long_ones(self):
+        names = ro.plan()
+        self.assertLess(names.index("nhle"), names.index("onice"))
+        self.assertLess(names.index("onice"), names.index("edge"))
+
+    def test_leagues_and_nhle_can_be_skipped_or_run_alone(self):
+        self.assertNotIn("leagues", ro.plan(skip={"leagues"}))
+        self.assertEqual(ro.plan(only="nhle"), ["nhle"])
+        self.assertEqual(ro.plan(skip={"leagues", "nhle"}).count("onice"), 1)
+
+
+class StepCommand(unittest.TestCase):
+    def test_an_ingest_step_runs_ingest_py(self):
+        cmd = ro.step_command(["backfill-shots"], 20272028)
+        self.assertEqual(cmd[1:], ["-u", "ingest.py", "backfill-shots"])
+
+    def test_a_script_step_runs_that_script_isolated(self):
+        cmd = ro.step_command(["analysis/nhle_factors.py", "--save"], 20272028)
+        self.assertEqual(cmd[1:], ["-u", "-I", "analysis/nhle_factors.py", "--save"])
+
+    def test_the_finished_season_is_filled_in_from_the_new_one(self):
+        cmd = ro.step_command(["backfill-leagues", "--refresh", "{finished}"], 20272028)
+        self.assertEqual(cmd[-3:], ["backfill-leagues", "--refresh", "20262027"])
+        self.assertEqual(ro.step_command(["x", "{finished}-{finished}"], 20192020)[-1], "20182019-20182019")
+
+    def test_steps_without_the_placeholder_are_untouched(self):
+        self.assertEqual(ro.step_command(["backfill-games-hist"], 20272028)[-1], "backfill-games-hist")
+
+    def test_the_real_leagues_step_asks_for_the_finished_season(self):
+        args = dict((s[0], s[1]) for s in ro.STEPS)["leagues"]
+        self.assertEqual(ro.step_command(args, 20272028)[-2:], ["--refresh", "20262027"])
 
 
 class RunStep(unittest.TestCase):

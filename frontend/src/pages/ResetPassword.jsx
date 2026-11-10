@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { tokenFromSearch } from '../resetToken.js'
 
 export default function ResetPassword() {
-  // Read the token once, then take it out of the address bar so it isn't left in history or screenshots.
-  const [token] = useState(() => {
-    const t = new URLSearchParams(window.location.search).get('token') ?? ''
-    if (t) window.history.replaceState(null, '', window.location.pathname)
-    return t
-  })
+  // Read the token (a read with no side effects, since React runs state initializers twice in development and a second read would
+  // find the address already cleaned) ...
+  const [token] = useState(() => tokenFromSearch(window.location.search))
+  // ... then take it out of the address bar so it isn't left in history or screenshots.
+  useEffect(() => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname)
+  }, [])
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')

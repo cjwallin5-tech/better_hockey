@@ -94,6 +94,67 @@ export async function changeLeague(method, url, body) {
   return out
 }
 
+// --- Your own roster in the active league (backend/leagues.py: league_team.roster) --------------------------------
+// Edits show at once and are saved in order; the server's answer replaces the local copy only when nothing newer is waiting.
+let saving = Promise.resolve()
+let pendingSaves = 0
+
+/** Replace your roster in the active league with `players`. */
+export function setLeagueRoster(players) {
+  const league = state.active
+  if (!league) return Promise.resolve()
+  const id = league.id
+  set({ active: { ...league, teams: league.teams.map((t) => (t.mine ? { ...t, players, own_roster: true } : t)) } })
+  pendingSaves += 1
+  saving = saving
+    .then(() => call('PUT', `/api/leagues/${id}/my-roster`, { players }))
+    .then((out) => { if (pendingSaves === 1 && state.activeId === id) set({ active: out }) })
+    .catch((e) => { set({ error: e.message }); return loadActive(id) }) // show what the server really has
+    .finally(() => { pendingSaves -= 1 })
+  return saving
+}
+
+/** Add a player ({ id, kind, name }) to your roster in the active league, or take them off it. */
+export function toggleLeaguePlayer(player) {
+  const mine = state.active?.teams.find((t) => t.mine)
+  if (!mine) return Promise.resolve()
+  const has = mine.players.some((p) => p.id === player.id)
+  return setLeagueRoster(has ? mine.players.filter((p) => p.id !== player.id) : [...mine.players, { id: player.id, kind: player.kind, name: player.name }])
+}
+
+/** Give your team in the active league its own roster: mode 'copy' (of your personal roster) or 'empty'. */
+export async function startLeagueRoster(mode) {
+  const id = state.activeId
+  if (!id) return null
+  const out = await call('POST', `/api/leagues/${id}/my-roster/start`, { mode })
+  if (state.activeId === id) set({ active: out })
+  return out
+}
+
+// --- Your own scoring and league settings in the active league (backend/leagues.py: league_team.settings) ---------
+// Shown at once, saved shortly after the last change; one timer per league so a quick switch can't drop a save.
+const settingsTimers = new Map()
+
+/** Change your own settings for the active league: makeNext(leagueView) returns the whole new settings object to keep. */
+export function updateMySettings(makeNext) {
+  const league = state.active
+  if (!league) return
+  const id = league.id
+  const next = makeNext(league)
+  set({ active: { ...league, my_settings: next } })
+  clearTimeout(settingsTimers.get(id))
+  settingsTimers.set(id, setTimeout(async () => {
+    settingsTimers.delete(id)
+    try {
+      const out = await call('PUT', `/api/leagues/${id}/my-settings`, { settings: next })
+      if (state.activeId === id && state.active?.my_settings === next) set({ active: out }) // nothing newer is waiting
+    } catch (e) {
+      set({ error: e.message })
+      await loadActive(id) // show what the server really has
+    }
+  }, 400))
+}
+
 /** Leagues state and the active league. Loads once per sign-in. */
 export function useLeagues() {
   const { user, ready } = useAuth()

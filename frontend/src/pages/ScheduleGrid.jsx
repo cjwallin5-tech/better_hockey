@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
-import { useFantasy } from '../fantasy.js'
+import { useRoster } from '../roster.js'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 import { getJson } from '../lists.js'
@@ -19,7 +19,7 @@ export default function ScheduleGrid({ embedded = false }) {
   const [group, setGroup] = useState('all')
   const [sort, setSort] = useState('next')
   const [mine, setMine] = useState(false)
-  const { list } = useFantasy()
+  const { list } = useRoster()
 
   useEffect(() => {
     fetch('/api/schedule-grid')

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useFantasy } from '../fantasy.js'
+import { useRoster } from '../roster.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 
 const mmss = (s) => `${s < 0 ? '−' : '+'}${Math.floor(Math.abs(Math.round(s)) / 60)}:${String(Math.abs(Math.round(s)) % 60).padStart(2, '0')}`
@@ -15,7 +15,7 @@ export default function Absences() {
   const [state, setState] = useState({ data: null, error: null })
   const [team, setTeam] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
-  const { list } = useFantasy()
+  const { list } = useRoster()
   const mine = useMemo(() => new Set(list.players.map((p) => p.id)), [list])
 
   useEffect(() => {

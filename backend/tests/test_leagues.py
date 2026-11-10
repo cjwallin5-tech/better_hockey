@@ -88,8 +88,47 @@ class Views(unittest.TestCase):
     def test_no_email_or_user_id_is_exposed(self):
         v = self.view()
         for t in v["teams"]:
-            self.assertEqual(set(t), {"id", "name", "manual", "mine", "players"})
+            self.assertEqual(set(t), {"id", "name", "manual", "mine", "players", "own_roster"})
         self.assertEqual(v["owner_team"], "Owner team")
+
+    def test_a_member_with_their_own_league_roster_shows_it_instead_of_the_personal_one(self):
+        own = [self.C]
+        teams = [dict(team(1, "Owner team", 10), roster=own), team(2, "Friend", 11)]
+        v = lg.league_view(self.LEAGUE, teams, {10: [self.A], 11: [self.B]}, 10)
+        self.assertEqual([t["players"] for t in v["teams"]], [[self.C], [self.B]])
+        self.assertEqual([t["own_roster"] for t in v["teams"]], [True, False])
+        self.assertEqual(v["taken"], [2, 3])
+
+    def test_an_empty_own_roster_is_still_their_own_not_the_personal_one(self):
+        teams = [dict(team(1, "Owner team", 10), roster=[])]
+        v = lg.league_view(self.LEAGUE, teams, {10: [self.A]}, 10)
+        self.assertEqual(v["teams"][0]["players"], [])
+        self.assertEqual(v["teams"][0]["own_roster"], True)
+
+    def test_the_same_person_can_hold_different_rosters_in_two_leagues(self):
+        one = lg.league_view(self.LEAGUE, [dict(team(1, "T", 10), roster=[self.A])], {10: [self.C]}, 10)
+        two = lg.league_view(dict(self.LEAGUE, id=2), [dict(team(5, "T", 10), roster=[self.B])], {10: [self.C]}, 10)
+        self.assertEqual(one["teams"][0]["players"], [self.A])
+        self.assertEqual(two["teams"][0]["players"], [self.B])
+
+    def test_a_manual_team_never_counts_as_having_its_own_member_roster(self):
+        v = lg.league_view(self.LEAGUE, [team(3, "Manual", None, [self.C])], {}, 10)
+        self.assertEqual(v["teams"][0]["own_roster"], False)
+        self.assertEqual(v["teams"][0]["players"], [self.C])
+
+    def test_my_settings_are_only_the_viewers_own_and_empty_means_none(self):
+        mine = {"scoring": {"goals": 2}, "format": "categories", "slots": {"C": 1}, "teams": 14, "junk": 1}
+        teams = [dict(team(1, "Owner team", 10), settings=mine), team(2, "Friend", 11)]
+        owner = lg.league_view(self.LEAGUE, teams, {}, 10)
+        self.assertEqual(owner["my_settings"], {"scoring": {"goals": 2.0}, "format": "categories", "slots": {"C": 1}, "teams": 14})
+        self.assertIsNone(lg.league_view(self.LEAGUE, teams, {}, 11)["my_settings"])   # the friend has none of their own
+        self.assertIsNone(lg.league_view(self.LEAGUE, [dict(team(1, "T", 10), settings={})], {}, 10)["my_settings"])
+        self.assertIsNone(lg.league_view(self.LEAGUE, [team(3, "Manual", None)], {}, 10)["my_settings"])
+
+    def test_clean_my_settings_keeps_valid_parts_and_bounds_the_team_count(self):
+        self.assertEqual(lg.clean_my_settings({"teams": 99, "format": "points"}), {"format": "points", "teams": 32})
+        self.assertEqual(lg.clean_my_settings({"teams": "12", "format": "nonsense"}), {})
+        self.assertEqual(lg.clean_my_settings(None), {})
 
     def test_a_member_who_never_synced_has_an_empty_team(self):
         v = lg.league_view(self.LEAGUE, [team(1, "Owner team", 10)], {}, 10)

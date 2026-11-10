@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import { FANTASY_EVENT, LEAGUE_EVENT, SCORING_EVENT, applyState, read, readLeague, readScoring } from './fantasy.js'
+import { FANTASY_EVENT, LEAGUE_EVENT, SCORING_EVENT, applyLeague, applyState, read, readLeague, readScoring } from './fantasy.js'
+import { leagueShape, planReconcile, sameState } from './syncPlan.js'
 
 // Account + sync state, shared by the nav, the Account page and the Fantasy page.
 //   sync: 'off' (signed out) | 'checking' | 'conflict' | 'synced' | 'error'
@@ -19,14 +20,9 @@ const json = async (r) => {
 const send = (url, method, body) =>
   fetch(url, { method, headers: { 'content-type': 'application/json' }, body: body && JSON.stringify(body) }).then(json)
 
-// The league shape the Sunday email needs (slots, teams, format); the rest of the local league settings stay in this browser.
-const leagueShape = (l) => ({ teams: l?.teams, format: l?.format, slots: l?.slots })
+// Only the league shape the Sunday email needs (slots, teams, format) is stored on the account; the rest of the local
+// league settings stay in this browser. What to do when the two sides differ is decided in syncPlan.js.
 const local = () => ({ players: read().players, scoring: readScoring(), league: leagueShape(readLeague()) })
-// A league the account has not saved yet is not a conflict: it is simply uploaded.
-const sameLeague = (a, b) => !Object.keys(a.league ?? {}).length || JSON.stringify(leagueShape(a.league)) === JSON.stringify(leagueShape(b.league))
-const sameState = (a, b) =>
-  JSON.stringify(a.players.map((p) => [p.id, p.kind])) === JSON.stringify(b.players.map((p) => [p.id, p.kind])) &&
-  JSON.stringify(Object.entries(a.scoring).sort()) === JSON.stringify(Object.entries(b.scoring).sort())
 
 let pushTimer = null
 const push = () => {
@@ -55,11 +51,13 @@ async function reconcile() {
   set({ sync: 'checking', error: null })
   try {
     const server = await send('/api/fantasy/state', 'GET')
-    const mine = local()
-    if (server.players.length === 0 && mine.players.length > 0) await send('/api/fantasy/state', 'PUT', mine)
-    else if (server.players.length > 0 && mine.players.length === 0) applyState(server)
-    else if (server.players.length > 0 && !sameState(server, mine)) return set({ sync: 'conflict', server })
-    else if (server.players.length > 0 && !sameLeague(server, mine)) await send('/api/fantasy/state', 'PUT', mine)
+    const plan = planReconcile(server, local())
+    if (plan.roster === 'conflict') return set({ sync: 'conflict', server })
+    if (plan.roster === 'download') applyState(server)
+    else if (plan.league === 'download') applyLeague(server.league)
+    // Upload after any download, so settings the account already has are never replaced by an empty league. (An account that has
+    // never saved scoring gets this browser's.)
+    if (plan.roster === 'upload' || plan.league === 'upload' || plan.scoring === 'upload') await send('/api/fantasy/state', 'PUT', local())
     set({ sync: 'synced', server: null })
     watchLocalChanges()
   } catch (e) {
@@ -70,7 +68,9 @@ async function reconcile() {
 async function pull() {
   try {
     const server = await send('/api/fantasy/state', 'GET')
-    if (!sameState(server, local()) || !sameLeague(server, local())) applyState(server)
+    const mine = local()
+    if (!sameState(server, mine)) applyState(server)
+    else if (planReconcile(server, mine).league === 'download') applyLeague(server.league)
   } catch {
     // offline or a transient error: keep what's here
   }
@@ -80,7 +80,11 @@ async function pull() {
 export async function resolveConflict(choice) {
   try {
     if (choice === 'account') applyState(state.server)
-    else await send('/api/fantasy/state', 'PUT', local())
+    else {
+      // Keep this browser's roster and scoring, but not an empty league over the account's saved one.
+      if (planReconcile(state.server, local()).league === 'download') applyLeague(state.server.league)
+      await send('/api/fantasy/state', 'PUT', local())
+    }
     set({ sync: 'synced', server: null })
     watchLocalChanges()
   } catch (e) {

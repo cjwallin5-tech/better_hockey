@@ -135,7 +135,7 @@ function DraftClass() {
       {data?.already_drafted && (
         <p className="notice">
           The NHL hasn't published rankings for the {data.upcoming_year} draft yet, so this is the {data.draft_year} class, which has already been
-          drafted. {data.linked} of its {data.rows.length} ranked players are tracked here: their names link to their pages, with the
+          drafted. {data.linked} of its {data.rows.length} ranked players have pages here: their names link to them, with the
           draft slot beside them.
         </p>
       )}
@@ -169,8 +169,9 @@ function DraftClass() {
       )}
       <p className="sub">
         {data ? `${data.draft_year} NHL Draft, ` : ''}NHL Central Scouting's rankings, separate for North American and international
-        players. They list each player's last amateur club and league but no player ids, so a name links to a prospect page only when
-        exactly one drafted prospect we track has it; everyone else appears on the team prospects tab once a team lists them.
+        players. They list each player's last amateur club and league but no player ids, so we match names against the draft's own pick list
+        and the NHL's player records; a name links to a prospect page once the player has been drafted and matched. Players who weren't
+        drafted have no page, since the NHL has no record of them yet.
       </p>
     </>
   )

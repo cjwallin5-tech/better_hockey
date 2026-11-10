@@ -65,7 +65,7 @@ export default function Account() {
             </p>
           </section>
         )}
-        {sync === 'synced' && <p className="status">Your fantasy roster and scoring are synced to this account. Changes save automatically and show up on your other devices.</p>}
+        {sync === 'synced' && <p className="status">Your fantasy roster, scoring and league settings are synced to this account. Changes save automatically and show up on your other devices.</p>}
         {sync === 'checking' && <p className="status">Syncing…</p>}
         {sync === 'error' && <p className="notice">Couldn't sync: {syncError}. Your data is still safe in this browser.</p>}
         <DigestToggle />
@@ -102,7 +102,7 @@ export default function Account() {
     <main>
       <header>
         <h1>{mode === 'login' ? 'Log in' : 'Create an account'}</h1>
-        <p>An account keeps your fantasy roster and league scoring synced across devices. Everything else on the site works without one.</p>
+        <p>An account keeps your fantasy roster, scoring and league settings synced across devices. Everything else on the site works without one.</p>
       </header>
       <form className="auth-form" onSubmit={submit}>
         <label>Email

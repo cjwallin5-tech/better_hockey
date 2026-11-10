@@ -8,6 +8,7 @@ import WatchButton from '../components/WatchButton.jsx'
 import { Line, draftText, height, ppg, svp } from '../components/ProspectBits.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
 import { nhleSentence, nhleText, nhleTitle } from '../nhle.js'
+import { reachedNhl } from '../prospectStatus.js'
 
 export default function Prospect() {
   const { id } = useParams()
@@ -35,7 +36,11 @@ export default function Prospect() {
           <div>
             <h1><CountryFlag code={p.birth_country} /> {p.name} <span className="muted">{p.position}</span></h1>
             <p>
-              {p.on_list ? <>Prospect of <Link to={`/team/${p.team}`}>{p.team}</Link></> : <>No longer on a prospect list (usually: made the NHL)</>}
+              {p.on_list
+                ? <>Prospect of <Link to={`/team/${p.team}`}>{p.team}</Link></>
+                : reachedNhl(p.seasons)
+                  ? <>In the NHL now: <Link to={`/${goalie ? 'goalie' : 'player'}/${p.player_id}`}>NHL stats</Link></>
+                  : <>No longer on a prospect list</>}
               {' · '}Age {p.age ?? '–'} · {height(p.height_in)}, {p.weight_lb ?? '–'} lb · Shoots {p.shoots ?? '–'} · {draftText(p.draft)}
             </p>
             <p>This season: <Line p={p} /> {p.league && <span className="muted">({p.league}, {p.club})</span>}</p>

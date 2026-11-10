@@ -7,7 +7,8 @@ import { fmt1, fmtPct, fmtToi } from '../format.js'
 import { DefenseCompare } from '../components/DefenseProfile.jsx'
 import { ScoutingCompare } from '../components/ScoutingCard.jsx'
 import ShareButtons from '../components/ShareButtons.jsx'
-import { GOALIE_CATS, SKATER_CATS, fantasyPoints, useScoring } from '../fantasy.js'
+import { GOALIE_CATS, SKATER_CATS, fantasyPoints } from '../fantasy.js'
+import { useScoring } from '../settings.js'
 import { getJson } from '../lists.js'
 
 const MAX_PLAYERS = 3

@@ -17,8 +17,9 @@ const currentSeason = () => {
  * A small round headshot ringed in the team's colour, built straight from the season, team and player id (no per-player request).
  * Lazy, since a table can hold hundreds; initials stand in until the season is known and when there is no picture. Pass `season` (and
  * that season's `team`) for a player who is not on a current roster, such as a retired player on the all-time board.
+ * `retired` swaps the team-colour ring for a grey one.
  */
-export default function Avatar({ playerId, team, name, size = 32, season: fixedSeason }) {
+export default function Avatar({ playerId, team, name, size = 32, season: fixedSeason, retired = false }) {
   const [currentId, setCurrentId] = useState(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -30,10 +31,11 @@ export default function Avatar({ playerId, team, name, size = 32, season: fixedS
   const seasonId = fixedSeason ?? currentId
   const current = (team ?? '').split(',').filter(Boolean).pop()
   const style = { '--team': teamColor(current), '--s': `${size}px` }
-  if (!current || !seasonId || failed) return <span className="avatar blank" style={style} aria-hidden="true">{initials(name)}</span>
+  const tone = retired ? ' retired' : ''
+  if (!current || !seasonId || failed) return <span className={`avatar blank${tone}`} style={style} aria-hidden="true">{initials(name)}</span>
   return (
     <img
-      className="avatar" style={style} alt="" width={size} height={size} loading="lazy" decoding="async"
+      className={`avatar${tone}`} style={style} alt="" width={size} height={size} loading="lazy" decoding="async"
       src={`https://assets.nhle.com/mugs/nhl/${seasonId}/${current}/${playerId}.png`} onError={() => setFailed(true)}
     />
   )

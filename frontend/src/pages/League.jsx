@@ -3,6 +3,7 @@ import BackLink from '../components/BackLink.jsx'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { call, refresh, setActive, useLeagues } from '../leagues.js'
 import { useLeague, useScoring } from '../fantasy.js'
+import { leagueSettings } from '../settingsSource.js'
 import { GROUPS, cleanLeague } from '../value.js'
 import { matchNames } from '../h2h.js'
 import PageSkeleton from '../components/Skeleton.jsx'
@@ -47,8 +48,8 @@ export default function League() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { signedIn, activeId } = useLeagues()
-  const { scoring, setScoring } = useScoring()
-  const { league: mySettings, setLeague } = useLeague()
+  const { scoring: personalScoring } = useScoring()   // the account-wide settings; this league's come from its own view below
+  const { league: personalLeague } = useLeague()
   const [state, setState] = useState({ id: null, data: null, error: null })
   const [message, setMessage] = useState(null)
   const [pool, setPool] = useState(null)
@@ -100,15 +101,12 @@ export default function League() {
   if (!data) return <main>{back}<PageSkeleton /></main>
 
   const settings = data.settings ?? {}
-  const myCfg = cleanLeague(mySettings)
   const hasSettings = Object.keys(settings).length > 0
-  const applySettings = () => {
-    if (settings.scoring) setScoring(settings.scoring)
-    setLeague({ ...myCfg, teams: data.teams_allowed, ...(settings.format ? { format: settings.format } : {}),
-      ...(settings.slots ? { slots: { ...myCfg.slots, ...settings.slots } } : {}), ...(settings.categories ? { categories: settings.categories } : {}) })
-    setMessage('Your scoring and league settings now match this league.')
-  }
-  const shareMine = () => act(() => call('PUT', `/api/leagues/${id}`, { settings: { format: myCfg.format, slots: myCfg.slots, scoring, categories: myCfg.categories } }))
+  // what applies to you in this league: your own settings for it, else the shared ones, else your account-wide ones
+  const eff = leagueSettings({ personalScoring, personalLeague, view: data })
+  const myCfg = cleanLeague(eff.league)
+  const shareMine = () => act(() => call('PUT', `/api/leagues/${id}`, { settings: { format: myCfg.format, slots: myCfg.slots, scoring: eff.scoring, categories: myCfg.categories } }))
+  const resetMine = () => act(() => call('PUT', `/api/leagues/${id}/my-settings`, { settings: null })).then((out) => out && setMessage(hasSettings ? "Your settings for this league are cleared; the league's shared settings apply again." : 'Your settings for this league are cleared; your account-wide settings apply again.'))
   const slotText = GROUPS.filter((g) => settings.slots?.[g] != null).map((g) => `${settings.slots[g]} ${g}`).join(', ')
 
   return (
@@ -142,11 +140,15 @@ export default function League() {
         {hasSettings ? (
           <p>
             {settings.format === 'categories' ? 'Category league' : 'Points league'}{slotText ? ` · ${slotText}` : ''}
-            {settings.scoring ? ` · ${Object.keys(settings.scoring).length} scored stats` : ''}.{' '}
-            <button className="link-button" onClick={applySettings}>Use these on my Fantasy page</button>
+            {settings.scoring ? ` · ${Object.keys(settings.scoring).length} scored ${Object.keys(settings.scoring).length === 1 ? 'stat' : 'stats'}` : ''}.
           </p>
         ) : <p className="muted">No shared settings yet.</p>}
-        {owner && <p><button className="link-button" onClick={shareMine}>Share my current scoring and slots with the league</button></p>}
+        <p className="muted">
+          {data.my_settings
+            ? <>You have your own scoring and settings for this league, set on the <Link to="/fantasy?tab=settings">Fantasy page</Link>. <button className="link-button" onClick={resetMine}>{hasSettings ? "Use the league's shared settings instead" : 'Clear my settings for this league'}</button></>
+            : <>{hasSettings ? "You are using the shared settings." : 'You are using your account-wide settings here.'} Change them on the <Link to="/fantasy?tab=settings">Fantasy page</Link> with this league selected and they become yours for this league only.</>}
+        </p>
+        {owner && <p><button className="link-button" onClick={shareMine}>Share my scoring and slots for this league with its members</button></p>}
       </section>
 
       <section>
@@ -157,7 +159,7 @@ export default function League() {
               {t.name} {t.mine && <span className="badge">you</span>} {t.manual && <span className="badge" title="Managed by hand by the league owner">added by owner</span>}
             </h3>
             <Roster players={t.players} />
-            {t.mine && !t.manual && <p className="muted">This is your roster from the Fantasy page. <Link to="/fantasy">Edit it there</Link>.</p>}
+            {t.mine && !t.manual && <p className="muted">This is your roster for this league. <Link to="/fantasy">Edit it on the Fantasy page</Link> with this league selected.</p>}
             <p>
               {(t.mine || owner) && (
                 <button className="link-button" onClick={() => {

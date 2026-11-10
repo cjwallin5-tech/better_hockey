@@ -73,6 +73,63 @@ class Render(unittest.TestCase):
         self.assertEqual(subject, "NHL roster update")
 
 
+class LeagueRosters(unittest.TestCase):
+    A = {"id": 1, "kind": "skater", "name": "A"}
+    B = {"id": 2, "kind": "goalie", "name": "B"}
+    C = {"id": 3, "kind": "skater", "name": "C"}
+
+    def test_players_are_combined_once_with_the_leagues_they_are_in(self):
+        players, labels = digest.combine_rosters(
+            [self.A], [{"name": "Friends", "players": [self.A, self.B]}, {"name": "Office", "players": [self.B, self.C]}])
+        self.assertEqual([p["id"] for p in players], [1, 2, 3])
+        self.assertEqual(labels, {1: ["Friends"], 2: ["Friends", "Office"], 3: ["Office"]})
+
+    def test_a_personal_only_player_has_no_label_and_no_leagues_changes_nothing(self):
+        players, labels = digest.combine_rosters([self.A, self.C], [])
+        self.assertEqual([p["id"] for p in players], [1, 3])
+        self.assertEqual(labels, {})
+
+    def test_the_tag_lists_leagues_or_is_empty(self):
+        self.assertEqual(digest.league_tag({1: ["Friends", "Office"]}, 1), " [Friends, Office]")
+        self.assertEqual(digest.league_tag({1: ["Friends"]}, 2), "")
+        self.assertEqual(digest.league_tag(None, 1), "")
+        self.assertEqual(digest.league_tag({}, None), "")
+
+    def test_the_tags_appear_on_game_lines_and_the_no_game_list(self):
+        e = dict(entry("Star", "COL", "NYR", True, None), id=1)
+        idle = {"id": 2, "name": "Rested"}
+        _, body = digest.render(day(playing=[e], idle=[idle]), labels={1: ["Friends", "Office"], 2: ["Office"]})
+        self.assertIn("Star (COL) [Friends, Office] vs NYR", body)
+        self.assertIn("NO GAME TODAY: Rested [Office]", body)
+        _, plain = digest.render(day(playing=[e], idle=[idle]))
+        self.assertNotIn("[", plain)
+
+    def test_a_league_uses_its_own_settings_where_set_and_the_accounts_otherwise(self):
+        scoring, shape = digest.league_inputs({"goals": 3}, {"format": "points", "slots": {"C": 2}, "teams": 12},
+                                              {"format": "categories", "slots": {"C": 1, "D": 6}, "scoring": {"goals": 1}})
+        self.assertEqual((scoring, shape["format"], shape["slots"], shape["teams"]), ({"goals": 1}, "categories", {"C": 1, "D": 6}, 12))
+        scoring, shape = digest.league_inputs({"goals": 3}, {"format": "points", "slots": {"C": 2}}, {})
+        self.assertEqual((scoring, shape), ({"goals": 3}, {"format": "points", "slots": {"C": 2}}))
+
+    def test_a_members_own_settings_beat_the_leagues_shared_ones_which_beat_the_accounts(self):
+        account, shared = {"goals": 3}, {"format": "categories", "slots": {"C": 1}, "scoring": {"goals": 1}}
+        own = {"slots": {"C": 3, "D": 5}, "scoring": {"goals": 9}}
+        scoring, shape = digest.league_inputs(account, {"format": "points", "slots": {"C": 2}}, shared, own)
+        self.assertEqual((scoring, shape["format"], shape["slots"]), ({"goals": 9}, "categories", {"C": 3, "D": 5}))
+        scoring, shape = digest.league_inputs(account, {"format": "points", "slots": {"C": 2}}, shared, {})
+        self.assertEqual((scoring, shape["slots"]), ({"goals": 1}, {"C": 1}))
+        scoring, shape = digest.league_inputs(account, {"format": "points", "slots": {"C": 2}}, {}, None)
+        self.assertEqual((scoring, shape), ({"goals": 3}, {"format": "points", "slots": {"C": 2}}))
+
+    def test_one_week_section_stands_alone_and_several_are_labelled(self):
+        self.assertEqual(digest.week_text([("Personal roster", "WEEK AHEAD: x")]), "WEEK AHEAD: x")
+        self.assertIsNone(digest.week_text([]))
+        self.assertIsNone(digest.week_text([("Friends", None)]))
+        text = digest.week_text([("Personal roster", "WEEK AHEAD: a"), ("Friends", "WEEK AHEAD: b")])
+        self.assertIn("-- Personal roster --\nWEEK AHEAD: a", text)
+        self.assertLess(text.index("Personal roster"), text.index("-- Friends --"))
+
+
 class ProspectBlock(unittest.TestCase):
     def test_prospects_and_call_ups_appear_in_the_watchlist_block(self):
         w = {"playing": [], "idle": [], "teams": [], "prospects": [{

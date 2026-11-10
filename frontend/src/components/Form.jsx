@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { RollingChart } from './Charts.jsx'
 import { mmss } from './Roles.jsx'
-import { useScoring } from '../fantasy.js'
+import { useScoring } from '../settings.js'
 import { goalieForm, missingScoring, rollingMean, rollingRatio, skaterForm, windowsFor } from '../rolling.js'
 import { describe } from '../glossary.js'
 

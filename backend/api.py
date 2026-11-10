@@ -30,6 +30,7 @@ import explain_db
 import fatigue
 import headtohead
 import leagues
+import previews
 import lottery
 import oldgames_db
 import luck
@@ -64,6 +65,7 @@ app = FastAPI(title="Hockey Stats")
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.include_router(auth.router)
 app.include_router(leagues.router)
+app.include_router(previews.router)
 
 
 @app.on_event("startup")
@@ -3368,13 +3370,13 @@ def draft_rankings(category: int = 1):
                     "final_rank": r.get("finalRank"), "name": f"{r.get('firstName', '')} {r.get('lastName', '')}".strip(),
                     "position": r.get("positionCode"), "shoots": r.get("shootsCatches"),
                     "club": r.get("lastAmateurClub"), "league": r.get("lastAmateurLeague"),
-                    "age": prospectlib.age_on(born, today), "height_in": r.get("heightInInches"), "weight_lb": r.get("weightInPounds"),
+                    "age": prospectlib.age_on(born, today), "birth_date": r.get("birthDate"), "height_in": r.get("heightInInches"), "weight_lb": r.get("weightInPounds"),
                     "birth_country": r.get("birthCountry")})
     out.sort(key=lambda r: (r["rank"] is None, r["rank"] or 0, r["name"]))
     year = raw.get("draftYear")
     # the rankings carry no player ids: link the rows we can to a stored prospect of that draft class, by name
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
-        known = conn.execute("SELECT player_id, name, draft_year, draft_round, draft_pick, draft_overall, draft_team FROM prospect "
+        known = conn.execute("SELECT player_id, name, birth_date, draft_year, draft_round, draft_pick, draft_overall, draft_team FROM prospect "
                              "WHERE draft_year = %s", (year,)).fetchall()
     linked = prospectlib.link_rankings(out, known, year)
     # the NHL keeps serving last June's class until it publishes the next one: say so rather than call it upcoming

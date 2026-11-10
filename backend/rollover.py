@@ -12,7 +12,9 @@ What it does, in order, and why:
     skater_game_hist), team abbreviations and home flags, which the nightly job only loads for seasons already past.
  4. Runs the backfills that settle the finished season, all resumable, so a run that is cut short can simply be run again:
     games-hist (head-to-head: the oldest stored season falls into the older group), shots, shot-locations, shot-times,
-    onice (about an hour) and edge (hours; the EDGE speed extras refresh only weekly during a season, so this is their final pass).
+    leagues (every player of the finished season's league history, fetched again so the season's rows hold final totals, plus any
+    rookies; then `nhle` refits the NHLe league factors with the season's new pairs), onice (about an hour) and edge (hours; the
+    EDGE speed extras refresh only weekly during a season, so this is their final pass).
  5. Clears the per-player old-games markers so a head-to-head lookup refetches with the moved boundary.
  6. Checks the history tables for the finished season and prints what is left for you to do by hand.
 
@@ -29,13 +31,17 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SEASON_LINE = re.compile(r'(SEASON_ID = int\(os\.environ\.get\("SEASON_ID", ")(\d{8})("\)\))')
 
-# name, ingest.py arguments, what it settles. Order matters: shots before the passes that annotate them.
+# name, command arguments, what it settles. The arguments are an ingest.py command, or a script when the first one ends in .py (run
+# isolated, from backend/). "{finished}" in an argument becomes the id of the season that just finished.
+# Order matters: shots before the passes that annotate them, leagues before the NHLe fit that reads them.
 STEPS = [
     ("ingest", [], "regular ingest with the new season: history tables, abbreviations, home flags"),
     ("games-hist", ["backfill-games-hist"], "head-to-head results for the seasons that just left the stored window"),
     ("shots", ["backfill-shots"], "every shot with its xG for the finished season"),
     ("shot-locations", ["backfill-shot-locations"], "shot locations, types and rebounds for those shots"),
     ("shot-times", ["backfill-shot-times"], "period, game time and shooting side for those shots"),
+    ("leagues", ["backfill-leagues", "--refresh", "{finished}"], "league records of the finished season's players at their final totals, plus rookies (about 15 minutes)"),
+    ("nhle", ["analysis/nhle_factors.py", "--save"], "refit the NHLe league factors and age multipliers with the finished season's pairs"),
     ("onice", ["backfill-onice"], "5v5 on-ice shot attempts and xG for the finished season (about an hour)"),
     ("edge", ["backfill-edge"], "NHL EDGE tracking final numbers (hours)"),
 ]
@@ -111,10 +117,19 @@ def history_counts(conn, season):
     }
 
 
+def step_command(args, season):
+    """The command line for a step (see STEPS): ingest.py with these arguments, or the script named first, run isolated. Every
+    "{finished}" becomes the id of the season before `season`, the new one."""
+    args = [a.replace("{finished}", str(previous_season(season))) for a in args]
+    if args and args[0].endswith(".py"):
+        return [sys.executable, "-u", "-I", *args]
+    return [sys.executable, "-u", "ingest.py", *args]
+
+
 def run_step(name, args, season, log):
-    """Run one ingest.py command with SEASON_ID set to the new season, copying its output to the screen and the log. Returns its exit code."""
+    """Run one step with SEASON_ID set to the new season, copying its output to the screen and the log. Returns its exit code."""
     env = {**os.environ, "SEASON_ID": str(season), "PYTHONUNBUFFERED": "1"}
-    proc = subprocess.Popen([sys.executable, "-u", "ingest.py", *args], cwd=HERE, env=env,
+    proc = subprocess.Popen(step_command(args, season), cwd=HERE, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     for line in proc.stdout:
         sys.stdout.write("    " + line)

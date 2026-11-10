@@ -198,7 +198,7 @@ export default function AllTime({ kind }) {
     const route = kind === 'goalie' ? 'goalie' : 'player'
     return (
       <span className="player-cell">
-        <Avatar playerId={r.player_id} team={r.last_team} season={r.last_season} name={r.name} />
+        <Avatar playerId={r.player_id} team={r.last_team} season={r.last_season} name={r.name} retired={!r.active_season} />
         <Link to={`/${route}/${r.player_id}`}>{r.name}</Link>
         {r.hall_of_fame === 'Y' && <HhofMark size={18} />}
         {r.active_season && <span className="badge">active</span>}
