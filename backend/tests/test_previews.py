@@ -157,7 +157,7 @@ class Tags(unittest.TestCase):
     def test_the_tags_name_the_page_the_picture_and_the_card_type(self):
         meta = pv.skater_meta(SKATER, 20262027, 84, 8478402)
         tags = pv.head_html(meta, "/player/8478402")
-        self.assertIn("<title>Connor McDavid (Center, EDM) · NHL Stats</title>", tags)
+        self.assertIn("<title>Connor McDavid (Center, EDM) · Faceoff</title>", tags)
         for needle in ('property="og:title"', 'property="og:description"', 'property="og:image"', 'property="og:url"',
                        'name="twitter:card" content="summary_large_image"', 'rel="canonical"', 'name="description"',
                        'content="1200"', 'content="630"'):
@@ -167,13 +167,13 @@ class Tags(unittest.TestCase):
         self.assertNotIn("noindex", tags)
 
     def test_the_site_title_is_not_doubled(self):
-        self.assertIn("<title>NHL Stats</title>", pv.head_html(pv.default_meta(), "/"))
+        self.assertIn("<title>Faceoff</title>", pv.head_html(pv.default_meta(), "/"))
 
     def test_the_tab_title_matches_the_page_title_tag(self):
         meta = pv.team_meta(TEAM)
-        self.assertEqual(pv.page_title(meta), "Edmonton Oilers (11-2-3) · NHL Stats")
+        self.assertEqual(pv.page_title(meta), "Edmonton Oilers (11-2-3) · Faceoff")
         self.assertIn(f"<title>{pv.page_title(meta)}</title>", pv.head_html(meta, "/team/EDM"))
-        self.assertEqual(pv.page_title(pv.default_meta()), "NHL Stats")
+        self.assertEqual(pv.page_title(pv.default_meta()), "Faceoff")
 
     def test_private_pages_ask_not_to_be_indexed(self):
         self.assertIn('name="robots" content="noindex"', pv.head_html(pv._meta(pv.SITE, pv.GENERIC, noindex=True), "/account"))

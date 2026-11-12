@@ -1,0 +1,3079 @@
+{
+ "built": "2026-11-10",
+ "source": "Wikipedia tournament pages (CC BY-SA 4.0): the IIHF directorate award list, each World Junior and Olympic edition, and each Canada Cup, World Cup of Hockey and 4 Nations page",
+ "coverage": {
+  "worlds": "directorate awards 1954-2026 (not 2020); most valuable player from 1999",
+  "olympics": "1956-1968 from the IIHF list (they counted as World Championships); directorate awards and MVP for 2002-2018 and 2026; MVP only for 2022; none listed on Wikipedia for 1972-1998",
+  "worldcup": "most valuable player only (the Canada Cup and the World Cup of Hockey have no directorate awards)",
+  "fournations": "most valuable player only",
+  "juniors": "directorate awards 1977-2026 except the editions whose page lists none: 2005 (goaltender/defense/forward); most valuable player from 2004 where the page lists one"
+ },
+ "awards": [
+  {
+   "tournament": "fournations",
+   "year": 2025,
+   "award": "mvp",
+   "name": "Nathan MacKinnon",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1977,
+   "award": "goaltender",
+   "name": "Jan Hrabák",
+   "code": "TCH"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1977,
+   "award": "defense",
+   "name": "Viacheslav Fetisov",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1977,
+   "award": "forward",
+   "name": "Dale McCourt",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1978,
+   "award": "goaltender",
+   "name": "Alexander Tyzhnykh",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1978,
+   "award": "defense",
+   "name": "Viacheslav Fetisov",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1978,
+   "award": "forward",
+   "name": "Wayne Gretzky",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1979,
+   "award": "goaltender",
+   "name": "Pelle Lindbergh",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1979,
+   "award": "defense",
+   "name": "Alexei Kasatonov",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1979,
+   "award": "forward",
+   "name": "Vladimir Krutov",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1980,
+   "award": "goaltender",
+   "name": "Jari Paavola",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1980,
+   "award": "defense",
+   "name": "Reijo Ruotsalainen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1980,
+   "award": "forward",
+   "name": "Vladimir Krutov",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1981,
+   "award": "goaltender",
+   "name": "Lars Eriksson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1981,
+   "award": "defense",
+   "name": "Miloslav Hořava",
+   "code": "TCH"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1981,
+   "award": "forward",
+   "name": "Patrik Sundström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1982,
+   "award": "goaltender",
+   "name": "Mike Moffat",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1982,
+   "award": "defense",
+   "name": "Gord Kluzak",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1982,
+   "award": "forward",
+   "name": "Petri Skriko",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1983,
+   "award": "goaltender",
+   "name": "Dominik Hašek",
+   "code": "TCH"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1983,
+   "award": "defense",
+   "name": "Ilya Byakin",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1983,
+   "award": "forward",
+   "name": "Tomas Sandström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1984,
+   "award": "goaltender",
+   "name": "Allan Perry",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1984,
+   "award": "defense",
+   "name": "Alexei Gusarov",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1984,
+   "award": "forward",
+   "name": "Raimo Helminen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1985,
+   "award": "goaltender",
+   "name": "Craig Billington",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1985,
+   "award": "defense",
+   "name": "Vesa Salo",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1985,
+   "award": "forward",
+   "name": "Michal Pivoňka",
+   "code": "TCH"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1986,
+   "award": "goaltender",
+   "name": "Yevgeni Belosheikin",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1986,
+   "award": "defense",
+   "name": "Mikhail Tatarinov",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1986,
+   "award": "forward",
+   "name": "Jim Sandlak",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1987,
+   "award": "goaltender",
+   "name": "Markus Ketterer",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1987,
+   "award": "defense",
+   "name": "Calle Johansson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1987,
+   "award": "forward",
+   "name": "Robert Kron",
+   "code": "TCH"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1988,
+   "award": "goaltender",
+   "name": "Jimmy Waite",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1988,
+   "award": "defense",
+   "name": "Teppo Numminen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1988,
+   "award": "forward",
+   "name": "Alexander Mogilny",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1989,
+   "award": "goaltender",
+   "name": "Alexei Ivashkin",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1989,
+   "award": "defense",
+   "name": "Ricard Persson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1989,
+   "award": "forward",
+   "name": "Pavel Bure",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1990,
+   "award": "goaltender",
+   "name": "Stéphane Fiset",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1990,
+   "award": "defense",
+   "name": "Alexander Godynyuk",
+   "code": "URS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1990,
+   "award": "forward",
+   "name": "Robert Reichel",
+   "code": "TCH"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1991,
+   "award": "goaltender",
+   "name": "Pauli Jaks",
+   "code": "SUI"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1991,
+   "award": "defense",
+   "name": "Jiří Šlégr",
+   "code": "TCH"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1991,
+   "award": "forward",
+   "name": "Eric Lindros",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1992,
+   "award": "goaltender",
+   "name": "Mike Dunham",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1992,
+   "award": "defense",
+   "name": "Darius Kasparaitis",
+   "code": "CIS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1992,
+   "award": "forward",
+   "name": "Michael Nylander",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1993,
+   "award": "goaltender",
+   "name": "Manny Legace",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1993,
+   "award": "defense",
+   "name": "Janne Grönvall",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1993,
+   "award": "forward",
+   "name": "Peter Forsberg",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1994,
+   "award": "goaltender",
+   "name": "Jamie Storr",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1994,
+   "award": "defense",
+   "name": "Kenny Jönsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1994,
+   "award": "forward",
+   "name": "Niklas Sundström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1995,
+   "award": "goaltender",
+   "name": "Yevgeni Tarasov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1995,
+   "award": "defense",
+   "name": "Bryan McCabe",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1995,
+   "award": "forward",
+   "name": "Marty Murray",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1996,
+   "award": "goaltender",
+   "name": "José Théodore",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1996,
+   "award": "defense",
+   "name": "Mattias Öhlund",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1996,
+   "award": "forward",
+   "name": "Jarome Iginla",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1997,
+   "award": "goaltender",
+   "name": "Marc Denis",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1997,
+   "award": "defense",
+   "name": "Joe Corvo",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1997,
+   "award": "forward",
+   "name": "Alexei Morozov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1998,
+   "award": "goaltender",
+   "name": "David Aebischer",
+   "code": "SUI"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1998,
+   "award": "defense",
+   "name": "Pavel Skrbek",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1998,
+   "award": "forward",
+   "name": "Olli Jokinen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1999,
+   "award": "goaltender",
+   "name": "Roberto Luongo",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1999,
+   "award": "defense",
+   "name": "Vitaly Vishnevskiy",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 1999,
+   "award": "forward",
+   "name": "Maxim Afinogenov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2000,
+   "award": "goaltender",
+   "name": "Rick DiPietro",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2000,
+   "award": "defense",
+   "name": "Alexander Ryazantsev",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2000,
+   "award": "forward",
+   "name": "Milan Kraft",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2001,
+   "award": "goaltender",
+   "name": "Tomáš Duba",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2001,
+   "award": "defense",
+   "name": "Rostislav Klesla",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2001,
+   "award": "forward",
+   "name": "Pavel Brendl",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2002,
+   "award": "goaltender",
+   "name": "Kari Lehtonen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2002,
+   "award": "defense",
+   "name": "Igor Knyazev",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2002,
+   "award": "forward",
+   "name": "Mike Cammalleri",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2003,
+   "award": "goaltender",
+   "name": "Marc-André Fleury",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2003,
+   "award": "defense",
+   "name": "Joni Pitkänen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2003,
+   "award": "forward",
+   "name": "Igor Grigorenko",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2004,
+   "award": "mvp",
+   "name": "Zach Parise",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2004,
+   "award": "goaltender",
+   "name": "Al Montoya",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2004,
+   "award": "defense",
+   "name": "Sami Lepistö",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2004,
+   "award": "forward",
+   "name": "Zach Parise",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2005,
+   "award": "mvp",
+   "name": "Patrice Bergeron",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2006,
+   "award": "mvp",
+   "name": "Evgeni Malkin",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2006,
+   "award": "goaltender",
+   "name": "Tuukka Rask",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2006,
+   "award": "defense",
+   "name": "Marc Staal",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2006,
+   "award": "forward",
+   "name": "Evgeni Malkin",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2007,
+   "award": "mvp",
+   "name": "Carey Price",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2007,
+   "award": "goaltender",
+   "name": "Carey Price",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2007,
+   "award": "defense",
+   "name": "Erik Johnson",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2007,
+   "award": "forward",
+   "name": "Alexei Cherepanov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2008,
+   "award": "mvp",
+   "name": "Steve Mason",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2008,
+   "award": "goaltender",
+   "name": "Steve Mason",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2008,
+   "award": "defense",
+   "name": "Drew Doughty",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2008,
+   "award": "forward",
+   "name": "Viktor Tikhonov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2009,
+   "award": "mvp",
+   "name": "John Tavares",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2009,
+   "award": "goaltender",
+   "name": "Jacob Markström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2009,
+   "award": "defense",
+   "name": "Erik Karlsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2009,
+   "award": "forward",
+   "name": "John Tavares",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2010,
+   "award": "mvp",
+   "name": "Jordan Eberle",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2010,
+   "award": "goaltender",
+   "name": "Benjamin Conz",
+   "code": "SUI"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2010,
+   "award": "defense",
+   "name": "Alex Pietrangelo",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2010,
+   "award": "forward",
+   "name": "Jordan Eberle",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2011,
+   "award": "mvp",
+   "name": "Brayden Schenn",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2011,
+   "award": "goaltender",
+   "name": "Jack Campbell",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2011,
+   "award": "defense",
+   "name": "Ryan Ellis",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2011,
+   "award": "forward",
+   "name": "Brayden Schenn",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2012,
+   "award": "mvp",
+   "name": "Evgeny Kuznetsov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2012,
+   "award": "goaltender",
+   "name": "Petr Mrázek",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2012,
+   "award": "defense",
+   "name": "Brandon Gormley",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2012,
+   "award": "forward",
+   "name": "Evgeny Kuznetsov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2013,
+   "award": "mvp",
+   "name": "John Gibson",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2013,
+   "award": "goaltender",
+   "name": "John Gibson",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2013,
+   "award": "defense",
+   "name": "Jacob Trouba",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2013,
+   "award": "forward",
+   "name": "Ryan Nugent-Hopkins",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2014,
+   "award": "mvp",
+   "name": "Filip Forsberg",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2014,
+   "award": "goaltender",
+   "name": "Oscar Dansk",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2014,
+   "award": "defense",
+   "name": "Rasmus Ristolainen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2014,
+   "award": "forward",
+   "name": "Filip Forsberg",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2015,
+   "award": "mvp",
+   "name": "Denis Godla",
+   "code": "SVK"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2015,
+   "award": "goaltender",
+   "name": "Denis Godla",
+   "code": "SVK"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2015,
+   "award": "defense",
+   "name": "Vladislav Gavrikov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2015,
+   "award": "forward",
+   "name": "Max Domi",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2016,
+   "award": "mvp",
+   "name": "Jesse Puljujärvi",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2016,
+   "award": "goaltender",
+   "name": "Linus Söderström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2016,
+   "award": "defense",
+   "name": "Zach Werenski",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2016,
+   "award": "forward",
+   "name": "Jesse Puljujärvi",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2017,
+   "award": "mvp",
+   "name": "Thomas Chabot",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2017,
+   "award": "goaltender",
+   "name": "Felix Sandström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2017,
+   "award": "defense",
+   "name": "Thomas Chabot",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2017,
+   "award": "forward",
+   "name": "Kirill Kaprizov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2018,
+   "award": "mvp",
+   "name": "Casey Mittelstadt",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2018,
+   "award": "goaltender",
+   "name": "Filip Gustavsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2018,
+   "award": "defense",
+   "name": "Rasmus Dahlin",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2018,
+   "award": "forward",
+   "name": "Casey Mittelstadt",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2019,
+   "award": "mvp",
+   "name": "Ryan Poehling",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2019,
+   "award": "goaltender",
+   "name": "Pyotr Kochetkov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2019,
+   "award": "defense",
+   "name": "Alexander Romanov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2019,
+   "award": "forward",
+   "name": "Ryan Poehling",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2020,
+   "award": "mvp",
+   "name": "Alexis Lafrenière",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2020,
+   "award": "goaltender",
+   "name": "Joel Hofer",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2020,
+   "award": "defense",
+   "name": "Rasmus Sandin",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2020,
+   "award": "forward",
+   "name": "Alexis Lafrenière",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2021,
+   "award": "mvp",
+   "name": "Trevor Zegras",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2021,
+   "award": "goaltender",
+   "name": "Devon Levi",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2021,
+   "award": "defense",
+   "name": "Topi Niemelä",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2021,
+   "award": "forward",
+   "name": "Tim Stützle",
+   "code": "GER"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2022,
+   "award": "mvp",
+   "name": "Mason McTavish",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2022,
+   "award": "goaltender",
+   "name": "Jesper Wallstedt",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2022,
+   "award": "defense",
+   "name": "Kasper Puutio",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2022,
+   "award": "forward",
+   "name": "Mason McTavish",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2023,
+   "award": "mvp",
+   "name": "Connor Bedard",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2023,
+   "award": "goaltender",
+   "name": "Adam Gajan",
+   "code": "SVK"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2023,
+   "award": "defense",
+   "name": "David Jiříček",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2023,
+   "award": "forward",
+   "name": "Connor Bedard",
+   "code": "CAN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2024,
+   "award": "mvp",
+   "name": "Jonathan Lekkerimäki",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2024,
+   "award": "goaltender",
+   "name": "Hugo Hävelid",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2024,
+   "award": "defense",
+   "name": "Axel Sandin Pellikka",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2024,
+   "award": "forward",
+   "name": "Cutter Gauthier",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2025,
+   "award": "mvp",
+   "name": "Ryan Leonard",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2025,
+   "award": "goaltender",
+   "name": "Petteri Rimpinen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2025,
+   "award": "defense",
+   "name": "Axel Sandin Pellikka",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2025,
+   "award": "forward",
+   "name": "Ryan Leonard",
+   "code": "USA"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2026,
+   "award": "mvp",
+   "name": "Vojtěch Čihař",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2026,
+   "award": "goaltender",
+   "name": "Love Härenstam",
+   "code": "SWE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2026,
+   "award": "defense",
+   "name": "Adam Jiříček",
+   "code": "CZE"
+  },
+  {
+   "tournament": "juniors",
+   "year": 2026,
+   "award": "forward",
+   "name": "Anton Frondell",
+   "code": "SWE"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1956,
+   "award": "goaltender",
+   "name": "Willard Ikola",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1956,
+   "award": "defense",
+   "name": "Nikolai Sologubov",
+   "code": "URS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1956,
+   "award": "forward",
+   "name": "Jack McKenzie",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1960,
+   "award": "goaltender",
+   "name": "Jack McCartan",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1960,
+   "award": "defense",
+   "name": "Nikolai Sologubov",
+   "code": "URS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1960,
+   "award": "forward",
+   "name": "Nisse Nilsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1964,
+   "award": "goaltender",
+   "name": "Seth Martin",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1964,
+   "award": "defense",
+   "name": "František Tikal",
+   "code": "TCH"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1964,
+   "award": "forward",
+   "name": "Eduard Ivanov",
+   "code": "URS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1968,
+   "award": "goaltender",
+   "name": "Ken Broderick",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1968,
+   "award": "defense",
+   "name": "Josef Horešovský",
+   "code": "TCH"
+  },
+  {
+   "tournament": "olympics",
+   "year": 1968,
+   "award": "forward",
+   "name": "Anatoli Firsov",
+   "code": "URS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2002,
+   "award": "mvp",
+   "name": "Joe Sakic",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2002,
+   "award": "goaltender",
+   "name": "Nikolai Khabibulin",
+   "code": "RUS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2002,
+   "award": "defense",
+   "name": "Chris Chelios",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2002,
+   "award": "forward",
+   "name": "Joe Sakic",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2006,
+   "award": "mvp",
+   "name": "Antero Niittymäki",
+   "code": "FIN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2006,
+   "award": "goaltender",
+   "name": "Antero Niittymäki",
+   "code": "FIN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2006,
+   "award": "defense",
+   "name": "Kenny Jönsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2006,
+   "award": "forward",
+   "name": "Teemu Selänne",
+   "code": "FIN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2010,
+   "award": "mvp",
+   "name": "Ryan Miller",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2010,
+   "award": "goaltender",
+   "name": "Ryan Miller",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2010,
+   "award": "defense",
+   "name": "Brian Rafalski",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2010,
+   "award": "forward",
+   "name": "Jonathan Toews",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2014,
+   "award": "mvp",
+   "name": "Teemu Selänne",
+   "code": "FIN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2014,
+   "award": "goaltender",
+   "name": "Carey Price",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2014,
+   "award": "defense",
+   "name": "Erik Karlsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2014,
+   "award": "forward",
+   "name": "Phil Kessel",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2018,
+   "award": "mvp",
+   "name": "Ilya Kovalchuk",
+   "code": "RUS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2018,
+   "award": "goaltender",
+   "name": "Danny aus den Birken",
+   "code": "GER"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2018,
+   "award": "defense",
+   "name": "Vyacheslav Voynov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2018,
+   "award": "forward",
+   "name": "Nikita Gusev",
+   "code": "RUS"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2022,
+   "award": "mvp",
+   "name": "Juraj Slafkovský",
+   "code": "SVK"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2026,
+   "award": "mvp",
+   "name": "Connor McDavid",
+   "code": "CAN"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2026,
+   "award": "goaltender",
+   "name": "Connor Hellebuyck",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2026,
+   "award": "defense",
+   "name": "Quinn Hughes",
+   "code": "USA"
+  },
+  {
+   "tournament": "olympics",
+   "year": 2026,
+   "award": "forward",
+   "name": "Connor McDavid",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 1976,
+   "award": "mvp",
+   "name": "Bobby Orr",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 1981,
+   "award": "mvp",
+   "name": "Vladislav Tretiak",
+   "code": "URS"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 1984,
+   "award": "mvp",
+   "name": "John Tonelli",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 1987,
+   "award": "mvp",
+   "name": "Wayne Gretzky",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 1991,
+   "award": "mvp",
+   "name": "Bill Ranford",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 1996,
+   "award": "mvp",
+   "name": "Mike Richter",
+   "code": "USA"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 2004,
+   "award": "mvp",
+   "name": "Vincent Lecavalier",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worldcup",
+   "year": 2016,
+   "award": "mvp",
+   "name": "Sidney Crosby",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1954,
+   "award": "goaltender",
+   "name": "Don Lockhart",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1954,
+   "award": "defense",
+   "name": "Lasse Björn",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1954,
+   "award": "forward",
+   "name": "Vsevolod Bobrov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1955,
+   "award": "goaltender",
+   "name": "Don Rigazio",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1955,
+   "award": "defense",
+   "name": "Karel Gut",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1955,
+   "award": "forward",
+   "name": "Bill Warwick",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1957,
+   "award": "goaltender",
+   "name": "Karel Straka",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1957,
+   "award": "defense",
+   "name": "Nikolai Sologubov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1957,
+   "award": "forward",
+   "name": "Sven \"Tumba\" Johansson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1958,
+   "award": "goaltender",
+   "name": "Vladimir Nadrchal",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1958,
+   "award": "defense",
+   "name": "Ivan Tregubov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1958,
+   "award": "forward",
+   "name": "Charlie Burns",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1959,
+   "award": "goaltender",
+   "name": "Nikolai Puchkov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1959,
+   "award": "defense",
+   "name": "J. P. Lamirande",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1959,
+   "award": "forward",
+   "name": "Bill Cleary",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1961,
+   "award": "goaltender",
+   "name": "Seth Martin",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1961,
+   "award": "defense",
+   "name": "Ivan Tregubov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1961,
+   "award": "forward",
+   "name": "Vlastimil Bubník",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1962,
+   "award": "goaltender",
+   "name": "Lennart Häggroth",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1962,
+   "award": "defense",
+   "name": "John Mayasich",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1962,
+   "award": "forward",
+   "name": "Sven \"Tumba\" Johansson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1963,
+   "award": "goaltender",
+   "name": "Seth Martin",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1963,
+   "award": "defense",
+   "name": "Roland Stoltz",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1963,
+   "award": "forward",
+   "name": "Miroslav Vlach",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1965,
+   "award": "goaltender",
+   "name": "Vladimír Dzurilla",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1965,
+   "award": "defense",
+   "name": "František Tikal",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1965,
+   "award": "forward",
+   "name": "Vyacheslav Starshinov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1966,
+   "award": "goaltender",
+   "name": "Seth Martin",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1966,
+   "award": "defense",
+   "name": "Alexander Ragulin",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1966,
+   "award": "forward",
+   "name": "Konstantin Loktev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1967,
+   "award": "goaltender",
+   "name": "Carl Wetzel",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1967,
+   "award": "defense",
+   "name": "Vitaly Davydov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1967,
+   "award": "forward",
+   "name": "Anatoli Firsov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1969,
+   "award": "goaltender",
+   "name": "Leif Holmqvist",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1969,
+   "award": "defense",
+   "name": "Jan Suchý",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1969,
+   "award": "forward",
+   "name": "Ulf Sterner",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1970,
+   "award": "goaltender",
+   "name": "Urpo Ylönen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1970,
+   "award": "defense",
+   "name": "Lennart Svedberg",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1970,
+   "award": "forward",
+   "name": "Aleksandr Maltsev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1971,
+   "award": "goaltender",
+   "name": "Jiří Holeček",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1971,
+   "award": "defense",
+   "name": "Jan Suchý",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1971,
+   "award": "forward",
+   "name": "Anatoli Firsov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1972,
+   "award": "goaltender",
+   "name": "Jorma Valtonen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1972,
+   "award": "defense",
+   "name": "František Pospíšil",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1972,
+   "award": "forward",
+   "name": "Aleksandr Maltsev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1973,
+   "award": "goaltender",
+   "name": "Jiří Holeček",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1973,
+   "award": "defense",
+   "name": "Valeri Vasiliev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1973,
+   "award": "forward",
+   "name": "Boris Mikhailov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1974,
+   "award": "goaltender",
+   "name": "Vladislav Tretiak",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1974,
+   "award": "defense",
+   "name": "Lars-Erik Sjöberg",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1974,
+   "award": "forward",
+   "name": "Václav Nedomanský",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1975,
+   "award": "goaltender",
+   "name": "Jiří Holeček",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1975,
+   "award": "defense",
+   "name": "Pekka Marjamäki",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1975,
+   "award": "forward",
+   "name": "Alexander Yakushev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1976,
+   "award": "goaltender",
+   "name": "Jiří Holeček",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1976,
+   "award": "defense",
+   "name": "František Pospíšil",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1976,
+   "award": "forward",
+   "name": "Vladimír Martinec",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1977,
+   "award": "goaltender",
+   "name": "Göran Högosta",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1977,
+   "award": "defense",
+   "name": "Valeri Vasiliev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1977,
+   "award": "forward",
+   "name": "Helmuts Balderis",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1978,
+   "award": "goaltender",
+   "name": "Jiří Holeček",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1978,
+   "award": "defense",
+   "name": "Viacheslav Fetisov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1978,
+   "award": "forward",
+   "name": "Marcel Dionne",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1979,
+   "award": "goaltender",
+   "name": "Vladislav Tretiak",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1979,
+   "award": "defense",
+   "name": "Valeri Vasiliev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1979,
+   "award": "forward",
+   "name": "Wilf Paiement",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1981,
+   "award": "goaltender",
+   "name": "Vladislav Tretiak",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1981,
+   "award": "defense",
+   "name": "Larry Robinson",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1981,
+   "award": "forward",
+   "name": "Aleksandr Maltsev",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1982,
+   "award": "goaltender",
+   "name": "Jiří Králík",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1982,
+   "award": "defense",
+   "name": "Viacheslav Fetisov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1982,
+   "award": "forward",
+   "name": "Victor Shalimov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1983,
+   "award": "goaltender",
+   "name": "Vladislav Tretiak",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1983,
+   "award": "defense",
+   "name": "Alexei Kasatonov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1983,
+   "award": "forward",
+   "name": "Jiří Lála",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1985,
+   "award": "goaltender",
+   "name": "Jiří Králík",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1985,
+   "award": "defense",
+   "name": "Viacheslav Fetisov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1985,
+   "award": "forward",
+   "name": "Sergei Makarov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1986,
+   "award": "goaltender",
+   "name": "Peter Lindmark",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1986,
+   "award": "defense",
+   "name": "Viacheslav Fetisov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1986,
+   "award": "forward",
+   "name": "Vladimir Krutov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1987,
+   "award": "goaltender",
+   "name": "Dominik Hašek",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1987,
+   "award": "defense",
+   "name": "Craig Hartsburg",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1987,
+   "award": "forward",
+   "name": "Vladimir Krutov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1989,
+   "award": "goaltender",
+   "name": "Dominik Hašek",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1989,
+   "award": "defense",
+   "name": "Viacheslav Fetisov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1989,
+   "award": "forward",
+   "name": "Brian Bellows",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1990,
+   "award": "goaltender",
+   "name": "Artūrs Irbe",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1990,
+   "award": "defense",
+   "name": "Mikhail Tatarinov",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1990,
+   "award": "forward",
+   "name": "Steve Yzerman",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1991,
+   "award": "goaltender",
+   "name": "Markus Ketterer",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1991,
+   "award": "defense",
+   "name": "Jamie Macoun",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1991,
+   "award": "forward",
+   "name": "Valeri Kamensky",
+   "code": "URS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1992,
+   "award": "goaltender",
+   "name": "Tommy Söderström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1992,
+   "award": "defense",
+   "name": "Róbert Švehla",
+   "code": "TCH"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1992,
+   "award": "forward",
+   "name": "Mats Sundin",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1993,
+   "award": "goaltender",
+   "name": "Petr Bříza",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1993,
+   "award": "defense",
+   "name": "Ilya Byakin",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1993,
+   "award": "forward",
+   "name": "Eric Lindros",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1994,
+   "award": "goaltender",
+   "name": "Bill Ranford",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1994,
+   "award": "defense",
+   "name": "Magnus Svensson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1994,
+   "award": "forward",
+   "name": "Paul Kariya",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1995,
+   "award": "goaltender",
+   "name": "Jarmo Myllys",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1995,
+   "award": "defense",
+   "name": "Christer Olsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1995,
+   "award": "forward",
+   "name": "Saku Koivu",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1996,
+   "award": "goaltender",
+   "name": "Roman Turek",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1996,
+   "award": "defense",
+   "name": "Alexei Zhitnik",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1996,
+   "award": "forward",
+   "name": "Yanic Perreault",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1997,
+   "award": "goaltender",
+   "name": "Tommy Salo",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1997,
+   "award": "defense",
+   "name": "Rob Blake",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1997,
+   "award": "forward",
+   "name": "Michael Nylander",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1998,
+   "award": "goaltender",
+   "name": "Ari Sulander",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1998,
+   "award": "defense",
+   "name": "František Kučera",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1998,
+   "award": "forward",
+   "name": "Peter Forsberg",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1999,
+   "award": "mvp",
+   "name": "Teemu Selänne",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1999,
+   "award": "goaltender",
+   "name": "Tommy Salo",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1999,
+   "award": "defense",
+   "name": "František Kučera",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 1999,
+   "award": "forward",
+   "name": "Saku Koivu",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2000,
+   "award": "mvp",
+   "name": "Martin Prochazka",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2000,
+   "award": "goaltender",
+   "name": "Roman Čechmánek",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2000,
+   "award": "defense",
+   "name": "Petteri Nummelin",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2000,
+   "award": "forward",
+   "name": "Miroslav Šatan",
+   "code": "SVK"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2001,
+   "award": "mvp",
+   "name": "David Moravec",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2001,
+   "award": "goaltender",
+   "name": "Milan Hnilička",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2001,
+   "award": "defense",
+   "name": "Kim Johnsson",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2001,
+   "award": "forward",
+   "name": "Sami Kapanen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2002,
+   "award": "mvp",
+   "name": "Miroslav Šatan",
+   "code": "SVK"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2002,
+   "award": "goaltender",
+   "name": "Maxim Sokolov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2002,
+   "award": "defense",
+   "name": "Daniel Tjärnqvist",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2002,
+   "award": "forward",
+   "name": "Niklas Hagman",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2003,
+   "award": "mvp",
+   "name": "Mats Sundin",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2003,
+   "award": "goaltender",
+   "name": "Sean Burke",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2003,
+   "award": "defense",
+   "name": "Jay Bouwmeester",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2003,
+   "award": "forward",
+   "name": "Mats Sundin",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2004,
+   "award": "mvp",
+   "name": "Dany Heatley",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2004,
+   "award": "goaltender",
+   "name": "Ty Conklin",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2004,
+   "award": "defense",
+   "name": "Dick Tärnström",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2004,
+   "award": "forward",
+   "name": "Dany Heatley",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2005,
+   "award": "mvp",
+   "name": "Joe Thornton",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2005,
+   "award": "goaltender",
+   "name": "Tomáš Vokoun",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2005,
+   "award": "defense",
+   "name": "Wade Redden",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2005,
+   "award": "forward",
+   "name": "Alexei Kovalev",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2006,
+   "award": "mvp",
+   "name": "Niklas Kronwall",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2006,
+   "award": "goaltender",
+   "name": "Johan Holmqvist",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2006,
+   "award": "defense",
+   "name": "Niklas Kronwall",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2006,
+   "award": "forward",
+   "name": "Sidney Crosby",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2007,
+   "award": "mvp",
+   "name": "Rick Nash",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2007,
+   "award": "goaltender",
+   "name": "Kari Lehtonen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2007,
+   "award": "defense",
+   "name": "Andrei Markov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2007,
+   "award": "forward",
+   "name": "Aleksey Morozov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2008,
+   "award": "mvp",
+   "name": "Dany Heatley",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2008,
+   "award": "goaltender",
+   "name": "Evgeni Nabokov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2008,
+   "award": "defense",
+   "name": "Brent Burns",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2008,
+   "award": "forward",
+   "name": "Dany Heatley",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2009,
+   "award": "mvp",
+   "name": "Ilya Kovalchuk",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2009,
+   "award": "goaltender",
+   "name": "Andrei Mezin",
+   "code": "BLR"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2009,
+   "award": "defense",
+   "name": "Shea Weber",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2009,
+   "award": "forward",
+   "name": "Ilya Kovalchuk",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2010,
+   "award": "mvp",
+   "name": "Dennis Endras",
+   "code": "GER"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2010,
+   "award": "goaltender",
+   "name": "Dennis Endras",
+   "code": "GER"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2010,
+   "award": "defense",
+   "name": "Petteri Nummelin",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2010,
+   "award": "forward",
+   "name": "Pavel Datsyuk",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2011,
+   "award": "mvp",
+   "name": "Viktor Fasth",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2011,
+   "award": "goaltender",
+   "name": "Viktor Fasth",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2011,
+   "award": "defense",
+   "name": "Alex Pietrangelo",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2011,
+   "award": "forward",
+   "name": "Jaromír Jágr",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2012,
+   "award": "mvp",
+   "name": "Evgeni Malkin",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2012,
+   "award": "goaltender",
+   "name": "Ján Laco",
+   "code": "SVK"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2012,
+   "award": "defense",
+   "name": "Zdeno Chára",
+   "code": "SVK"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2012,
+   "award": "forward",
+   "name": "Evgeni Malkin",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2013,
+   "award": "mvp",
+   "name": "Roman Josi",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2013,
+   "award": "goaltender",
+   "name": "Jhonas Enroth",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2013,
+   "award": "defense",
+   "name": "Roman Josi",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2013,
+   "award": "forward",
+   "name": "Petri Kontiola",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2014,
+   "award": "mvp",
+   "name": "Pekka Rinne",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2014,
+   "award": "goaltender",
+   "name": "Sergei Bobrovsky",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2014,
+   "award": "defense",
+   "name": "Seth Jones",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2014,
+   "award": "forward",
+   "name": "Viktor Tikhonov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2015,
+   "award": "mvp",
+   "name": "Jaromír Jágr",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2015,
+   "award": "goaltender",
+   "name": "Pekka Rinne",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2015,
+   "award": "defense",
+   "name": "Brent Burns",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2015,
+   "award": "forward",
+   "name": "Jason Spezza",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2016,
+   "award": "mvp",
+   "name": "Patrik Laine",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2016,
+   "award": "goaltender",
+   "name": "Mikko Koskinen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2016,
+   "award": "defense",
+   "name": "Mike Matheson",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2016,
+   "award": "forward",
+   "name": "Patrik Laine",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2017,
+   "award": "mvp",
+   "name": "William Nylander",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2017,
+   "award": "goaltender",
+   "name": "Andrei Vasilevskiy",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2017,
+   "award": "defense",
+   "name": "Dennis Seidenberg",
+   "code": "GER"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2017,
+   "award": "forward",
+   "name": "Artemi Panarin",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2018,
+   "award": "mvp",
+   "name": "Patrick Kane",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2018,
+   "award": "goaltender",
+   "name": "Frederik Andersen",
+   "code": "DEN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2018,
+   "award": "defense",
+   "name": "John Klingberg",
+   "code": "SWE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2018,
+   "award": "forward",
+   "name": "Sebastian Aho",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2019,
+   "award": "mvp",
+   "name": "Mark Stone",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2019,
+   "award": "goaltender",
+   "name": "Andrei Vasilevskiy",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2019,
+   "award": "defense",
+   "name": "Filip Hronek",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2019,
+   "award": "forward",
+   "name": "Nikita Kucherov",
+   "code": "RUS"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2021,
+   "award": "mvp",
+   "name": "Andrew Mangiapane",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2021,
+   "award": "goaltender",
+   "name": "Cal Petersen",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2021,
+   "award": "defense",
+   "name": "Moritz Seider",
+   "code": "GER"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2021,
+   "award": "forward",
+   "name": "Peter Cehlárik",
+   "code": "SVK"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2022,
+   "award": "mvp",
+   "name": "Juho Olkinuora",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2022,
+   "award": "goaltender",
+   "name": "Juho Olkinuora",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2022,
+   "award": "defense",
+   "name": "Mikko Lehtonen",
+   "code": "FIN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2022,
+   "award": "forward",
+   "name": "Roman Červenka",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2023,
+   "award": "mvp",
+   "name": "Artūrs Šilovs",
+   "code": "LAT"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2023,
+   "award": "goaltender",
+   "name": "Artūrs Šilovs",
+   "code": "LAT"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2023,
+   "award": "defense",
+   "name": "MacKenzie Weegar",
+   "code": "CAN"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2023,
+   "award": "forward",
+   "name": "JJ Peterka",
+   "code": "GER"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2024,
+   "award": "mvp",
+   "name": "Kevin Fiala",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2024,
+   "award": "goaltender",
+   "name": "Lukáš Dostál",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2024,
+   "award": "defense",
+   "name": "Roman Josi",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2024,
+   "award": "forward",
+   "name": "Kevin Fiala",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2025,
+   "award": "mvp",
+   "name": "Leonardo Genoni",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2025,
+   "award": "goaltender",
+   "name": "Leonardo Genoni",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2025,
+   "award": "defense",
+   "name": "Zach Werenski",
+   "code": "USA"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2025,
+   "award": "forward",
+   "name": "David Pastrňák",
+   "code": "CZE"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2026,
+   "award": "mvp",
+   "name": "Roman Josi",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2026,
+   "award": "goaltender",
+   "name": "Henrik Haukeland",
+   "code": "NOR"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2026,
+   "award": "defense",
+   "name": "Roman Josi",
+   "code": "SUI"
+  },
+  {
+   "tournament": "worlds",
+   "year": 2026,
+   "award": "forward",
+   "name": "Macklin Celebrini",
+   "code": "CAN"
+  }
+ ]
+}

@@ -9,6 +9,7 @@ import Rankings, { rankNote } from '../components/Rankings.jsx'
 import Comparables from '../components/Comparables.jsx'
 import DefenseProfile from '../components/DefenseProfile.jsx'
 import Awards from '../components/Awards.jsx'
+import InternationalMedals from '../components/InternationalMedals.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
@@ -96,6 +97,7 @@ export default function CareerPlayer({ id, goalie }) {
                 <p className="sub">No games in the current season, so this page shows career history.</p>
                 <Career playerId={id} />
                 <Awards playerId={id} />
+                <InternationalMedals playerId={id} />
                 <Rankings playerId={id} kind={data.kind} careerOnly />
               </>
             ),

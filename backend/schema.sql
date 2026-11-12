@@ -517,3 +517,103 @@ CREATE TABLE IF NOT EXISTS nhle_factor (
 
 -- NHLe age multipliers (analysis/nhle_factors.py --save): how much a player of each age outscores (>1) or undershoots (<1) the plain factor.
 CREATE TABLE IF NOT EXISTS nhle_age (bucket TEXT PRIMARY KEY, multiplier REAL NOT NULL);
+
+-- News headlines from public RSS feeds (news.py): headline, short excerpt and the publisher's link, tagged with the teams and players mentioned.
+CREATE TABLE IF NOT EXISTS news_item (
+    url          TEXT PRIMARY KEY,
+    title        TEXT NOT NULL,
+    summary      TEXT,
+    source       TEXT NOT NULL,
+    published_at TIMESTAMPTZ NOT NULL,
+    score        REAL NOT NULL DEFAULT 0,   -- newsworthiness (news.score_all); the Top tab ranks by it
+    teams        TEXT[] NOT NULL DEFAULT '{}',
+    players      INTEGER[] NOT NULL DEFAULT '{}',
+    fetched_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE news_item ADD COLUMN IF NOT EXISTS score REAL NOT NULL DEFAULT 0;
+ALTER TABLE news_item DROP COLUMN IF EXISTS is_top;
+CREATE INDEX IF NOT EXISTS news_item_published ON news_item (published_at DESC);
+
+-- International tournament rows per player (internationals.py), taken from the NHL landing page once per player by
+-- `ingest.py backfill-international`. The player page works these out on its own from the landing page; this table is what the
+-- Awards page's most-decorated list reads.
+CREATE TABLE IF NOT EXISTS player_international (
+    player_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
+    league    TEXT NOT NULL,
+    team_name TEXT NOT NULL,
+    games     INTEGER,
+    goals     INTEGER,
+    assists   INTEGER,
+    points    INTEGER,
+    PRIMARY KEY (player_id, season_id, league, team_name)
+);
+CREATE TABLE IF NOT EXISTS player_international_fetched (
+    player_id  INTEGER PRIMARY KEY,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Every NHL award a player has won (the Stanley Cup included), one row per season, from the same landing page as the tournament rows.
+CREATE TABLE IF NOT EXISTS player_award (
+    player_id INTEGER NOT NULL,
+    trophy    TEXT NOT NULL,
+    season_id INTEGER NOT NULL,
+    PRIMARY KEY (player_id, trophy, season_id)
+);
+-- A player fetched before awards were collected is fetched again (awards_done stays false until then).
+ALTER TABLE player_international_fetched ADD COLUMN IF NOT EXISTS awards_done BOOLEAN NOT NULL DEFAULT false;
+
+-- Big games (3+ goals, 3+ assists or 4+ points), every season back to 1917-18: the hat trick, single-game and per-player counts in records.py.
+CREATE TABLE IF NOT EXISTS notable_game (
+    player_id INTEGER NOT NULL,
+    game_id   BIGINT NOT NULL,
+    season_id INTEGER NOT NULL,
+    game_type INTEGER NOT NULL,
+    game_date DATE NOT NULL,
+    name      TEXT NOT NULL,
+    position  TEXT,
+    team      TEXT,
+    opponent  TEXT,
+    home_road TEXT,
+    goals     INTEGER NOT NULL,
+    assists   INTEGER NOT NULL,
+    points    INTEGER NOT NULL,
+    PRIMARY KEY (player_id, game_id)
+);
+CREATE INDEX IF NOT EXISTS notable_game_goals ON notable_game (game_type, goals DESC, game_date);
+CREATE TABLE IF NOT EXISTS notable_game_fetched (   -- finished seasons already pulled, so the nightly run only fetches new ones
+    season_id INTEGER NOT NULL,
+    game_type INTEGER NOT NULL,
+    PRIMARY KEY (season_id, game_type)
+);
+
+-- Figures from records.py (hat tricks, milestone seasons, rookie lines), written onto the career rows after each ingest.
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS hat_tricks INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS four_goal_games INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS five_goal_games INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS three_assist_games INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS four_point_games INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS five_point_games INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_played INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS best_goals INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS best_assists INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS best_points INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_20g INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_30g INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_40g INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_50g INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_40a INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_50a INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_60a INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_60p INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_80p INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_90p INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_100p INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_season INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_gp INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_goals INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_assists INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_points INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_points_per_game REAL;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS goals_per_game REAL;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS assists_per_game REAL;

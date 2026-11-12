@@ -11,6 +11,7 @@ import GlobalSearch from './components/GlobalSearch.jsx'
 import { pages, warm } from './routes.js'
 import PageSkeleton from './components/Skeleton.jsx'
 import { usePageTitle } from './pageTitle.js'
+import GlossaryTips from './components/GlossaryTips.jsx'
 import { installTabScroll } from './tabScroll.js'
 
 // Pages load on demand, so the first visit downloads the shell and the page you opened, not all of the site.
@@ -21,6 +22,7 @@ const Game = lazy(pages.Game)
 const Goalie = lazy(pages.Goalie)
 const Goalies = lazy(pages.Goalies)
 const Milestones = lazy(pages.Milestones)
+const Glossary = lazy(pages.Glossary)
 const Player = lazy(pages.Player)
 const ResetPassword = lazy(pages.ResetPassword)
 const Schedule = lazy(pages.Schedule)
@@ -44,6 +46,7 @@ const Lottery = lazy(pages.Lottery)
 const Fantasy = lazy(pages.Fantasy)
 const Standings = lazy(pages.Standings)
 const Team = lazy(pages.Team)
+const News = lazy(pages.News)
 
 /** Old /alltime links: send them to the skater or goalie page, keeping any filters in the query. */
 function AllTimeRedirect() {
@@ -52,6 +55,15 @@ function AllTimeRedirect() {
   params.delete('kind')
   const query = params.toString()
   return <Navigate to={`/alltime/${goalie ? 'goalies' : 'skaters'}${query ? `?${query}` : ''}`} replace />
+}
+
+/** Old /best-seasons links: the best seasons are now views of the all-time page, so keep the query and map the old view names. */
+const OLD_BEST_VIEWS = { scoring: 'bestScoring', adjusted: 'bestAdjusted', defense: 'bestDefense', record: 'bestRecord', saves: 'bestSaves' }
+function BestSeasonsRedirect({ goalie }) {
+  const params = new URLSearchParams(useLocation().search)
+  const old = params.get('v')
+  params.set('v', OLD_BEST_VIEWS[old] ?? (goalie ? 'bestRecord' : 'bestScoring'))
+  return <Navigate to={`/alltime/${goalie ? 'goalies' : 'skaters'}?${params}`} replace />
 }
 
 /** An old page's address, sent to its tab on the merged page, keeping any query (a link's filters or players) after the tab. */
@@ -75,9 +87,12 @@ function Pages() {
           <Route path="/goalies" element={<Goalies />} />
           <Route path="/goalie/:id" element={<Goalie />} />
           <Route path="/milestones" element={<Milestones />} />
+          <Route path="/glossary" element={<Glossary />} />
           <Route path="/alltime" element={<AllTimeRedirect />} />
           <Route path="/alltime/skaters" element={<AllTime key="skater" kind="skater" />} />
           <Route path="/alltime/goalies" element={<AllTime key="goalie" kind="goalie" />} />
+          <Route path="/best-seasons/skaters" element={<BestSeasonsRedirect />} />
+          <Route path="/best-seasons/goalies" element={<BestSeasonsRedirect goalie />} />
           <Route path="/game/:id" element={<Game />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/schedule" element={<Schedule />} />
@@ -111,6 +126,7 @@ function Pages() {
           <Route path="/compare" element={<Compare />} />
           <Route path="/standings" element={<Standings />} />
           <Route path="/team/:abbrev" element={<Team />} />
+          <Route path="/news" element={<News />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>
@@ -130,12 +146,12 @@ function warmLink(e) {
   if (a) warm(new URL(a.href).pathname)
 }
 
-const MAIN_LINKS = [['/skaters', 'Skaters'], ['/goalies', 'Goalies'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/tonight', 'Tonight'], ['/my-team', 'My team']]
+const MAIN_LINKS = [['/skaters', 'Skaters'], ['/goalies', 'Goalies'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/tonight', 'Tonight'], ['/news', 'News'], ['/my-team', 'My team']]
 // The less-used pages, grouped so the menu reads as four short lists instead of one long one.
 const moreGroups = (user) => [
   { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects'], ['/milestones', 'Milestones'], ['/absences', 'Who\u2019s out']] },
   { title: 'Fantasy tools', items: [['/watchlist', 'Watchlist'], ['/leagues', 'Leagues'], ['/projections', 'Projections'], ['/matchups', 'Matchups']] },
-  { title: 'League', items: [['/schedule', 'Schedule'], ['/lottery', 'Draft lottery'], ['/advanced-stats', 'Advanced stats'], ['/awards', 'Awards'], ...(user?.admin ? [['/accuracy', 'Accuracy']] : [])] },
+  { title: 'League', items: [['/schedule', 'Schedule'], ['/lottery', 'Draft lottery'], ['/advanced-stats', 'Advanced stats'], ['/awards', 'Awards'], ['/glossary', 'Glossary'], ...(user?.admin ? [['/accuracy', 'Accuracy']] : [])] },
 ]
 
 /** The top bar. Wide screens get the full link row; phones get the logo, search and a menu button that opens every page. */
@@ -152,9 +168,9 @@ function TopBar({ dark, toggle, user }) {
   return (
     <header className="topbar" onPointerOver={warmLink} onFocus={warmLink}>
       <nav className="topnav">
-        <NavLink to="/" end className="brand" aria-label="NHL Stats home">
+        <NavLink to="/" end className="brand" aria-label="Faceoff home">
           <svg className="brand-mark" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" /><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" strokeLinecap="round" /></svg>
-          <span>NHL<b>STATS</b></span>
+          <span>FACE<b>OFF</b></span>
         </NavLink>
         <div className="nav-wide">
           {MAIN_LINKS.map(([to, label]) => <NavLink key={to} to={to}>{label}</NavLink>)}
@@ -204,6 +220,7 @@ export default function App() {
       <TopBar dark={dark} toggle={toggle} user={user} />
       <ScrollToTop />
       <Pages />
+      <GlossaryTips />
       <Freshness />
     </BrowserRouter>
   )

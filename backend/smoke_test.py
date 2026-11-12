@@ -34,9 +34,12 @@ for path in (
     f"/api/goalies/{go}", f"/api/goalies/{go}/context", f"/api/goalies/{go}/shots",
     f"/api/players/{sk}/career", f"/api/players/{sk}/comparables", f"/api/players/{sk}/defense", f"/api/players/{sk}/profile", f"/api/players/{go}/profile",
     f"/api/teams/{tm}", f"/api/teams/{tm}/lines", f"/api/teams/{tm}/shots", f"/api/teams/{tm}/schedule",
-    f"/api/teams/{tm}/pace-history", "/api/milestones", "/api/records",
+    f"/api/teams/{tm}/calendar", f"/api/teams/{tm}/calendar.ics", f"/api/teams/{tm}/pace-history", "/api/milestones", "/api/records",
+    "/api/news", "/api/news?top=true&limit=5", f"/api/news?team={tm}", f"/api/news?player={sk}", f"/api/news?player={go}",
     "/api/era-factors", "/api/tracking/leaders", "/api/tracking/leaders?stat=top_speed&season=all&position=D", "/api/tracking/goalies", "/api/luck/skaters", "/api/luck/skaters?rank=goals&dir=asc", "/api/luck/skaters?dir=asc&position=D", "/api/luck/goalies", "/api/luck/goalies?dir=asc", f"/api/luck/players?ids={sk},{go}", "/api/luck/players", "/api/luck/skaters?vs=average", f"/api/luck/history/{sk}", f"/api/luck/history/{go}", "/api/luck/persistence", "/api/roles/changes", "/api/roles/changes?dir=down&kind=pp&window=10&position=D", "/api/roles/changes?kind=ev&position=F", f"/api/roles/players?ids={sk}", "/api/roles/players", "/api/fantasy/games-left", "/api/fantasy/priors", "/api/streaming/goalies", "/api/streaming/goalies?days=3", "/api/matchups/teams", "/api/matchups/schedule", "/api/matchups/schedule?days=14", f"/api/players/{sk}/tracking", f"/api/players/{go}/tracking", "/api/head-to-head/teams?a=EDM&b=CGY", f"/api/head-to-head/player?player_id={sk}&team=EDM", "/api/alltime/skater?sort=adj_points&limit=3", "/api/playoff-odds", "/api/schedule-grid", "/api/probable-goalies", f"/api/probable-goalies/week?ids={go}", "/api/probable-goalies/week", "/api/trophies", "/api/trophy-races", "/api/live",
     f"/api/fantasy/week?ids={sk},{go}", f"/api/players/{sk}/rankings",
+    "/api/best-seasons/skater?limit=5", "/api/best-seasons/skater?sort=adj_points&position=D&limit=3", "/api/best-seasons/skater?sort=hits&limit=3", "/api/best-seasons/goalie?sort=gaa&dir=asc&limit=3", "/api/best-seasons/skater?sort=points_per_game&season_from=1980&season_to=1990&active=false&limit=3",
+    f"/api/players/{sk}/international", f"/api/players/{go}/international", "/api/international/results", "/api/international/triple-gold", "/api/international/awards", "/api/international/awards?tournament=olympics&limit=5", "/api/international/leaders", "/api/international/leaders?tournament=olympics&limit=5",
     "/api/alltime/skater?limit=5", "/api/alltime/goalie?limit=5&game_type=3", "/api/alltime/skater/countries",
     "/api/alltime/skater?sort=points_per_game&min_gp=300&position=D&active=true&limit=3",
 ):
@@ -47,6 +50,12 @@ if game:
 # error handling: unknown ids are 404/400, never 500
 get("/api/skaters/1", expect=404)
 get("/api/teams/ZZZ", expect=404)
+get("/api/international/leaders?tournament=nope", expect=400)
+get("/api/international/awards?tournament=nope", expect=400)
+get("/api/teams/ZZZ/calendar", expect=404)
+get("/api/best-seasons/skater?sort=nope", expect=400)
+get("/api/best-seasons/coach", expect=404)
+get("/api/news?team=12", expect=400)
 get("/api/tracking/leaders?stat=nope", expect=400)
 get("/api/tracking/goalies?stat=nope", expect=400)
 get("/api/luck/skaters?rank=nope", expect=400)

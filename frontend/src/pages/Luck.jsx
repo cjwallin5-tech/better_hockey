@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getJson } from '../lists.js'
 import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
@@ -218,7 +219,7 @@ export default function Luck({ embedded = false }) {
   const [faced, setFaced] = useState(initial.get('faced') ?? '50')
   const [season, setSeason] = useState(null)
   useEffect(() => {
-    fetch('/api/meta').then((r) => r.json()).then((m) => setSeason(m.season_id ?? m.season ?? null)).catch(() => {})
+    getJson('/api/meta').then((m) => setSeason(m.season_id ?? m.season ?? null)).catch(() => {})
   }, [])
 
   useUrlSync([['kind', kind, 'skater'], ['dir', dir, 'desc'], ['rank', rank, 'points'], ['vs', vs, 'own'], ['pos', position, ''], ['min', attempts, '20'], ['faced', faced, '50']])

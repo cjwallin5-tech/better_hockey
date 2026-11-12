@@ -9,6 +9,8 @@ import SpecialTeams from '../components/SpecialTeams.jsx'
 import TeamProspects from '../components/TeamProspects.jsx'
 import PageTabs from '../components/PageTabs.jsx'
 import TeamBanner from '../components/TeamBanner.jsx'
+import NewsList from '../components/NewsList.jsx'
+import TeamCalendar from '../components/TeamCalendar.jsx'
 import { fmt1, fmtPct, fmtToi, STABLE_GP } from '../format.js'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
@@ -88,6 +90,7 @@ export default function Team() {
               </>
             ),
           },
+          { id: 'calendar', label: 'Calendar', content: <TeamCalendar abbrev={t.abbrev} /> },
           {
             id: 'roster',
             label: 'Roster',
@@ -175,6 +178,7 @@ export default function Team() {
             ),
           },
           { id: 'shots', label: 'Shots', content: <TeamShots abbrev={t.abbrev} /> },
+          { id: 'news', label: 'News', content: <NewsList team={t.abbrev} limit={30} note empty={`No recent stories about the ${t.name}.`} /> },
         ]}
       />
     </main>

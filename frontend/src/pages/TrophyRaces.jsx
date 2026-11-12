@@ -42,7 +42,7 @@ export default function TrophyRaces({ embedded = false }) {
                 <tbody>
                   {race.contenders.map((c) => (
                     <tr key={c.player_id}>
-                      <td>{c.rank}</td>
+                      <td title={c.tied ? 'Tied with another player' : undefined}>{c.tied ? `T${c.rank}` : c.rank}</td>
                       <td className="left"><Link to={`/${race.stat === 'gsaa' ? 'goalie' : 'player'}/${c.player_id}`}>{c.name}</Link></td>
                       <td className="left">{c.team}</td><td>{c.games_played}</td>
                       <td className="accent">{fmtValue(race.stat, c.value)}</td>

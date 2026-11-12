@@ -12,6 +12,7 @@ import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 import Avatar from '../components/Avatar.jsx'
 import FeaturedGame from '../components/FeaturedGame.jsx'
+import NewsList from '../components/NewsList.jsx'
 
 const longDay = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -56,7 +57,7 @@ export default function Home() {
   return (
     <main>
       <header className="hero">
-        <h1>NHL Stats</h1>
+        <h1>Faceoff</h1>
         <p>Point pace, defensive stats and career context the official site doesn't show.</p>
         <div className="spotlight">
           {spot.map((t) => (
@@ -75,6 +76,12 @@ export default function Home() {
       <LiveGames />
 
       <FeaturedGame />
+
+      <section className="block" aria-label="Top stories">
+        <div className="eyebrow">Top stories</div>
+        <NewsList top limit={6} columns note />
+        <p className="muted small"><Link to="/news">All news &rarr;</Link></p>
+      </section>
 
       {data.upcoming.length > 0 && (
         <section className="block" aria-label="Upcoming games">

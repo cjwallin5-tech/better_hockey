@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import PkTag from './PkTag.jsx'
 import FantasyStar from './FantasyStar.jsx'
 import Flag from './Flag.jsx'
 import Headshot from './Headshot.jsx'
@@ -28,7 +27,7 @@ export default function PlayerBanner({ p, stats, kind = 'skater', retired = fals
         <Headshot playerId={p.player_id} name={p.name} />
         <div className="banner-text">
           <div className="banner-meta">
-            {meta ?? <>{teams.map((abbr, i) => <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>)} · {goalie ? `G${p.catches ? ` · catches ${p.catches}` : ''}` : p.position}{!goalie && !retired && <PkTag p={p} />}</>}
+            {meta ?? <>{teams.map((abbr, i) => <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>)} · {goalie ? `G${p.catches ? ` · catches ${p.catches}` : ''}` : p.position}</>}
           </div>
           <h1><Flag playerId={p.player_id} />{p.name}</h1>
           <PlayerBio playerId={p.player_id} />

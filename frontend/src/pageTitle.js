@@ -7,7 +7,7 @@ import { useLocation } from 'react-router-dom'
 /** What to ask the API about for a page: its path, plus the query only where the title depends on it (the players in /compare). */
 export const titleUrl = (pathname, search) => pathname + (pathname === '/compare' ? search : '')
 
-const SITE_TITLE = 'NHL Stats'
+const SITE_TITLE = 'Faceoff'
 
 export function usePageTitle() {
   const { pathname, search } = useLocation()

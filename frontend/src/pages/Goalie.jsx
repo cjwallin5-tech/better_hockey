@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import BackLink from '../components/BackLink.jsx'
 import { useParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
+import PlayerNews from '../components/PlayerNews.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
 import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
@@ -17,6 +18,7 @@ import { GsaaChart } from '../components/Charts.jsx'
 import { fmt1, fmtToi } from '../format.js'
 import PlayerBanner from '../components/PlayerBanner.jsx'
 import Awards from '../components/Awards.jsx'
+import InternationalMedals from '../components/InternationalMedals.jsx'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 
@@ -88,6 +90,7 @@ export default function Goalie() {
                 <p className="sub">League-average save % is {fmtSv(lg)}. Recent form covers the last {window} appearances.</p>
                 <Career playerId={g.player_id} />
                 <Awards playerId={g.player_id} />
+                <InternationalMedals playerId={g.player_id} />
                 <Rankings playerId={g.player_id} kind="goalie" />
               </>
             ),
@@ -169,6 +172,7 @@ export default function Goalie() {
               </>
             ),
           },
+          { id: 'news', label: 'News', content: <PlayerNews playerId={g.player_id} name={g.name} team={g.team} /> },
         ]}
       />
     </main>

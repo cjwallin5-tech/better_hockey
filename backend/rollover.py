@@ -41,6 +41,7 @@ STEPS = [
     ("shot-locations", ["backfill-shot-locations"], "shot locations, types and rebounds for those shots"),
     ("shot-times", ["backfill-shot-times"], "period, game time and shooting side for those shots"),
     ("leagues", ["backfill-leagues", "--refresh", "{finished}"], "league records of the finished season's players at their final totals, plus rookies (about 15 minutes)"),
+    ("international", ["backfill-international"], "international tournaments (Olympics, Worlds, World Cup, 4 Nations, Juniors) of players new since the last run (a few minutes)"),
     ("nhle", ["analysis/nhle_factors.py", "--save"], "refit the NHLe league factors and age multipliers with the finished season's pairs"),
     ("onice", ["backfill-onice"], "5v5 on-ice shot attempts and xG for the finished season (about an hour)"),
     ("edge", ["backfill-edge"], "NHL EDGE tracking final numbers (hours)"),

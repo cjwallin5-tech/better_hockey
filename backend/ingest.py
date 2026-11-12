@@ -14,9 +14,11 @@ import corsi
 import edge
 import era
 import html_shifts
+import internationals
 import oldgames
 import prospects as prospectlib
 import nhle
+import records
 import shots as shotlib
 
 FINAL_STATES = ('OFF', 'FINAL')
@@ -1085,6 +1087,77 @@ def ingest_era_adjusted(conn):
     print(f"era-adjusted: {len(adj)} skaters")
 
 
+FIRST_NHL_YEAR = 1917
+NOTABLE_FILTER = "(goals>=3 or assists>=3 or points>=4)"
+
+
+NOTABLE_WORKERS = 4  # each list takes several seconds to build on the NHL's side, so a few at once keep the first run under ten minutes
+
+
+def _fetch_notable(season, game_type):
+    return get_json(f"{config.STATS_API}/skater/summary", isGame="true", limit=-1,
+                    cayenneExp=f"gameTypeId={game_type} and seasonId={season} and {NOTABLE_FILTER}")["data"]
+
+
+def ingest_notable_games(conn):
+    """Every skater game with 3+ goals, 3+ assists or 4+ points, back to 1917-18 (regular season and playoffs). Finished seasons are
+    fetched once; the season in progress is re-read each run, since new hat tricks keep arriving."""
+    done = {tuple(r) for r in conn.execute("SELECT season_id, game_type FROM notable_game_fetched").fetchall()}
+    todo = [(y * 10000 + y + 1, gt) for y in range(FIRST_NHL_YEAR, config.SEASON_ID // 10000 + 1) for gt in (2, 3)
+            if (y * 10000 + y + 1, gt) not in done]
+    with ThreadPoolExecutor(NOTABLE_WORKERS) as pool:
+        for (season, game_type), data in zip(todo, pool.map(lambda t: _fetch_notable(*t), todo)):  # results arrive in order; writes stay on this thread
+            rows = [(r["playerId"], r["gameId"], season, game_type, r["gameDate"], r["skaterFullName"], r.get("positionCode"),
+                     r.get("teamAbbrev"), r.get("opponentTeamAbbrev"), r.get("homeRoad"), r["goals"] or 0, r["assists"] or 0, r["points"] or 0)
+                    for r in data]
+            with conn.cursor() as cur:
+                if rows:
+                    cur.executemany(
+                        """INSERT INTO notable_game (player_id, game_id, season_id, game_type, game_date, name, position, team, opponent,
+                                                     home_road, goals, assists, points)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                           ON CONFLICT (player_id, game_id) DO UPDATE SET name=EXCLUDED.name, position=EXCLUDED.position, team=EXCLUDED.team,
+                               opponent=EXCLUDED.opponent, home_road=EXCLUDED.home_road, goals=EXCLUDED.goals, assists=EXCLUDED.assists,
+                               points=EXCLUDED.points""", rows)
+                if season < config.SEASON_ID:
+                    cur.execute("INSERT INTO notable_game_fetched (season_id, game_type) VALUES (%s, %s) ON CONFLICT DO NOTHING", (season, game_type))
+            conn.commit()
+    print(f"notable games: fetched {len(todo)} season/game-type lists")
+
+
+def ingest_records(conn):
+    """Writes records.py's figures onto career_skater: big-game counts (both game types), milestone and best seasons and the rookie
+    line (regular season), and goals and assists per game."""
+    cols = [c for c, _ in records.COLUMNS if c not in records.RATE_COLUMNS]
+    # Start from a clean slate so a player who drops out of a list (a corrected game, a changed rule) doesn't keep an old figure.
+    conn.execute("UPDATE career_skater SET " + ", ".join(f"{c} = NULL" for c in cols))
+    games = [dict(zip(("player_id", "game_type", "goals", "assists", "points"), r)) for r in conn.execute(
+        "SELECT player_id, game_type, goals, assists, points FROM notable_game").fetchall()]
+    seasons = [dict(zip(("player_id", "season_id", "games_played", "goals", "assists", "points"), r)) for r in conn.execute(
+        "SELECT player_id, season_id, games_played, goals, assists, points FROM career_season").fetchall()]
+    births = dict(conn.execute("SELECT player_id, birth_date FROM career_skater WHERE game_type = 2").fetchall())
+    counts = records.game_counts(games)
+    figures = records.season_figures(seasons)
+    rookies = records.rookie_lines(seasons, births)
+    with conn.cursor() as cur:
+        for game_type in (2, 3):
+            # Everyone with a career row gets zeros, not blanks: "no hat tricks" is a real answer, unlike an unknown.
+            cur.execute("SELECT player_id FROM career_skater WHERE game_type = %s", (game_type,))
+            for (pid,) in cur.fetchall():
+                row = {**dict.fromkeys(records.GAME_COLUMNS, 0), **counts.get((pid, game_type), {})}
+                if game_type == 2:
+                    row.update(figures.get(pid) or {})
+                    row.update(rookies.get(pid) or {})
+                if not row:
+                    continue
+                cur.execute(f"UPDATE career_skater SET {', '.join(f'{c} = %s' for c in row)} WHERE player_id = %s AND game_type = %s",
+                            [*row.values(), pid, game_type])
+        cur.execute("""UPDATE career_skater SET goals_per_game = round(goals::numeric / NULLIF(games_played, 0), 3),
+                                                assists_per_game = round(assists::numeric / NULLIF(games_played, 0), 3)""")
+    conn.commit()
+    print(f"records: {len(counts)} players with big games, {len(figures)} with seasons, {len(rookies)} rookie lines")
+
+
 # The Coyotes' games count toward the same franchise as Utah, so head-to-head history carries over the move.
 TEAM_ALIASES = {"Arizona Coyotes": "UTA", "Utah Hockey Club": "UTA"}
 
@@ -1646,6 +1719,56 @@ def backfill_leagues(conn, limit=None, refresh_season=None):
     print(f"league history: {total} player-seasons stored, {failed} players failed this run (run again to retry)", flush=True)
 
 
+def backfill_international(conn, limit=None):
+    """Every player's international tournaments (player_international) and NHL awards (player_award), from one landing-page request per
+    player not yet fetched: all the skaters and goalies in the career tables, longest careers first so a run cut short already covers the
+    best-known players. Resumable (fetched players are skipped), and the same request rate as backfill-leagues (about 8,800 players, roughly
+    two hours). Only the Olympics, World Championship, World Cup / Canada Cup, 4 Nations and World Juniors rows are kept as tournaments
+    (internationals.LEAGUES); every award is kept. A player fetched before awards were collected is fetched again."""
+    todo = [r[0] for r in conn.execute(
+        """SELECT player_id FROM (
+               SELECT player_id, games_played FROM career_skater WHERE game_type = 2
+               UNION ALL SELECT player_id, games_played FROM career_goalie WHERE game_type = 2) p
+           WHERE player_id NOT IN (SELECT player_id FROM player_international_fetched WHERE awards_done)
+           GROUP BY player_id ORDER BY max(games_played) DESC NULLS LAST, player_id""")]
+    if limit:
+        todo = todo[:limit]
+    done = conn.execute("SELECT count(*) FROM player_international_fetched WHERE awards_done").fetchone()[0]
+    print(f"international and awards: {len(todo)} players to fetch, {done} already done", flush=True)
+
+    def fetch(pid):
+        try:
+            return pid, get_json(f"{config.WEB_API}/player/{pid}/landing")
+        except requests.HTTPError:
+            return pid, None
+
+    started, failed = time.time(), 0
+    with ThreadPoolExecutor(max_workers=LEAGUE_WORKERS) as pool, conn.cursor() as cur:
+        for n, (pid, landing) in enumerate(pool.map(fetch, todo), 1):
+            if landing is None:      # left unmarked, so the next run tries again
+                failed += 1
+                continue
+            cur.executemany(
+                """INSERT INTO player_international (player_id, season_id, league, team_name, games, goals, assists, points)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (player_id, season_id, league, team_name) DO UPDATE SET
+                       games = EXCLUDED.games, goals = EXCLUDED.goals, assists = EXCLUDED.assists, points = EXCLUDED.points""",
+                [(pid, r["season_id"], r["league"], r["team_name"], r["games"], r["goals"], r["assists"], r["points"])
+                 for r in internationals.rows_from_landing(landing)])
+            cur.executemany("INSERT INTO player_award (player_id, trophy, season_id) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING",
+                            [(pid, trophy, season) for trophy, season in internationals.awards_from_landing(landing)])
+            cur.execute("""INSERT INTO player_international_fetched (player_id, awards_done) VALUES (%s, true)
+                           ON CONFLICT (player_id) DO UPDATE SET fetched_at = now(), awards_done = true""", (pid,))
+            if n % 50 == 0:
+                conn.commit()
+                left = (len(todo) - n) / (n / (time.time() - started)) / 60
+                print(f"  {n}/{len(todo)} ({left:.0f} min left, {failed} failed)", flush=True)
+        conn.commit()
+    total = conn.execute("SELECT count(*) FROM player_international").fetchone()[0]
+    awards = conn.execute("SELECT count(*) FROM player_award").fetchone()[0]
+    print(f"international and awards: {total} tournament rows and {awards} awards stored, {failed} players failed this run (run again to retry)", flush=True)
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -1661,6 +1784,8 @@ def main():
         ingest_career_seasons(conn)
         ingest_defense_seasons(conn)
         ingest_era_adjusted(conn)
+        ingest_notable_games(conn)
+        ingest_records(conn)
         ingest_history(conn)
         ingest_team_abbrevs(conn)
         ingest_home_flags(conn)
@@ -1705,6 +1830,15 @@ if __name__ == "__main__":
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             backfill_leagues(conn, limit, refresh)
+    elif sys.argv[1:2] == ["backfill-international"]:
+        # python ingest.py backfill-international [--limit N]   (every player's Olympic, World Championship, World Cup, 4 Nations and World Junior rows)
+        rest = sys.argv[2:]
+        if rest and not (len(rest) == 2 and rest[0] == "--limit" and rest[1].isdigit()):
+            sys.exit("backfill-international: usage: backfill-international [--limit N]")
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            backfill_international(conn, int(rest[1]) if rest else None)
     elif sys.argv[1:2] == ["prospects"]:
         # python ingest.py prospects   (just the prospect lists and their stats; the nightly run includes it)
         with psycopg.connect(config.DATABASE_URL) as conn:

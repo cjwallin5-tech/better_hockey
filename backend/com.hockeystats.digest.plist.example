@@ -23,7 +23,7 @@
     <key>SMTP_PORT</key><string>587</string>
     <key>SMTP_USER</key><string>REPLACE_ME</string>
     <key>SMTP_PASSWORD</key><string>REPLACE_ME</string>
-    <key>SMTP_FROM</key><string>NHL Stats &lt;REPLACE_ME@example.com&gt;</string>
+    <key>SMTP_FROM</key><string>Faceoff &lt;REPLACE_ME@example.com&gt;</string>
     <key>PUBLIC_URL</key><string>REPLACE_ME</string>
   </dict>
   <key>StartCalendarInterval</key>

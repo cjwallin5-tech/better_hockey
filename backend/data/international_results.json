@@ -1,0 +1,1075 @@
+{
+ "built": "2026-11-10",
+ "source": "Wikipedia medal tables (CC BY-SA 4.0); Canada Cup, World Cup of Hockey and 4 Nations finals from their Wikipedia pages",
+ "countries": {
+  "AUT": "Austria",
+  "CAN": "Canada",
+  "CIS": "CIS",
+  "CZE": "Czechia",
+  "EUN": "Unified Team",
+  "EUR": "Team Europe",
+  "FIN": "Finland",
+  "FRG": "West Germany",
+  "GBR": "Great Britain",
+  "GER": "Germany",
+  "LAT": "Latvia",
+  "NOR": "Norway",
+  "RUS": "Russia",
+  "SUI": "Switzerland",
+  "SVK": "Slovakia",
+  "SWE": "Sweden",
+  "TCH": "Czechoslovakia",
+  "URS": "Soviet Union",
+  "USA": "United States"
+ },
+ "tournaments": {
+  "olympics": {
+   "label": "Olympic Games",
+   "tier": 1,
+   "results": {
+    "1920": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "TCH"
+    },
+    "1924": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "GBR"
+    },
+    "1928": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "SUI"
+    },
+    "1932": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "GER"
+    },
+    "1936": {
+     "gold": "GBR",
+     "silver": "CAN",
+     "bronze": "USA"
+    },
+    "1948": {
+     "gold": "CAN",
+     "silver": "TCH",
+     "bronze": "SUI"
+    },
+    "1952": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "SWE"
+    },
+    "1956": {
+     "gold": "URS",
+     "silver": "USA",
+     "bronze": "CAN"
+    },
+    "1960": {
+     "gold": "USA",
+     "silver": "CAN",
+     "bronze": "URS"
+    },
+    "1964": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1968": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "CAN"
+    },
+    "1972": {
+     "gold": "URS",
+     "silver": "USA",
+     "bronze": "TCH"
+    },
+    "1976": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "FRG"
+    },
+    "1980": {
+     "gold": "USA",
+     "silver": "URS",
+     "bronze": "SWE"
+    },
+    "1984": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1988": {
+     "gold": "URS",
+     "silver": "FIN",
+     "bronze": "SWE"
+    },
+    "1992": {
+     "gold": "EUN",
+     "silver": "CAN",
+     "bronze": "TCH"
+    },
+    "1994": {
+     "gold": "SWE",
+     "silver": "CAN",
+     "bronze": "FIN"
+    },
+    "1998": {
+     "gold": "CZE",
+     "silver": "RUS",
+     "bronze": "FIN"
+    },
+    "2002": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "RUS"
+    },
+    "2006": {
+     "gold": "SWE",
+     "silver": "FIN",
+     "bronze": "CZE"
+    },
+    "2010": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "FIN"
+    },
+    "2014": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "FIN"
+    },
+    "2018": {
+     "gold": "RUS",
+     "silver": "GER",
+     "bronze": "CAN"
+    },
+    "2022": {
+     "gold": "FIN",
+     "silver": "RUS",
+     "bronze": "SVK"
+    },
+    "2026": {
+     "gold": "USA",
+     "silver": "CAN",
+     "bronze": "FIN"
+    }
+   }
+  },
+  "worlds": {
+   "label": "World Championship",
+   "tier": 1,
+   "results": {
+    "1930": {
+     "gold": "CAN",
+     "silver": "GER",
+     "bronze": "SUI"
+    },
+    "1931": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "AUT"
+    },
+    "1933": {
+     "gold": "USA",
+     "silver": "CAN",
+     "bronze": "TCH"
+    },
+    "1934": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "GER"
+    },
+    "1935": {
+     "gold": "CAN",
+     "silver": "SUI",
+     "bronze": "GBR"
+    },
+    "1937": {
+     "gold": "CAN",
+     "silver": "GBR",
+     "bronze": "SUI"
+    },
+    "1938": {
+     "gold": "CAN",
+     "silver": "GBR",
+     "bronze": "TCH"
+    },
+    "1939": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "SUI"
+    },
+    "1947": {
+     "gold": "TCH",
+     "silver": "SWE",
+     "bronze": "AUT"
+    },
+    "1949": {
+     "gold": "TCH",
+     "silver": "CAN",
+     "bronze": "USA"
+    },
+    "1950": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "SUI"
+    },
+    "1951": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "SUI"
+    },
+    "1953": {
+     "gold": "SWE",
+     "silver": "FRG",
+     "bronze": "SUI"
+    },
+    "1954": {
+     "gold": "URS",
+     "silver": "CAN",
+     "bronze": "SWE"
+    },
+    "1955": {
+     "gold": "CAN",
+     "silver": "URS",
+     "bronze": "TCH"
+    },
+    "1957": {
+     "gold": "SWE",
+     "silver": "URS",
+     "bronze": "TCH"
+    },
+    "1958": {
+     "gold": "CAN",
+     "silver": "URS",
+     "bronze": "SWE"
+    },
+    "1959": {
+     "gold": "CAN",
+     "silver": "URS",
+     "bronze": "TCH"
+    },
+    "1961": {
+     "gold": "CAN",
+     "silver": "TCH",
+     "bronze": "URS"
+    },
+    "1962": {
+     "gold": "SWE",
+     "silver": "CAN",
+     "bronze": "USA"
+    },
+    "1963": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1965": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1966": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "CAN"
+    },
+    "1967": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "CAN"
+    },
+    "1969": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1970": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1971": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1972": {
+     "gold": "TCH",
+     "silver": "URS",
+     "bronze": "SWE"
+    },
+    "1973": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1974": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1975": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1976": {
+     "gold": "TCH",
+     "silver": "URS",
+     "bronze": "SWE"
+    },
+    "1977": {
+     "gold": "TCH",
+     "silver": "SWE",
+     "bronze": "URS"
+    },
+    "1978": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "CAN"
+    },
+    "1979": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1981": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1982": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "CAN"
+    },
+    "1983": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "CAN"
+    },
+    "1985": {
+     "gold": "TCH",
+     "silver": "CAN",
+     "bronze": "URS"
+    },
+    "1986": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "CAN"
+    },
+    "1987": {
+     "gold": "SWE",
+     "silver": "URS",
+     "bronze": "TCH"
+    },
+    "1989": {
+     "gold": "URS",
+     "silver": "CAN",
+     "bronze": "TCH"
+    },
+    "1990": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1991": {
+     "gold": "SWE",
+     "silver": "CAN",
+     "bronze": "URS"
+    },
+    "1992": {
+     "gold": "SWE",
+     "silver": "FIN",
+     "bronze": "TCH"
+    },
+    "1993": {
+     "gold": "RUS",
+     "silver": "SWE",
+     "bronze": "CZE"
+    },
+    "1994": {
+     "gold": "CAN",
+     "silver": "FIN",
+     "bronze": "SWE"
+    },
+    "1995": {
+     "gold": "FIN",
+     "silver": "SWE",
+     "bronze": "CAN"
+    },
+    "1996": {
+     "gold": "CZE",
+     "silver": "CAN",
+     "bronze": "USA"
+    },
+    "1997": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "CZE"
+    },
+    "1998": {
+     "gold": "SWE",
+     "silver": "FIN",
+     "bronze": "CZE"
+    },
+    "1999": {
+     "gold": "CZE",
+     "silver": "FIN",
+     "bronze": "SWE"
+    },
+    "2000": {
+     "gold": "CZE",
+     "silver": "SVK",
+     "bronze": "FIN"
+    },
+    "2001": {
+     "gold": "CZE",
+     "silver": "FIN",
+     "bronze": "SWE"
+    },
+    "2002": {
+     "gold": "SVK",
+     "silver": "RUS",
+     "bronze": "SWE"
+    },
+    "2003": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "SVK"
+    },
+    "2004": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "USA"
+    },
+    "2005": {
+     "gold": "CZE",
+     "silver": "CAN",
+     "bronze": "RUS"
+    },
+    "2006": {
+     "gold": "SWE",
+     "silver": "CZE",
+     "bronze": "FIN"
+    },
+    "2007": {
+     "gold": "CAN",
+     "silver": "FIN",
+     "bronze": "RUS"
+    },
+    "2008": {
+     "gold": "RUS",
+     "silver": "CAN",
+     "bronze": "FIN"
+    },
+    "2009": {
+     "gold": "RUS",
+     "silver": "CAN",
+     "bronze": "SWE"
+    },
+    "2010": {
+     "gold": "CZE",
+     "silver": "RUS",
+     "bronze": "SWE"
+    },
+    "2011": {
+     "gold": "FIN",
+     "silver": "SWE",
+     "bronze": "CZE"
+    },
+    "2012": {
+     "gold": "RUS",
+     "silver": "SVK",
+     "bronze": "CZE"
+    },
+    "2013": {
+     "gold": "SWE",
+     "silver": "SUI",
+     "bronze": "USA"
+    },
+    "2014": {
+     "gold": "RUS",
+     "silver": "FIN",
+     "bronze": "SWE"
+    },
+    "2015": {
+     "gold": "CAN",
+     "silver": "RUS",
+     "bronze": "USA"
+    },
+    "2016": {
+     "gold": "CAN",
+     "silver": "FIN",
+     "bronze": "RUS"
+    },
+    "2017": {
+     "gold": "SWE",
+     "silver": "CAN",
+     "bronze": "RUS"
+    },
+    "2018": {
+     "gold": "SWE",
+     "silver": "SUI",
+     "bronze": "USA"
+    },
+    "2019": {
+     "gold": "FIN",
+     "silver": "CAN",
+     "bronze": "RUS"
+    },
+    "2021": {
+     "gold": "CAN",
+     "silver": "FIN",
+     "bronze": "USA"
+    },
+    "2022": {
+     "gold": "FIN",
+     "silver": "CAN",
+     "bronze": "CZE"
+    },
+    "2023": {
+     "gold": "CAN",
+     "silver": "GER",
+     "bronze": "LAT"
+    },
+    "2024": {
+     "gold": "CZE",
+     "silver": "SUI",
+     "bronze": "SWE"
+    },
+    "2025": {
+     "gold": "USA",
+     "silver": "SUI",
+     "bronze": "SWE"
+    },
+    "2026": {
+     "gold": "FIN",
+     "silver": "SUI",
+     "bronze": "NOR"
+    }
+   }
+  },
+  "worldcup": {
+   "label": "World Cup of Hockey / Canada Cup",
+   "tier": 1,
+   "results": {
+    "1976": {
+     "gold": "CAN",
+     "silver": "TCH"
+    },
+    "1981": {
+     "gold": "URS",
+     "silver": "CAN"
+    },
+    "1984": {
+     "gold": "CAN",
+     "silver": "SWE"
+    },
+    "1987": {
+     "gold": "CAN",
+     "silver": "URS"
+    },
+    "1991": {
+     "gold": "CAN",
+     "silver": "USA"
+    },
+    "1996": {
+     "gold": "USA",
+     "silver": "CAN"
+    },
+    "2004": {
+     "gold": "CAN",
+     "silver": "FIN"
+    },
+    "2016": {
+     "gold": "CAN",
+     "silver": "EUR"
+    }
+   }
+  },
+  "fournations": {
+   "label": "4 Nations Face-Off",
+   "tier": 1,
+   "results": {
+    "2025": {
+     "gold": "CAN",
+     "silver": "USA"
+    }
+   }
+  },
+  "juniors": {
+   "label": "World Junior Championship",
+   "tier": 2,
+   "results": {
+    "1977": {
+     "gold": "URS",
+     "silver": "CAN",
+     "bronze": "TCH"
+    },
+    "1978": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "CAN"
+    },
+    "1979": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1980": {
+     "gold": "URS",
+     "silver": "FIN",
+     "bronze": "SWE"
+    },
+    "1981": {
+     "gold": "SWE",
+     "silver": "FIN",
+     "bronze": "URS"
+    },
+    "1982": {
+     "gold": "CAN",
+     "silver": "TCH",
+     "bronze": "FIN"
+    },
+    "1983": {
+     "gold": "URS",
+     "silver": "TCH",
+     "bronze": "CAN"
+    },
+    "1984": {
+     "gold": "URS",
+     "silver": "FIN",
+     "bronze": "TCH"
+    },
+    "1985": {
+     "gold": "CAN",
+     "silver": "TCH",
+     "bronze": "URS"
+    },
+    "1986": {
+     "gold": "URS",
+     "silver": "CAN",
+     "bronze": "USA"
+    },
+    "1987": {
+     "gold": "FIN",
+     "silver": "TCH",
+     "bronze": "SWE"
+    },
+    "1988": {
+     "gold": "CAN",
+     "silver": "URS",
+     "bronze": "FIN"
+    },
+    "1989": {
+     "gold": "URS",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1990": {
+     "gold": "CAN",
+     "silver": "URS",
+     "bronze": "TCH"
+    },
+    "1991": {
+     "gold": "CAN",
+     "silver": "URS",
+     "bronze": "TCH"
+    },
+    "1992": {
+     "gold": "CIS",
+     "silver": "SWE",
+     "bronze": "USA"
+    },
+    "1993": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "TCH"
+    },
+    "1994": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "RUS"
+    },
+    "1995": {
+     "gold": "CAN",
+     "silver": "RUS",
+     "bronze": "SWE"
+    },
+    "1996": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "RUS"
+    },
+    "1997": {
+     "gold": "CAN",
+     "silver": "USA",
+     "bronze": "RUS"
+    },
+    "1998": {
+     "gold": "FIN",
+     "silver": "RUS",
+     "bronze": "SUI"
+    },
+    "1999": {
+     "gold": "RUS",
+     "silver": "CAN",
+     "bronze": "SVK"
+    },
+    "2000": {
+     "gold": "CZE",
+     "silver": "RUS",
+     "bronze": "CAN"
+    },
+    "2001": {
+     "gold": "CZE",
+     "silver": "FIN",
+     "bronze": "CAN"
+    },
+    "2002": {
+     "gold": "RUS",
+     "silver": "CAN",
+     "bronze": "FIN"
+    },
+    "2003": {
+     "gold": "RUS",
+     "silver": "CAN",
+     "bronze": "FIN"
+    },
+    "2004": {
+     "gold": "USA",
+     "silver": "CAN",
+     "bronze": "FIN"
+    },
+    "2005": {
+     "gold": "CAN",
+     "silver": "RUS",
+     "bronze": "CZE"
+    },
+    "2006": {
+     "gold": "CAN",
+     "silver": "RUS",
+     "bronze": "FIN"
+    },
+    "2007": {
+     "gold": "CAN",
+     "silver": "RUS",
+     "bronze": "USA"
+    },
+    "2008": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "RUS"
+    },
+    "2009": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "RUS"
+    },
+    "2010": {
+     "gold": "USA",
+     "silver": "CAN",
+     "bronze": "SWE"
+    },
+    "2011": {
+     "gold": "RUS",
+     "silver": "CAN",
+     "bronze": "USA"
+    },
+    "2012": {
+     "gold": "SWE",
+     "silver": "RUS",
+     "bronze": "CAN"
+    },
+    "2013": {
+     "gold": "USA",
+     "silver": "SWE",
+     "bronze": "RUS"
+    },
+    "2014": {
+     "gold": "FIN",
+     "silver": "SWE",
+     "bronze": "RUS"
+    },
+    "2015": {
+     "gold": "CAN",
+     "silver": "RUS",
+     "bronze": "SVK"
+    },
+    "2016": {
+     "gold": "FIN",
+     "silver": "RUS",
+     "bronze": "USA"
+    },
+    "2017": {
+     "gold": "USA",
+     "silver": "CAN",
+     "bronze": "RUS"
+    },
+    "2018": {
+     "gold": "CAN",
+     "silver": "SWE",
+     "bronze": "USA"
+    },
+    "2019": {
+     "gold": "FIN",
+     "silver": "USA",
+     "bronze": "RUS"
+    },
+    "2020": {
+     "gold": "CAN",
+     "silver": "RUS",
+     "bronze": "SWE"
+    },
+    "2021": {
+     "gold": "USA",
+     "silver": "CAN",
+     "bronze": "FIN"
+    },
+    "2022": {
+     "gold": "CAN",
+     "silver": "FIN",
+     "bronze": "SWE"
+    },
+    "2023": {
+     "gold": "CAN",
+     "silver": "CZE",
+     "bronze": "USA"
+    },
+    "2024": {
+     "gold": "USA",
+     "silver": "SWE",
+     "bronze": "CZE"
+    },
+    "2025": {
+     "gold": "USA",
+     "silver": "FIN",
+     "bronze": "CZE"
+    },
+    "2026": {
+     "gold": "SWE",
+     "silver": "CZE",
+     "bronze": "CAN"
+    }
+   }
+  }
+ },
+ "triple_gold_club": [
+  {
+   "name": "Tomas Jonsson",
+   "completed": 1994,
+   "olympics": 1994,
+   "worlds": 1991,
+   "cup": 1982
+  },
+  {
+   "name": "Mats N\u00e4slund",
+   "completed": 1994,
+   "olympics": 1994,
+   "worlds": 1991,
+   "cup": 1986
+  },
+  {
+   "name": "H\u00e5kan Loob",
+   "completed": 1994,
+   "olympics": 1994,
+   "worlds": 1987,
+   "cup": 1989
+  },
+  {
+   "name": "Valeri Kamensky",
+   "completed": 1996,
+   "olympics": 1988,
+   "worlds": 1986,
+   "cup": 1996
+  },
+  {
+   "name": "Alexei Gusarov",
+   "completed": 1996,
+   "olympics": 1988,
+   "worlds": 1986,
+   "cup": 1996
+  },
+  {
+   "name": "Peter Forsberg",
+   "completed": 1996,
+   "olympics": 1994,
+   "worlds": 1992,
+   "cup": 1996
+  },
+  {
+   "name": "Viacheslav Fetisov",
+   "completed": 1997,
+   "olympics": 1984,
+   "worlds": 1978,
+   "cup": 1997
+  },
+  {
+   "name": "Igor Larionov",
+   "completed": 1997,
+   "olympics": 1984,
+   "worlds": 1982,
+   "cup": 1997
+  },
+  {
+   "name": "Alexander Mogilny",
+   "completed": 2000,
+   "olympics": 1988,
+   "worlds": 1989,
+   "cup": 2000
+  },
+  {
+   "name": "Vladimir Malakhov",
+   "completed": 2000,
+   "olympics": 1992,
+   "worlds": 1990,
+   "cup": 2000
+  },
+  {
+   "name": "Rob Blake",
+   "completed": 2002,
+   "olympics": 2002,
+   "worlds": 1994,
+   "cup": 2001
+  },
+  {
+   "name": "Joe Sakic",
+   "completed": 2002,
+   "olympics": 2002,
+   "worlds": 1994,
+   "cup": 1996
+  },
+  {
+   "name": "Brendan Shanahan",
+   "completed": 2002,
+   "olympics": 2002,
+   "worlds": 1994,
+   "cup": 1997
+  },
+  {
+   "name": "Scott Niedermayer",
+   "completed": 2004,
+   "olympics": 2002,
+   "worlds": 2004,
+   "cup": 1995
+  },
+  {
+   "name": "Jarom\u00edr J\u00e1gr",
+   "completed": 2005,
+   "olympics": 1998,
+   "worlds": 2005,
+   "cup": 1991
+  },
+  {
+   "name": "Ji\u0159\u00ed \u0160l\u00e9gr",
+   "completed": 2005,
+   "olympics": 1998,
+   "worlds": 2005,
+   "cup": 2002
+  },
+  {
+   "name": "Nicklas Lidstr\u00f6m",
+   "completed": 2006,
+   "olympics": 2006,
+   "worlds": 1991,
+   "cup": 1997
+  },
+  {
+   "name": "Fredrik Modin",
+   "completed": 2006,
+   "olympics": 2006,
+   "worlds": 1998,
+   "cup": 2004
+  },
+  {
+   "name": "Chris Pronger",
+   "completed": 2007,
+   "olympics": 2002,
+   "worlds": 1997,
+   "cup": 2007
+  },
+  {
+   "name": "Niklas Kronwall",
+   "completed": 2008,
+   "olympics": 2006,
+   "worlds": 2006,
+   "cup": 2008
+  },
+  {
+   "name": "Henrik Zetterberg",
+   "completed": 2008,
+   "olympics": 2006,
+   "worlds": 2006,
+   "cup": 2008
+  },
+  {
+   "name": "Mikael Samuelsson",
+   "completed": 2008,
+   "olympics": 2006,
+   "worlds": 2006,
+   "cup": 2008
+  },
+  {
+   "name": "Eric Staal",
+   "completed": 2010,
+   "olympics": 2010,
+   "worlds": 2007,
+   "cup": 2006
+  },
+  {
+   "name": "Jonathan Toews",
+   "completed": 2010,
+   "olympics": 2010,
+   "worlds": 2007,
+   "cup": 2010
+  },
+  {
+   "name": "Patrice Bergeron",
+   "completed": 2011,
+   "olympics": 2010,
+   "worlds": 2004,
+   "cup": 2011
+  },
+  {
+   "name": "Sidney Crosby",
+   "completed": 2015,
+   "olympics": 2010,
+   "worlds": 2015,
+   "cup": 2009
+  },
+  {
+   "name": "Corey Perry",
+   "completed": 2016,
+   "olympics": 2010,
+   "worlds": 2016,
+   "cup": 2007
+  },
+  {
+   "name": "Pavel Datsyuk",
+   "completed": 2018,
+   "olympics": 2018,
+   "worlds": 2012,
+   "cup": 2002
+  },
+  {
+   "name": "Jay Bouwmeester",
+   "completed": 2019,
+   "olympics": 2014,
+   "worlds": 2003,
+   "cup": 2019
+  },
+  {
+   "name": "Valtteri Filppula",
+   "completed": 2022,
+   "olympics": 2022,
+   "worlds": 2022,
+   "cup": 2008
+  }
+ ]
+}

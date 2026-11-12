@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { placeLabel } from '../rank.js'
 
 // One rankings request per player, shared by the stat tiles and the table below them.
 const cache = new Map()
@@ -25,14 +26,9 @@ export function useRankings(playerId) {
 /** Short caption for a stat tile: 'season' gives '12th of 704', 'alltime' gives '5th all-time'. */
 export function rankNote(r, scope) {
   if (!r) return undefined
-  return scope === 'season' ? `${ordinal(r.rank)} of ${r.of.toLocaleString()}` : `${ordinal(r.rank)} all-time`
+  return scope === 'season' ? `${placeLabel(r)} of ${r.of.toLocaleString()}` : `${placeLabel(r)} all-time`
 }
 
-const ordinal = (n) => {
-  const v = n % 100
-  if (v >= 11 && v <= 13) return `${n}th`
-  return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'}`
-}
 const sv = (v) => v.toFixed(3).replace(/^0/, '')
 const int = (v) => v.toLocaleString()
 
@@ -78,11 +74,11 @@ export function RankCards({ ranks, scope, noun }) {
               <span>{label}</span>
               <strong>{fmt(r.value)}</strong>
             </div>
-            <div className="bar" title={`${ordinal(r.rank)} of ${r.of.toLocaleString()}`}>
+            <div className="bar" title={`${placeLabel(r)} of ${r.of.toLocaleString()}`}>
               <div style={{ width: `${pct}%` }} />
             </div>
             <div className="def-foot">
-              {ordinal(r.rank)} {scope === 'season' ? `of ${r.of.toLocaleString()} ${noun}s this season` : `all-time of ${r.of.toLocaleString()}`}
+              {placeLabel(r)} {scope === 'season' ? `of ${r.of.toLocaleString()} ${noun}s this season` : `all-time of ${r.of.toLocaleString()}`}
               {note && <em> · {note}</em>}
             </div>
           </div>

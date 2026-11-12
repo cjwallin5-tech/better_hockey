@@ -10,6 +10,7 @@ export const pages = {
   Goalie: () => import('./pages/Goalie.jsx'),
   Goalies: () => import('./pages/Goalies.jsx'),
   Milestones: () => import('./pages/Milestones.jsx'),
+  Glossary: () => import('./pages/Glossary.jsx'),
   Player: () => import('./pages/Player.jsx'),
   ResetPassword: () => import('./pages/ResetPassword.jsx'),
   Schedule: () => import('./pages/Schedule.jsx'),
@@ -32,12 +33,14 @@ export const pages = {
   Fantasy: () => import('./pages/Fantasy.jsx'),
   Standings: () => import('./pages/Standings.jsx'),
   Team: () => import('./pages/Team.jsx'),
+  News: () => import('./pages/News.jsx'),
 }
 
 const PATHS = {
   '/skaters': 'Leaderboard',
   '/goalies': 'Goalies',
   '/milestones': 'Milestones',
+  '/glossary': 'Glossary',
   '/alltime/skaters': 'AllTime',
   '/alltime/goalies': 'AllTime',
   '/reset-password': 'ResetPassword',
@@ -52,6 +55,7 @@ const PATHS = {
   '/prospects': 'Prospects',
   '/projections': 'Projections',
   '/tonight': 'Tonight',
+  '/news': 'News',
   '/my-team': 'MyTeam',
   '/leagues': 'Leagues',
   '/accuracy': 'Accuracy',

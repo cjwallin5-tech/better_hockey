@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Schedule from '../components/Schedule.jsx'
 import SpecialTeams from '../components/SpecialTeams.jsx'
+import NewsList from '../components/NewsList.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useFavoriteTeam } from '../favorite.js'
 import { useAuth } from '../auth.js'
@@ -211,7 +212,14 @@ function MyTeamPage() {
           )}
 
           <Schedule abbrev={favorite} />
+          <p className="muted small"><Link to={`/team/${favorite}?tab=calendar`}>Full season calendar</Link></p>
           <SpecialTeams abbrev={favorite} />
+
+          <section className="card">
+            <h2>Team news</h2>
+            <NewsList team={favorite} limit={8} note empty="No recent stories about your team." />
+            <p className="muted small"><Link to={`/news?team=${favorite}`}>More news</Link></p>
+          </section>
         </>
       )}
     </main>

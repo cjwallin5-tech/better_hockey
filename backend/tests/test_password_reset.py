@@ -52,7 +52,7 @@ class ResetEmail(unittest.TestCase):
                 mock.patch.object(mail, "send_with_retry", return_value=True) as send:
             auth._send_reset_email("a@b.c", self.LINK)
         (to, subject, body), kwargs = send.call_args
-        self.assertEqual((to, subject), ("a@b.c", "Reset your NHL Stats password"))
+        self.assertEqual((to, subject), ("a@b.c", "Reset your Faceoff password"))
         self.assertIn(self.LINK, body)
         self.assertIn(f"{auth.RESET_MINUTES} minutes", body)
         self.assertIn("ignore this email", body)

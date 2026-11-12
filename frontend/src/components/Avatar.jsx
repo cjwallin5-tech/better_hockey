@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { teamColor } from '../teamColors.js'
+import { getJson } from '../lists.js'
 
 const initials = (name) => (name ?? '').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
@@ -8,7 +9,7 @@ const initials = (name) => (name ?? '').split(/\s+/).filter(Boolean).map((w) => 
 let season = null
 const currentSeason = () => {
   if (!season) {
-    season = fetch('/api/meta').then((r) => (r.ok ? r.json() : null)).then((m) => m?.season_id ?? null).catch(() => { season = null; return null })
+    season = getJson('/api/meta').then((m) => m?.season_id ?? null).catch(() => { season = null; return null })
   }
   return season
 }

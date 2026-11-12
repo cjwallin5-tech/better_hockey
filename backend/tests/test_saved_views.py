@@ -30,7 +30,8 @@ class CleanQuery(unittest.TestCase):
         self.assertEqual(auth._clean_query("?"), "")
 
     def test_only_the_leaderboards_can_be_saved(self):
-        self.assertEqual(auth.VIEW_PATHS, {"/skaters", "/goalies", "/alltime", "/alltime/skaters", "/alltime/goalies"})
+        self.assertEqual(auth.VIEW_PATHS, {"/skaters", "/goalies", "/alltime", "/alltime/skaters", "/alltime/goalies",
+                                          "/best-seasons/skaters", "/best-seasons/goalies"})
 
 
 class CleanWatch(unittest.TestCase):

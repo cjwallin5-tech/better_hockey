@@ -1,16 +1,18 @@
 """Read-only JSON API over the ingested stats. Run: uvicorn api:app --reload"""
 from datetime import date, datetime, timedelta, timezone
 
+import functools
 import json
 import math
 from collections import defaultdict
 from pathlib import Path
 import statistics
+import threading
 import time
 
 import psycopg
 import requests
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -18,6 +20,10 @@ from psycopg.types.json import Jsonb
 import absences_db
 import accuracy
 import awards
+import bestseasons
+import records
+import internationals
+import teamcalendar
 import winprob
 import winprob_db
 import predictions
@@ -55,17 +61,43 @@ import streaming
 import teamlog
 import tonight
 import projections
+import news_db
 import nhle
 import prospects as prospectlib
 import trajectory
 import trophies as trophy_lib
 
-app = FastAPI(title="Hockey Stats")
+app = FastAPI(title="Faceoff")
 # Responses like /api/skaters are over a megabyte of repetitive JSON; compressing them is the cheapest speed-up there is.
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)  # level 9 (the default) costs twice the CPU for ~8% fewer bytes
 app.include_router(auth.router)
 app.include_router(leagues.router)
 app.include_router(previews.router)
+
+_TTL_MAX_ENTRIES = 64
+
+
+def ttl_cached(seconds):
+    """Reuses an endpoint's answer for `seconds`, per set of arguments. For the heavy read-only pages whose data only changes when the
+    ingest runs (nightly) or a game ends: a user who has just seen the answer shouldn't make everyone after them wait for it again. Errors
+    are not kept. The table is bounded because the arguments come from the URL."""
+    def wrap(fn):
+        store = {}
+
+        @functools.wraps(fn)
+        def inner(*args, **kwargs):
+            key = (args, tuple(sorted(kwargs.items())))
+            now = time.monotonic()
+            hit = store.get(key)
+            if hit and now - hit[0] < seconds:
+                return hit[1]
+            value = fn(*args, **kwargs)
+            if len(store) >= _TTL_MAX_ENTRIES:
+                store.clear()
+            store[key] = (now, value)
+            return value
+        return inner
+    return wrap
 
 
 @app.on_event("startup")
@@ -73,6 +105,17 @@ def _init_accounts():
     auth.init_db()
     leagues.init_db()   # after auth: its tables refer to app_user
     predictions.init_db()
+    threading.Thread(target=_warm_season_boards, daemon=True).start()  # so the first visit to Best seasons doesn't wait for the build
+
+
+def _warm_season_boards():
+    try:
+        with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+            for kind in bestseasons.SORTS:
+                _season_board(conn, kind)
+        tonight_endpoint()
+    except Exception:  # only a head start: the page builds the board itself if this didn't
+        pass
 
 SKATERS_SQL = """
 WITH ranked AS (
@@ -187,6 +230,7 @@ def seasons():
 
 
 @app.get("/api/skaters")
+@ttl_cached(60)
 def skaters(season: int | None = None):
     """Every skater's season line. Past seasons have no per-game data, so their recent-form and expected-goals columns are
     empty; the season totals and the NHL's own rates are all there."""
@@ -361,6 +405,7 @@ def _goalie_params():
 
 
 @app.get("/api/goalies")
+@ttl_cached(60)
 def goalies(season: int | None = None):
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         chosen = _stored_season(conn, "goalie_season", season)
@@ -730,6 +775,7 @@ def probable_goalies_week(ids: str = "", days: int = 7):
 
 
 @app.get("/api/streaming/goalies")
+@ttl_cached(60)
 def streaming_goalies(days: int = 7):
     """Every goalie with a chance to start in the next `days` days: for each game his chance to start and what a start
     there is expected to be worth (win, loss and overtime-loss chances, saves, goals against, shutout chance), from the
@@ -1537,10 +1583,11 @@ def _shot_fits(conn, starters_games):
     current, prior, games = matchupfit_db.team_diets(conn, config.SEASON_ID)
     league = matchupfit_db.league_shares(current)
     rates = {}
+    sig = _zone_sig(conn, "all")  # once for every goalie
 
     def goalie_rates(pid):
         if pid not in rates:
-            goalie, summary = _goalie_zone_summary(conn, pid, "all")
+            goalie, summary = _goalie_zone_summary(conn, pid, "all", sig)
             ok = goalie is not None and summary["total"]["shots"] >= matchupfit.MIN_FACED
             rates[pid] = (goalie, *matchupfit.goalie_rates(summary)) if ok else None
         return rates[pid]
@@ -1570,6 +1617,7 @@ def _shot_fits(conn, starters_games):
 
 
 @app.get("/api/tonight")
+@ttl_cached(60)
 def tonight_endpoint(date: str | None = None, ids: str = "", teams: str = ""):
     """A day's games (default today, Eastern), each with why it might be worth watching: how even the teams are, expected
     goals, the playoff race, the best scorers, the likely goalies, rest, and how many of your players (ids) or followed
@@ -1800,7 +1848,7 @@ def _contenders(skater_rows, goalie_rows):
             better = sum(1 for o in pool if o[stat] > r[stat])
             if better < CONTENTION_SIZE:
                 out.setdefault(r["player_id"], []).append({
-                    "trophy": trophy, "rank": better + 1, "of": len(pool),
+                    "trophy": trophy, "rank": better + 1, "of": len(pool), "tied": sum(1 for o in pool if o[stat] == r[stat]) > 1,
                     "stat": stat, "value": r[stat], "basis": basis,
                 })
     for lst in out.values():
@@ -1912,6 +1960,7 @@ def absences_endpoint():
 
 
 @app.get("/api/trophy-races")
+@ttl_cached(60)
 def trophy_races():
     """Each stat-driven trophy with its current contenders, best first."""
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
@@ -1924,7 +1973,7 @@ def trophy_races():
         r = by_id[pid]
         for e in entries:
             races[e["trophy"]]["contenders"].append({
-                "player_id": pid, "name": r["name"], "team": r["team"], "rank": e["rank"],
+                "player_id": pid, "name": r["name"], "team": r["team"], "rank": e["rank"], "tied": e["tied"],
                 "value": e["value"], "games_played": r["games_played"],
             })
     for race in races.values():
@@ -2018,6 +2067,7 @@ def trophy(trophy_id: int):
 
 
 @app.get("/api/trophies")
+@ttl_cached(60)
 def trophies():
     """Who is in contention for each stat-driven trophy this season, keyed by player id."""
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
@@ -2035,7 +2085,8 @@ ALLTIME_SORTS = {
                "plus_minus", "pim", "ev_goals", "pp_goals", "pp_points", "sh_goals", "sh_points",
                "game_winning_goals", "ot_goals", "shots", "shooting_pct", "fo_win_pct", "hits", "blocked_shots",
                "takeaways", "giveaways", "missed_shots", "shot_attempts", "empty_net_goals", "first_goals",
-               "adj_goals", "adj_assists", "adj_points", "adj_points_per_game"},
+               "adj_goals", "adj_assists", "adj_points", "adj_points_per_game", "goals_per_game", "assists_per_game",
+               *(c for c, _ in records.COLUMNS if c not in ("goals_per_game", "assists_per_game"))},
     "goalie": {"name", "first_season", "games_played", "games_started", "wins", "losses", "ot_losses",
                "ties", "saves", "shots_against", "goals_against", "save_pct", "gaa", "shutouts", "toi_sec"},
 }
@@ -2078,11 +2129,13 @@ def alltime(
     min_gp: int = 0,
     debut_from: int | None = None,
     debut_to: int | None = None,
+    has: str = "",
     limit: int = 50,
     offset: int = 0,
     export: bool = False,
 ):
-    """Career totals for every player in NHL history, sorted/filtered/paged server-side."""
+    """Career totals for every player in NHL history, sorted/filtered/paged server-side. `has` names a stat that must be above zero
+    (the hat trick board leaves out players with none)."""
     if kind not in ALLTIME_TABLES:
         raise HTTPException(404, "Unknown board")
     if game_type not in (2, 3):
@@ -2114,6 +2167,10 @@ def alltime(
     if min_gp > 0:
         where.append("games_played >= %(min_gp)s")
         params["min_gp"] = min_gp
+    if has:
+        if has not in ALLTIME_SORTS[kind] or has == "name":
+            raise HTTPException(400, f"Can't filter on {has}")
+        where.append(f"{has} > 0")
     if debut_from is not None:
         where.append("first_season >= %(debut_from)s")
         params["debut_from"] = debut_from * 10000 + debut_from + 1
@@ -2124,8 +2181,16 @@ def alltime(
     table, clause = ALLTIME_TABLES[kind], " AND ".join(where)
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         total = conn.execute(f"SELECT count(*) AS n FROM {table} WHERE {clause}", params).fetchone()["n"]
+        # place/tied: the player's rank in the whole filtered list (not just this page) by the sorted stat, where players with the
+        # same value share a place. A text sort (name) and missing values have no ties, so they just count.
+        ranked = sort != "name"
         rows = conn.execute(
-            f"SELECT * FROM {table} WHERE {clause} "
+            f"SELECT *, "
+            + (f"rank() OVER (ORDER BY {sort} {direction} NULLS LAST) AS place, "
+               f"({sort} IS NOT NULL AND count(*) OVER (PARTITION BY {sort}) > 1) AS tied "
+               if ranked else
+               f"row_number() OVER (ORDER BY name {direction}) AS place, false AS tied ")
+            + f"FROM {table} WHERE {clause} "
             f"ORDER BY {sort} {direction} NULLS LAST, name LIMIT %(limit)s OFFSET %(offset)s",
             {**params, "limit": limit, "offset": offset},
         ).fetchall()
@@ -2139,6 +2204,265 @@ def alltime(
         seen = last.get(r["player_id"])
         r["last_season"], r["last_team"] = (seen["season_id"], seen["team"]) if seen else (None, None)
     return {"total": total, "offset": offset, "limit": limit, "sort": sort, "dir": direction.lower(), "rows": rows}
+
+
+_season_board_cache = {"sig": None, "boards": {}}
+
+
+def _season_board(conn, kind):
+    """The built best-seasons board for 'skater' or 'goalie', kept until the stored seasons change (see bestseasons.py)."""
+    sig = tuple(conn.execute(
+        """SELECT (SELECT count(*) FROM career_season) a, (SELECT coalesce(sum(points), 0) FROM career_season) b,
+                  (SELECT count(*) FROM defense_season) c, (SELECT count(*) FROM goalie_season) d,
+                  (SELECT coalesce(sum(wins), 0) FROM goalie_season) e""").fetchone().values())
+    if _season_board_cache["sig"] != sig:
+        _season_board_cache.update(sig=sig, boards={})
+    boards = _season_board_cache["boards"]
+    if kind not in boards:
+        if kind == "skater":
+            seasons = conn.execute(
+                """SELECT s.player_id, s.season_id, s.team, s.games_played, s.goals, s.assists, s.points,
+                          k.name, k.position, k.birth_country, k.hall_of_fame, k.active_season
+                   FROM career_season s JOIN career_skater k ON k.player_id = s.player_id AND k.game_type = 2""").fetchall()
+            defense = {(r["player_id"], r["season_id"]): r for r in conn.execute(
+                "SELECT player_id, season_id, hits, blocked_shots, takeaways, giveaways FROM defense_season")}
+            boards[kind] = bestseasons.skater_board(seasons, defense, config.SEASON_ID)
+        else:
+            seasons = conn.execute(
+                """SELECT g.*, c.birth_country, c.hall_of_fame, c.active_season FROM goalie_season g
+                   LEFT JOIN career_goalie c ON c.player_id = g.player_id AND c.game_type = 2""").fetchall()
+            boards[kind] = bestseasons.goalie_board(seasons, config.SEASON_ID)
+    return boards[kind]
+
+
+@app.get("/api/best-seasons/{kind}")
+def best_seasons(kind: str, sort: str | None = None, dir: str = "desc", q: str = "", position: str = "", active: bool = False,
+                 hof: bool = False, min_gp: int | None = None, season_from: int | None = None, season_to: int | None = None,
+                 limit: int = 50, offset: int = 0, export: bool = False):
+    """The best individual seasons in NHL history for one kind of player ('skater' from 1917-18, 'goalie' from 2005-06), by any stat,
+    filtered and paged. Each row is one player's one season, with its place in the filtered list (`place`, and `tied` when shared)."""
+    if kind not in bestseasons.SORTS:
+        raise HTTPException(404, "Unknown board")
+    sort = sort or ("points" if kind == "skater" else "wins")
+    if sort not in bestseasons.SORTS[kind]:
+        raise HTTPException(400, f"Can't sort by {sort}")
+    limit, offset = max(1, min(limit, 10000 if export else 200)), max(0, offset)
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        board = _season_board(conn, kind)
+    rows, total = bestseasons.query(board, kind, sort=sort, direction="asc" if dir.lower() == "asc" else "desc", q=q, position=position,
+                                    season_from=season_from, season_to=season_to, min_gp=min_gp, active=active, hof=hof,
+                                    offset=offset, limit=limit)
+    return {"total": total, "offset": offset, "limit": limit, "sort": sort, "dir": "asc" if dir.lower() == "asc" else "desc", "rows": rows}
+
+
+# --- International tournaments ------------------------------------------------------------------
+# Countries whose medals are pooled under one line in the medal tables (a country's predecessor and successor teams).
+LINEAGE_NAMES = {"RUS": "Russia / Soviet Union", "CZE": "Czechia / Czechoslovakia", "GER": "Germany"}
+
+
+@app.get("/api/players/{player_id}/international")
+@ttl_cached(60)
+def player_international(player_id: int):
+    """A player's national-team tournaments (Olympics, World Championship, World Cup / Canada Cup, 4 Nations, World Juniors), newest first,
+    with the medal his team won, worked out from his NHL tournament rows and data/international_results.json (see internationals.py)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        payload = _career_payload(conn, player_id)
+    apps = internationals.appearances(internationals.rows_from_landing(payload))
+    cups = internationals.stanley_cups(internationals.awards_from_landing(payload))
+    name = " ".join(((payload or {}).get(k) or {}).get("default", "") for k in ("firstName", "lastName"))
+    official = internationals.official_club().get(internationals.name_key(name))
+    return {"appearances": apps, "medals": internationals.medal_counts(apps), "tournaments": internationals.by_tournament(apps),
+            "stanley_cups": cups, "triple_gold": internationals.triple_gold(apps, cups, official),
+            "honors": internationals.honors(name, (payload or {}).get("birthCountry"), apps)}
+
+
+def _lineage_name(code, names):
+    return LINEAGE_NAMES.get(internationals.lineage(code)) or names.get(code, code)
+
+
+@app.get("/api/international/results")
+@ttl_cached(3600)
+def international_results():
+    """Every tournament's medalists by year (newest first) and a medal table by country, from data/international_results.json."""
+    data = internationals.load_results()
+    names = data["countries"]
+    out = []
+    for key, t in data["tournaments"].items():
+        table = {}
+        editions = []
+        for year in sorted(t["results"], key=int, reverse=True):
+            r = t["results"][year]
+            editions.append({"year": int(year), **{m: {"code": r[m], "name": names[r[m]]} for m in internationals.MEDALS if m in r}})
+            for m in internationals.MEDALS:
+                if m in r:
+                    row = table.setdefault(internationals.lineage(r[m]), {"country": _lineage_name(r[m], names), "gold": 0, "silver": 0, "bronze": 0})
+                    row[m] += 1
+        medal_table = sorted(table.values(), key=lambda c: (-c["gold"], -c["silver"], -c["bronze"], c["country"]))
+        out.append({"id": key, "label": t["label"], "tier": t["tier"], "has_bronze": any("bronze" in r for r in t["results"].values()),
+                    "editions": editions, "medal_table": medal_table})
+    return {"tournaments": out, "source": data["source"], "built": data["built"]}
+
+
+@app.get("/api/international/leaders")
+@ttl_cached(300)
+def international_leaders(tournament: str | None = None, limit: int = 25):
+    """The most decorated players: medals won across the tournaments (or in one), gold first. Built from the international rows collected by
+    `ingest.py backfill-international`, so `coverage` says how many players have been collected so far."""
+    if tournament is not None and tournament not in internationals.LEAGUES:
+        raise HTTPException(400, "Unknown tournament")
+    limit = max(1, min(limit, 100))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        rows = conn.execute("SELECT player_id, season_id, league, team_name, games, goals, assists, points FROM player_international").fetchall()
+        people = {r["player_id"]: r for r in conn.execute(
+            """SELECT player_id, name, position, 'skater' AS kind, active_season FROM career_skater WHERE game_type = 2
+               UNION ALL SELECT player_id, name, 'G', 'goalie', active_season FROM career_goalie WHERE game_type = 2""")}
+        fetched = conn.execute("SELECT count(*) AS n FROM player_international_fetched").fetchone()["n"]
+    by_player = {}
+    for r in rows:
+        by_player.setdefault(r["player_id"], []).append(r)
+    board = []
+    for pid, prow in by_player.items():
+        if pid not in people:
+            continue
+        apps = [a for a in internationals.appearances(prow) if tournament in (None, a["tournament"])]
+        medals = internationals.medal_counts(apps)
+        if not any(medals.values()):
+            continue
+        p = people[pid]
+        board.append({"player_id": pid, "name": p["name"], "position": p["position"], "kind": p["kind"], "active": p["active_season"] is not None,
+                      **medals, "total": sum(medals.values()), "played": len(apps)})
+    board.sort(key=lambda b: (-b["gold"], -b["silver"], -b["bronze"], -b["played"], b["name"]))
+    return {"tournament": tournament, "players": board[:limit], "medalists": len(board),
+            "coverage": {"fetched": fetched, "total": len(people)}}
+
+
+def _triple_gold_members(conn, with_official=True):
+    """Triple Gold Club members: computed from the collected tournament rows and Stanley Cups, plus (with_official) everyone on the IIHF roll
+    that the NHL's own tournament history leaves out. Returns (members, number of players collected so far, number of players)."""
+    cups = {}
+    for r in conn.execute("SELECT player_id, season_id FROM player_award WHERE trophy = %s", (internationals.CUP,)):
+        cups.setdefault(r["player_id"], []).append(r["season_id"])
+    rows = conn.execute(
+        "SELECT player_id, season_id, league, team_name, games, goals, assists, points FROM player_international WHERE player_id = ANY(%s)",
+        (list(cups),)).fetchall()
+    people = {r["player_id"]: r for r in conn.execute(
+        """SELECT player_id, name, position, 'skater' AS kind, active_season FROM career_skater WHERE game_type = 2
+           UNION ALL SELECT player_id, name, 'G', 'goalie', active_season FROM career_goalie WHERE game_type = 2""")}
+    done = conn.execute("SELECT count(*) AS n FROM player_international_fetched WHERE awards_done").fetchone()["n"]
+    official = internationals.official_club() if with_official else {}
+    by_player = {}
+    for r in rows:
+        by_player.setdefault(r["player_id"], []).append(r)
+    members, seen = [], set()
+    for pid, prow in by_player.items():
+        p = people.get(pid)
+        if not p:
+            continue
+        tg = internationals.triple_gold(internationals.appearances(prow), sorted(cups[pid]), official.get(internationals.name_key(p["name"])))
+        if tg:
+            members.append({"player_id": pid, "name": p["name"], "position": p["position"], "kind": p["kind"],
+                            "active": p["active_season"] is not None, "cups": len(cups[pid]), **tg})
+            seen.add(internationals.name_key(p["name"]))
+    # roll members whose rows are not collected yet (or never will be): matched to a player by name, preferring one with a Cup on record
+    by_name = {}
+    for pid, p in people.items():
+        by_name.setdefault(internationals.name_key(p["name"]), []).append(pid)
+    for key, entry in official.items():
+        if key in seen:
+            continue
+        ids = by_name.get(key, [])
+        pid = next((i for i in ids if i in cups), ids[0] if ids else None)
+        if pid is not None:
+            p = people[pid]
+            members.append({"player_id": pid, "name": p["name"], "position": p["position"], "kind": p["kind"],
+                            "active": p["active_season"] is not None, "cups": len(cups.get(pid, [])) or None, **entry, "source": "official"})
+    members.sort(key=lambda m: (m["completed"], m["name"]))
+    return members, done, len(people)
+
+
+@app.get("/api/international/awards")
+@ttl_cached(3600)
+def international_awards(tournament: str | None = None, limit: int = 15):
+    """The individual awards of the international tournaments (most valuable player and the IIHF directorate awards: best goaltender,
+    defenseman and forward): the winners by year, newest first, and the players with the most. Names are linked to a player page only when
+    exactly one player in our data has that name. See internationals.py and analysis/fetch_international_awards.py for what each tournament
+    covers (`coverage`)."""
+    if tournament is not None and tournament not in internationals.LEAGUES:
+        raise HTTPException(400, "Unknown tournament")
+    data = internationals.load_awards()
+    limit = max(1, min(limit, 50))
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        found = {}
+        for r in conn.execute(
+                """SELECT player_id, name, 'skater' AS kind FROM career_skater WHERE game_type = 2
+                   UNION ALL SELECT player_id, name, 'goalie' FROM career_goalie WHERE game_type = 2"""):
+            found.setdefault(internationals.name_key(r["name"]), []).append(r)
+    link = lambda name: (lambda hits: {"player_id": hits[0]["player_id"], "kind": hits[0]["kind"]} if len(hits) == 1 else {})(found.get(internationals.name_key(name), []))
+
+    out = {}
+    for t in internationals.LEAGUES:
+        if tournament not in (None, t):
+            continue
+        rows = [x for x in data["awards"] if x["tournament"] == t]
+        years = {}
+        counts = {}
+        for x in rows:
+            years.setdefault(x["year"], {})[x["award"]] = {"name": x["name"], "code": x["code"], "country": internationals.country_name(x["code"]), **link(x["name"])}
+            c = counts.setdefault(internationals.name_key(x["name"]), {"name": x["name"], "total": 0, **{k: 0 for k in internationals.AWARD_ORDER}})
+            c[x["award"]] += 1
+            c["total"] += 1
+        leaders = sorted(counts.values(), key=lambda c: (-c["total"], -c["mvp"], c["name"]))[:limit]
+        out[t] = {"awards": [k for k in internationals.AWARD_ORDER if any(k in v for v in years.values())],
+                  "editions": [{"year": y, "awards": years[y]} for y in sorted(years, reverse=True)],
+                  "leaders": [{**c, **link(c["name"])} for c in leaders if c["total"] > 1]}
+    return {"tournaments": out, "coverage": data["coverage"], "source": data["source"], "built": data["built"]}
+
+
+@app.get("/api/international/triple-gold")
+@ttl_cached(300)
+def triple_gold_club():
+    """The Triple Gold Club: players who have won the Stanley Cup, an Olympic gold medal and a World Championship gold medal, with the year
+    of each and the year they completed it. Members are worked out from the tournament rows and awards `ingest.py backfill-international`
+    collects, and the IIHF's own roll fills in members the NHL's tournament history leaves out (`source` says which; `coverage` says how
+    many players are collected so far)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        members, done, total = _triple_gold_members(conn)
+    return {"members": members, "coverage": {"fetched": done, "total": total}}
+
+
+GAME_RECORD_STATS = {"goals", "assists", "points"}
+
+
+@app.get("/api/records/games")
+def game_records(stat: str = "goals", game_type: int = 2, q: str = "", position: str = "", limit: int = 50, offset: int = 0,
+                 export: bool = False):
+    """Single-game scoring records: the games with the most goals, assists or points by one skater (see records.py)."""
+    if stat not in GAME_RECORD_STATS:
+        raise HTTPException(400, f"Can't rank games by {stat}")
+    if game_type not in (2, 3):
+        raise HTTPException(400, "game_type must be 2 (regular season) or 3 (playoffs)")
+    limit, offset = max(1, min(limit, 10000 if export else 200)), max(0, offset)
+    where, params = ["game_type = %(game_type)s", f"{stat} >= 3"], {"game_type": game_type}
+    if q.strip():
+        where.append("name ILIKE %(q)s")
+        params["q"] = f"%{q.strip()}%"
+    if position == "F":
+        where.append("position <> 'D'")
+    elif position:
+        where.append("position = %(position)s")
+        params["position"] = position
+    clause = " AND ".join(where)
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        total = conn.execute(f"SELECT count(*) AS n FROM notable_game WHERE {clause}", params).fetchone()["n"]
+        # Games with the same count share a place (a 5-goal game is a tie for first with every other 5-goal game).
+        rows = conn.execute(
+            f"SELECT *, rank() OVER (ORDER BY {stat} DESC) AS place, "
+            f"(count(*) OVER (PARTITION BY {stat}) > 1) AS tied FROM notable_game WHERE {clause} "
+            f"ORDER BY {stat} DESC, points DESC, game_date LIMIT %(limit)s OFFSET %(offset)s",
+            {**params, "limit": limit, "offset": offset}).fetchall()
+    for r in rows:
+        r["game_date"] = r["game_date"].isoformat()
+    return {"total": total, "offset": offset, "limit": limit, "stat": stat, "rows": rows}
 
 
 @app.get("/api/alltime/{kind}/countries")
@@ -2185,17 +2509,19 @@ def _alltime_ranks(conn, kind, table, player_id):
             if value is None or (min_gp and (row["games_played"] or 0) < min_gp):
                 continue
             op = ">" if higher else "<"
-            better = conn.execute(
-                f"SELECT count(*) AS n FROM {table} WHERE game_type = %s AND {stat} IS NOT NULL "
-                f"AND {stat} {op} %s" + (" AND games_played >= %s" if min_gp else ""),
-                (game_type, value, min_gp) if min_gp else (game_type, value),
-            ).fetchone()["n"]
+            floor = " AND games_played >= %s" if min_gp else ""
+            counts = conn.execute(
+                f"SELECT count(*) FILTER (WHERE {stat} {op} %s) AS better, count(*) FILTER (WHERE {stat} = %s) AS same "
+                f"FROM {table} WHERE game_type = %s AND {stat} IS NOT NULL" + floor,
+                (value, value, game_type, min_gp) if min_gp else (value, value, game_type),
+            ).fetchone()
+            better, same = counts["better"], counts["same"]
             of = conn.execute(
-                f"SELECT count(*) AS n FROM {table} WHERE game_type = %s AND {stat} IS NOT NULL"
-                + (" AND games_played >= %s" if min_gp else ""),
+                f"SELECT count(*) AS n FROM {table} WHERE game_type = %s AND {stat} IS NOT NULL" + floor,
                 (game_type, min_gp) if min_gp else (game_type,),
             ).fetchone()["n"]
-            group[stat] = {"value": value, "rank": better + 1, "of": of}
+            # Players with the same value share a rank, and `tied` says this is one of them (the player counts in `same`).
+            group[stat] = {"value": value, "rank": better + 1, "of": of, "tied": same > 1}
         ranks["regular" if game_type == 2 else "playoffs"] = group
     return ranks
 
@@ -2230,7 +2556,7 @@ def _season_ranks(conn, kind, player_id):
             continue
         pool = [r[stat] for r in rows if r.get(stat) is not None and (not is_rate or r["games_played"] >= floor)]
         better = sum(1 for v in pool if (v > me[stat] if higher else v < me[stat]))
-        out[stat] = {"value": me[stat], "rank": better + 1, "of": len(pool)}
+        out[stat] = {"value": me[stat], "rank": better + 1, "of": len(pool), "tied": sum(1 for v in pool if v == me[stat]) > 1}
     return out, floor
 
 
@@ -2307,6 +2633,7 @@ FROM agg a
 
 
 @app.get("/api/home")
+@ttl_cached(60)
 def home():
     today = datetime.now().date()
     params = {"season": config.SEASON_ID, "window": config.RECENT_WINDOW, "games": config.GAMES_PER_SEASON}
@@ -2431,6 +2758,17 @@ def _milestone_rows(conn, kind):
             WHERE s.season_id = %s AND s.games_played > 0""",
         (config.SEASON_ID,),
     ).fetchall()
+
+
+@app.get("/api/news")
+def news_stories(team: str | None = None, player: int | None = None, top: bool = False, limit: int = 30):
+    """Hockey headlines from public feeds, newest first, with links to the publishers. `team` (abbreviation) and `player` (id) keep only
+    stories that mention them; `top` keeps only the big ones (ESPN's lead stories, trades, injuries, signings and the like)."""
+    if team is not None and not (team := team.strip().upper()).isalpha():
+        raise HTTPException(status_code=400, detail="team must be a team abbreviation")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        news_db.ensure_fresh(conn)
+        return {"stories": news_db.stories(conn, team=team, player=player, top=top, limit=max(1, min(limit, 100)))}
 
 
 @app.get("/api/milestones")
@@ -2680,9 +3018,23 @@ ZONE_SHOT_SQL = """
 """
 
 
-def _goalie_zone_summary(conn, player_id, span="all"):
+_zone_summary_cache = {}  # (player_id, span) -> (sig, goalie row, summary)
+
+
+def _zone_sig(conn, span):
+    """What the zone numbers are built from: it changes when shots are added (each ingested game), and only then."""
+    return (span, conn.execute("SELECT count(*) AS n FROM shot_hist_game WHERE located").fetchone()["n"],
+            conn.execute("SELECT count(*) AS n FROM shot WHERE season_id = %s", (config.SEASON_ID,)).fetchone()["n"])
+
+
+def _goalie_zone_summary(conn, player_id, span="all", sig=None):
     """(goalie row, goaliemap.summarize output) for one goalie, or (None, None) if he is not in the data. The league calibration
-    behind it is cached (see goaliemap.league_calibration)."""
+    behind it is cached (see goaliemap.league_calibration), and so is each goalie's summary until the shot data changes (callers that
+    ask for many goalies pass `sig` from _zone_sig so it is worked out once)."""
+    sig = sig or _zone_sig(conn, span)
+    hit = _zone_summary_cache.get((player_id, span))
+    if hit and hit[0] == sig:
+        return hit[1], hit[2]
     goalie = conn.execute("SELECT name, catches FROM goalie_season WHERE player_id = %s ORDER BY season_id DESC LIMIT 1",
                           (player_id,)).fetchone()
     if goalie is None:
@@ -2692,8 +3044,6 @@ def _goalie_zone_summary(conn, player_id, span="all"):
     only = "WHERE season_id = %(cur)s" if span == "current" else ""
     mine = conn.execute(f"SELECT * FROM ({ZONE_SHOT_SQL}) t {only} {'AND' if only else 'WHERE'} goalie_id = %(p)s",
                         {"p": player_id, "cur": config.SEASON_ID}).fetchall()
-    sig = (span, conn.execute("SELECT count(*) AS n FROM shot_hist_game WHERE located").fetchone()["n"],
-           conn.execute("SELECT count(*) AS n FROM shot WHERE season_id = %s", (config.SEASON_ID,)).fetchone()["n"])
     if _zone_calibration["sig"] != sig:
         catches = {r["player_id"]: r["catches"] for r in conn.execute(
             "SELECT DISTINCT ON (player_id) player_id, catches FROM goalie_season ORDER BY player_id, season_id DESC").fetchall()}
@@ -2704,7 +3054,9 @@ def _goalie_zone_summary(conn, player_id, span="all"):
         _zone_calibration.update(sig=sig, cal=goaliemap.league_calibration(league, 1.0))
     for r in mine:
         r["f"] = factors.get(r["season_id"], 1.0)
-    return goalie, goaliemap.summarize(mine, 1.0, goalie["catches"], _zone_calibration["cal"])
+    summary = goaliemap.summarize(mine, 1.0, goalie["catches"], _zone_calibration["cal"])
+    _zone_summary_cache[(player_id, span)] = (sig, goalie, summary)
+    return goalie, summary
 
 
 @app.get("/api/goalies/{player_id}/zones")
@@ -2839,6 +3191,7 @@ def _clutch_backtest():
 
 # --- Luck and regression --------------------------------------------------------------------------
 @app.get("/api/luck/skaters")
+@ttl_cached(60)
 def luck_skaters(position: str = "", min_attempts: int = luck.MIN_ATTEMPTS, dir: str = "desc", rank: str = "points",
                  vs: str = "own", limit: int = 50):
     """Skaters' goals and points against what their shots (and their teammates' shots while on the ice) predict,
@@ -3082,6 +3435,7 @@ def accuracy_endpoint(request: Request):
 
 # --- Matchup quality ------------------------------------------------------------------------------
 @app.get("/api/matchups/teams")
+@ttl_cached(60)
 def matchup_teams():
     """Every team's offense and defense rating (ratios to the league average, from expected goals) and the matchup
     ratios for skaters and goalies facing it, where above 1 is favorable to the player. See matchups.py."""
@@ -3622,6 +3976,32 @@ def team_schedule(abbrev: str):
         us, them = (r["home_score"], r["away_score"]) if r["home"] == abbrev else (r["away_score"], r["home_score"])
         r["result"] = "W" if us > them else ("L" if r["last_period"] == "REG" else "OTL")
     return {"results": list(reversed(done))[:10], "upcoming": todo[:10]}
+
+
+@app.get("/api/teams/{abbrev}/calendar")
+@ttl_cached(60)
+def team_calendar(abbrev: str):
+    """A team's whole season, every game in date order: opponent, home or away, the result or start time, and back-to-backs (see teamcalendar.py)."""
+    abbrev = abbrev.upper()
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        info = conn.execute("SELECT abbrev, name FROM team_season WHERE season_id = %s AND abbrev = %s", (config.SEASON_ID, abbrev)).fetchone()
+        if not info:
+            raise HTTPException(404, "Team not found")
+        games = conn.execute(
+            """SELECT game_id, game_date, start_time, home, away, home_score, away_score, last_period, state, venue
+               FROM game WHERE season_id = %s AND (home = %s OR away = %s) ORDER BY game_date, game_id""",
+            (config.SEASON_ID, abbrev, abbrev)).fetchall()
+    return {"team": info, "season_id": config.SEASON_ID, **teamcalendar.build(games, abbrev)}
+
+
+@app.get("/api/teams/{abbrev}/calendar.ics")
+def team_calendar_ics(abbrev: str):
+    """The same season as an iCalendar file, to add to a phone or desktop calendar (results are included for games already played)."""
+    cal = team_calendar(abbrev)
+    label = previews.season_label(cal["season_id"])
+    body = teamcalendar.to_ics(cal["team"]["abbrev"], cal["team"]["name"], label, cal["games"], datetime.now(timezone.utc))
+    return Response(content=body, media_type="text/calendar; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{cal["team"]["abbrev"]}-{label}.ics"'})
 
 
 @app.get("/api/teams/{abbrev}/game-log")

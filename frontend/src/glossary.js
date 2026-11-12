@@ -1,6 +1,6 @@
 // Plain-English meaning of the abbreviations used as column headers, shown as a tooltip.
 const TERMS = {
-  Team: 'Team', Pos: 'Position', Age: 'Age', Debut: 'First NHL season',
+  Team: 'Team', Season: 'Season', Pos: 'Position', Age: 'Age', Debut: 'First NHL season',
   GP: 'Games played', G: 'Goals', A: 'Assists', P: 'Points (goals + assists)', 'P/GP': 'Points per game played',
   '+/-': 'Plus/minus: even-strength goals for minus against while on the ice',
   PIM: 'Penalty minutes', PPG: 'Power-play goals', PPP: 'Power-play points', SHG: 'Short-handed goals',
@@ -46,6 +46,17 @@ const TERMS = {
   'Adj G': 'Goals adjusted to the scoring level of the era', 'Adj A': 'Assists adjusted to the scoring level of the era',
   'Adj P': 'Points adjusted to the scoring level of the era', 'Adj P/GP': 'Era-adjusted points per game',
   'First goals': 'Goals that were the first of the game',
+  'G/GP': 'Goals per game played', 'A/GP': 'Assists per game played',
+  'Hat tricks': 'Games with three or more goals', '4-goal games': 'Games with four or more goals', '5-goal games': 'Games with five or more goals',
+  '3-assist games': 'Games with three or more assists', '4-point games': 'Games with four or more points', '5-point games': 'Games with five or more points',
+  Seasons: 'Regular seasons played', '100-pt seasons': 'Regular seasons with 100 or more points', '90-pt': 'Regular seasons with 90 or more points',
+  '80-pt': 'Regular seasons with 80 or more points', '60-pt': 'Regular seasons with 60 or more points',
+  '60-assist': 'Regular seasons with 60 or more assists', '50-assist': 'Regular seasons with 50 or more assists', '40-assist': 'Regular seasons with 40 or more assists',
+  '50-goal seasons': 'Regular seasons with 50 or more goals', '40-goal': 'Regular seasons with 40 or more goals',
+  '30-goal': 'Regular seasons with 30 or more goals', '20-goal': 'Regular seasons with 20 or more goals',
+  'Best season P': 'Most points in one regular season', 'Best season G': 'Most goals in one regular season', 'Best season A': 'Most assists in one regular season',
+  'Rookie season': 'The first season with more than 25 NHL games', 'Rookie GP': 'Games played in the rookie season', 'Rookie G': 'Goals in the rookie season',
+  'Rookie A': 'Assists in the rookie season', 'Rookie P': 'Points in the rookie season', 'Rookie P/GP': 'Points per game in the rookie season',
   // Smaller tables (game logs, standings, luck, fantasy, tracking and so on)
   S: 'Shots on goal', SOG: 'Shots on goal', SV: 'Saves', Dec: 'Decision in the game: win, loss or overtime loss', Start: 'Whether the goalie started the game or came on in relief',
   Pace: 'Point pace: points per game so far, projected over a full season',
@@ -91,6 +102,8 @@ const TERMS = {
   'xGF/G': 'Expected goals for per game', 'xGA/G': 'Expected goals against per game',
   'Expected FP/GP': 'Fantasy points per game we expect going forward, after pulling a short sample toward the player\u2019s record or the average',
 }
+/** Every column label with its meaning, A to Z, for the glossary page. */
+export const TERM_LIST = Object.entries(TERMS).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
 const LAST = /^L(\d+) (.+)$/
 
 /** Tooltip text for a column label, or undefined when we have nothing to say. */

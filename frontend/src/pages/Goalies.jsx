@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import RankBy from '../components/RankBy.jsx'
 import Avatar from '../components/Avatar.jsx'
 import RankBadge from '../components/RankBadge.jsx'
+import { placesFor } from '../rank.js'
 import { Link } from 'react-router-dom'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
@@ -127,6 +128,8 @@ export default function Goalies() {
     })
   }, [rows, search, minGp, sort])
 
+  const places = useMemo(() => placesFor(visible, sort.key), [visible, sort.key])
+
   const onSort = (col) =>
     setSort((s) =>
       s.key === col.key
@@ -208,7 +211,7 @@ export default function Goalies() {
                   <td key={c.key}
                     className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(g) ? 'low ' : '') + (sort.key === c.key ? 'sorted' : '')}>
                     {c.key === 'name' ? (
-                      <span className="player-cell"><RankBadge n={rankIndex + 1} /><Avatar playerId={g.player_id} team={g.team} name={g.name} /><Link to={`/goalie/${g.player_id}`}>{g.name}</Link></span>
+                      <span className="player-cell"><RankBadge n={places[rankIndex].rank} tied={places[rankIndex].tied} /><Avatar playerId={g.player_id} team={g.team} name={g.name} /><Link to={`/goalie/${g.player_id}`}>{g.name}</Link></span>
                     ) : c.key === 'team' && g.team ? (
                       g.team.split(',').map((abbr, i) => (
                         <span key={abbr}>{i > 0 && ','}<Link to={`/team/${abbr}`}>{abbr}</Link></span>

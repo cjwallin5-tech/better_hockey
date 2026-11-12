@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getJson } from '../lists.js'
 import { Link } from 'react-router-dom'
 import PlayoffOdds from '../components/PlayoffOdds.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
@@ -44,7 +45,7 @@ export default function Standings() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/meta').then((r) => r.json()),
+      getJson('/api/meta'),
       fetch('/api/teams').then((r) => {
         if (!r.ok) throw new Error(`API returned ${r.status}`)
         return r.json()

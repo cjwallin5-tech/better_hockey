@@ -1,4 +1,4 @@
-# NHL Stats
+# Faceoff
 
 A hockey stats site with more than the official one: point pace (projected to an **84-game** season),
 hits and defensive stats, possession (Corsi/Fenwick), expected goals, lines, shot maps, goalie
@@ -41,6 +41,38 @@ Things worth knowing:
 - Lineup gaps are *inferred* from games a team played without a player. The NHL doesn't publish injuries
   or transactions, so the UI says "not in the lineup", never "injured".
 - Per-player career data is fetched lazily by the API and cached in Postgres for 24 hours.
+- International medals (`internationals.py`): a player's Olympic, World Championship, World Cup / Canada Cup, 4 Nations and World Junior appearances come from the
+  tournament rows in his NHL landing page, and a medal is worked out by matching his team's country and the year against `data/international_results.json`, which
+  `analysis/fetch_international_results.py` builds from Wikipedia's medal tables (rerun it after a tournament; it stops if a table changes shape or a known edition
+  disagrees, and every parsed cell must be readable). The Awards page's International tab adds the results by year and a most-decorated list, which reads
+  `player_international` and `player_award` (NHL awards, the Stanley Cup included), filled once by `ingest.py backfill-international` (about 8,800 players, two hours; resumable; also a rollover step for new players). The Triple Gold Club
+  (Stanley Cup + Olympic gold + World Championship gold) is computed from those and combined with the IIHF's own roll (fetched into the results file), because the NHL's tournament rows
+  miss some early-1990s medals; `analysis/check_triple_gold.py` compares the two and lists every difference.
+- Individual international awards (`data/international_awards.json`, built by `analysis/fetch_international_awards.py` from Wikipedia): the most valuable player and the IIHF
+  directorate awards (best goaltender, defenseman, forward) of the World Championship (1954-), the Olympics (2002-2018, 2026 in full; 2022 MVP only; 1956-68 via the IIHF list;
+  none exist on Wikipedia for 1972-98), the World Juniors (1977-; 2005's page lists only an MVP) and the Canada Cup, World Cup and 4 Nations (MVP only). Media all-star teams are not
+  included. The script reads each page one request at a time (Wikipedia rate-limits bursts; set `WIKI_CACHE` to a directory to keep pages between runs), parses the three World Junior
+  layouts, checks every hand-entered Olympic name against its page, and stops if an award it knows comes out wrong. A player's awards are matched by name, and count only if he played that
+  tournament that year or was born in the country the award went to (`internationals.honors`).
+- Team calendars (`teamcalendar.py`): every team's Calendar tab shows the whole season as month grids (opponent, home/away, result or start time, back-to-backs)
+  from the `game` table, and `/api/teams/<ABBREV>/calendar.ics` serves the same season as an iCalendar file (start times in UTC, results in the title for finished games).
+- All-time records (`records.py`, `/alltime/skaters`): the skater page has one view menu (Career totals, Career records, Best single seasons) with Scoring (now with goals and assists per game), Hat tricks & big games,
+  Point & assist seasons (100-point, 50-assist and so on), Goal seasons (50-, 40-, 30-, 20-goal), Rookies, and Single game, next to the older
+  special-teams, shooting, hits and era-adjusted tabs. Position, country, active, Hall of Fame and regular season/playoffs filters apply to all of them.
+  Big games come from `notable_game` (every 3+ goal, 3+ assist or 4+ point game since 1917-18, `ingest.py`'s `ingest_notable_games`; the first run is
+  about 220 slow requests, then only the current season is re-read). `ingest_records` writes the per-player counts onto `career_skater`. A rookie
+  season is the first with more than 25 games, for a player under 26 (the NHL's other test is not applied).
+- Best seasons (`bestseasons.py`, served at `/api/best-seasons/...`, shown as the "Best seasons" views in the all-time page's view menu; the old `/best-seasons/...` addresses redirect there) ranks every individual season: skaters back to
+  1917-18 from `career_season` (with era-adjusted scoring from `era.py` and hits/blocks/takeaways/giveaways since 2005-06), goalies from 2005-06 (the
+  only goalie seasons loaded). The season in progress is left out, and per-game and percentage stats only count players with at least half the games
+  of the busiest player that season. The board is built once and cached until the stored seasons change.
+- News (`news.py`, `news_db.py`) is read from public RSS feeds (ESPN, Yahoo Sports, CBS Sports, The Athletic) by the API itself, not the nightly job:
+  the first request after 20 minutes refreshes it in the background. Only the headline, a short excerpt and the publisher's link are kept (30 days).
+  Stories are tagged by matching team and player names (a surname alone only counts when the player's team is in the story) and betting
+  content is dropped. "Top stories" are scored by `news.score_all` (all weights at the top of `news.py`): story type (trade/firing 10, signing/
+  injury/waivers 7), plus other outlets carrying it, stars named, ESPN's lead list, minus recaps, opinion and non-NHL hockey; 8 or more is top.
+  The Top tab shows each story once (its best version) and ranks by score decayed with a 18-hour half-life (`news_db.py`).
+  Feeds are listed in `news.FEEDS`; a feed that breaks is just skipped.
 
 ## Season rollover (each October)
 

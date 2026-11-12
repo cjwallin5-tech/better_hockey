@@ -27,7 +27,7 @@ import config
 log = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/api/share")
 
-SITE = "NHL Stats"
+SITE = "Faceoff"
 ET = ZoneInfo("America/New_York")
 W, H = 1200, 630
 GENERIC = ("Stats for every NHL skater, goalie and team, with advanced numbers, season projections, trophy odds, "
@@ -51,11 +51,15 @@ PAGES = {
     "/skaters": ("Skater stats", "Every NHL skater this season, sortable by points, goals, shots, hits and more, with era-adjusted and advanced views."),
     "/goalies": ("Goalie stats", "Every NHL goalie this season: save percentage, goals against, goals saved above average and recent form."),
     "/standings": ("NHL standings", "Standings by division, conference and wild card, with playoff odds."),
+    "/glossary": ("Glossary", "What every stat means in plain language: Corsi, Fenwick, expected goals, PDO, goalie stats and more."),
     "/alltime/skaters": ("All-time skater leaders", "Career totals for every skater in NHL history, with era-adjusted scoring and Hall of Fame filters."),
+    "/best-seasons/skaters": ("Best skater seasons ever", "The best single seasons in NHL history by goals, assists, points, era-adjusted scoring and more."),
+    "/best-seasons/goalies": ("Best goalie seasons ever", "The best single goalie seasons since 2005-06 by wins, save percentage, GAA and more."),
     "/alltime/goalies": ("All-time goalie leaders", "Career totals for every goalie in NHL history."),
     "/compare": ("Compare players", "Put NHL players side by side: season and career stats, era-adjusted charts and head-to-head history."),
     "/projections": ("Season projections", "Where each skater's and goalie's points, goals, wins and saves are headed, with ranges."),
     "/prospects": ("NHL prospects", "Every team's prospects with junior, college and European stats, translated to NHL scoring (NHLe)."),
+    "/news": ("NHL news", "Headlines from across the league, tagged by team and player, with the big stories first."),
     "/tonight": ("Tonight's games", "Today's NHL games with win chances, probable goalies and who is hot."),
     "/awards": ("NHL award races", "Hart, Vezina, Norris and more: the race and the odds."),
     "/lottery": ("NHL draft lottery odds", "Lottery odds and lottery-position simulations for every non-playoff team."),
@@ -108,7 +112,7 @@ def _meta(title, description, *, headline=None, subline=None, accent=DEFAULT_ACC
 
 
 def default_meta():
-    return _meta(SITE, GENERIC, headline="NHL Stats", subline="Every skater, goalie and team", badge="NHL")
+    return _meta(SITE, GENERIC, headline="Faceoff", subline="Every skater, goalie and team", badge="NHL")
 
 
 # --- Which page is this? -------------------------------------------------------------------------------
@@ -444,7 +448,7 @@ def render_card(meta, photo_bytes=None):
     accent = meta["accent"]
     d.rectangle([0, 0, 20, H], fill=accent)
     # brand mark: the site's red and blue underline
-    d.text((72, 48), "NHL STATS", font=_font(28), fill=MUTED)
+    d.text((72, 48), "FACEOFF", font=_font(28), fill=MUTED)
     d.rectangle([72, 90, 120, 94], fill="#ef4444")
     d.rectangle([122, 90, 170, 94], fill="#38bdf8")
 

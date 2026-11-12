@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import RankBy from '../components/RankBy.jsx'
-import PkTag from '../components/PkTag.jsx'
 import Avatar from '../components/Avatar.jsx'
 import RankBadge from '../components/RankBadge.jsx'
+import { placesFor } from '../rank.js'
 import { Link } from 'react-router-dom'
 import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
 import SavedViews from '../components/SavedViews.jsx'
+import PossessionGuide from '../components/PossessionGuide.jsx'
+import FilterPanel from '../components/FilterPanel.jsx'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
 import { seasonLabel } from '../career.js'
@@ -23,7 +25,7 @@ const VIEWS = [
     id: 'possession',
     label: 'Possession',
     defaultSort: 'sat_pct',
-    note: 'Shot-attempt stats are 5-on-5. CF/CA = Corsi (all attempts) for/against while on the ice; FF/FA = Fenwick (excludes blocked). Rel = team shot share with the player on minus off the ice. ixG is our own expected-goals model (individual, all strengths); xGF% is the 5v5 share of expected goals while on the ice. L10 columns are computed per game from play-by-play and shift charts over each player\'s last 10 games with shift data; the NHL has published no shift data for some early-season games, so those are skipped (dimmed until a player has 10 usable games).',
+    note: 'Shot-attempt stats are 5-on-5. L10 columns are computed per game from play-by-play and shift charts over each player\'s last 10 games with shift data; the NHL has published no shift data for some early-season games, so those are skipped (dimmed until a player has 10 usable games).',
   },
   {
     id: 'special',
@@ -83,7 +85,7 @@ export default function Leaderboard() {
   ])
 
   useEffect(() => {
-    fetch('/api/meta').then((r) => r.json()).then(setMeta).catch((e) => setError(e.message))
+    getJson('/api/meta').then(setMeta).catch((e) => setError(e.message))
   }, [])
 
   useEffect(() => {
@@ -112,12 +114,6 @@ export default function Leaderboard() {
     () => [...new Set((rows ?? []).map((r) => r.birth_country).filter(Boolean))].sort(),
     [rows],
   )
-  const filtersActive =
-    team !== 'ALL' || country !== 'ALL' || ageMin !== '' || ageMax !== '' || rookiesOnly || position !== 'ALL'
-  const clearFilters = () => {
-    setTeam('ALL'); setCountry('ALL'); setAgeMin(''); setAgeMax(''); setRookiesOnly(false); setPosition('ALL')
-  }
-
   const columns = useMemo(() => {
     const games = meta?.games_per_season ?? 84
     const window = meta?.recent_window ?? 10
@@ -240,6 +236,8 @@ export default function Leaderboard() {
     })
   }, [rows, search, position, minGp, sort, team, country, ageMin, ageMax, rookiesOnly])
 
+  const places = useMemo(() => placesFor(visible, sort.key), [visible, sort.key])
+
   const onSort = (col) =>
     setSort((s) =>
       s.key === col.key
@@ -286,6 +284,7 @@ export default function Leaderboard() {
           </button>
         ))}
       </div>
+      {viewId === 'possession' && <PossessionGuide />}
       {view.note && <p className="view-note">{view.note}</p>}
 
       <RankBy
@@ -294,60 +293,52 @@ export default function Leaderboard() {
         onPick={(key) => onSort(columns.find((c) => c.key === key))}
       />
 
-      <div className="controls">
-        <input
-          type="search"
-          placeholder="Search player or team"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select value={position} onChange={(e) => setPosition(e.target.value)}>
-          <option value="ALL">All positions</option>
-          <option value="F">Forwards</option>
-          <option value="C">Centers</option>
-          <option value="L">Left wings</option>
-          <option value="R">Right wings</option>
-          <option value="D">Defense</option>
-        </select>
-        <select value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Team">
-          <option value="ALL">All teams</option>
-          {teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Country">
-          <option value="ALL">All countries</option>
-          {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <label>
-          Age
-          <input type="number" min="16" max="50" placeholder="min" value={ageMin}
-            onChange={(e) => setAgeMin(e.target.value)} />
-          –
-          <input type="number" min="16" max="50" placeholder="max" value={ageMax}
-            onChange={(e) => setAgeMax(e.target.value)} />
-        </label>
-        <label className="inline-check">
-          <input type="checkbox" checked={rookiesOnly} onChange={(e) => setRookiesOnly(e.target.checked)} />
-          Rookies
-        </label>
-        <label>
-          Min GP
-          <input
-            type="number"
-            min="1"
-            value={minGp}
-            onChange={(e) => setMinGpInput(Math.max(1, Number(e.target.value) || 1))}
-          />
-        </label>
-        {filtersActive && <button className="link-button" onClick={clearFilters}>Clear filters</button>}
-        <button
-          className="link-button"
-          onClick={() => downloadText('skaters.csv', toCsv(columns, visible))}
-          title="Download the rows shown, with raw (unformatted) values"
-        >
-          Download CSV
-        </button>
-        <span className="count">{visible.length} players</span>
-      </div>
+      <FilterPanel
+        count={(position !== 'ALL' ? 1 : 0) + (country !== 'ALL' ? 1 : 0) + (ageMin !== '' || ageMax !== '' ? 1 : 0) + (rookiesOnly ? 1 : 0) + (minGpInput != null ? 1 : 0)}
+        onClear={() => { setPosition('ALL'); setCountry('ALL'); setAgeMin(''); setAgeMax(''); setRookiesOnly(false); setMinGpInput(null) }}
+        main={<>
+          <input type="search" placeholder="Search player or team" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <select value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Team">
+            <option value="ALL">All teams</option>
+            {teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </>}
+        extra={<>
+          <select value={position} onChange={(e) => setPosition(e.target.value)}>
+            <option value="ALL">All positions</option>
+            <option value="F">Forwards</option>
+            <option value="C">Centers</option>
+            <option value="L">Left wings</option>
+            <option value="R">Right wings</option>
+            <option value="D">Defense</option>
+          </select>
+          <select value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Country">
+            <option value="ALL">All countries</option>
+            {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <label>
+            Age
+            <input type="number" min="16" max="50" placeholder="min" value={ageMin} onChange={(e) => setAgeMin(e.target.value)} />
+            –
+            <input type="number" min="16" max="50" placeholder="max" value={ageMax} onChange={(e) => setAgeMax(e.target.value)} />
+          </label>
+          <label className="inline-check">
+            <input type="checkbox" checked={rookiesOnly} onChange={(e) => setRookiesOnly(e.target.checked)} />
+            Rookies
+          </label>
+          <label>
+            Min GP
+            <input type="number" min="1" value={minGp} onChange={(e) => setMinGpInput(Math.max(1, Number(e.target.value) || 1))} />
+          </label>
+        </>}
+        tail={<>
+          {team !== 'ALL' && <button className="link-button" onClick={() => setTeam('ALL')}>Clear team</button>}
+          <button className="link-button" onClick={() => downloadText('skaters.csv', toCsv(columns, visible))} title="Download the rows shown, with raw (unformatted) values">
+            Download CSV
+          </button>
+          <span className="count">{visible.length} players</span>
+        </>}
+      />
 
       <div className="table-wrap">
         <table>
@@ -380,10 +371,9 @@ export default function Leaderboard() {
                   >
                     {c.key === 'name' ? (
                       <span className="player-cell">
-                        <RankBadge n={rankIndex + 1} />
+                        <RankBadge n={places[rankIndex].rank} tied={places[rankIndex].tied} />
                         <Avatar playerId={r.player_id} team={r.team} name={r.name} />
                         <Link to={`/player/${r.player_id}`}>{r.name}</Link>
-                        {viewId === 'defense' && <PkTag p={r} />}
                         {r.traded && <span className="badge" title="Played for more than one team this season">↔ traded</span>}
                         {r.games_out >= 2 && (
                           <span className="badge warn" title={`Not in the lineup for the team's last ${r.games_out} games (the NHL feed doesn't say why)`}>

@@ -24,7 +24,7 @@ test('every static column label on the leaderboards has a tooltip', () => {
   for (const f of ['pages/Leaderboard.jsx', 'pages/Goalies.jsx', 'pages/AllTime.jsx']) {
     const src = readFileSync(new URL(f, import.meta.url), 'utf8')
     for (const [, label] of src.matchAll(/label: '([^']+)'/g)) {
-      if (!describe(label) && !['Player', 'Goalie', 'Scoring', 'Defense', 'Possession', 'Special teams & usage', 'Overview', 'Strength splits', 'Hits & giveaways', 'Shooting', 'Era-adjusted', 'Special teams & goals', 'Record', 'Country', 'Debut season'].includes(label)) missing.push(`${f}: ${label}`)
+      if (!describe(label) && !['Player', 'Goalie', 'Scoring', 'Defense', 'Possession', 'Special teams & usage', 'Overview', 'Strength splits', 'Hits & giveaways', 'Shooting', 'Era-adjusted', 'Special teams & goals', 'Record', 'Country', 'Debut season', 'Hat tricks & big games', 'Point & assist seasons', 'Goal seasons', 'Rookies', 'Single game', 'Best seasons: Scoring', 'Best seasons: Era-adjusted', 'Best seasons: Hits & giveaways', 'Best seasons: Record', 'Best seasons: Saves'].includes(label)) missing.push(`${f}: ${label}`)
     }
   }
   assert.deepEqual(missing, [])

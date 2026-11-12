@@ -141,7 +141,10 @@ export default function Tonight() {
       .then((data) => !ignore && setState({ key, data, error: null }))
       .catch((error) => !ignore && setState({ key, data: null, error: error.message }))
     return () => { ignore = true }
-  }, [key, date, ids, teams])
+    // `key` already holds the date, ids and teams: depending on the arrays themselves refetched whenever the watchlist finished loading
+    // and rebuilt them with the same contents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
 
   const { data, error } = state.key === key ? state : { data: null, error: null }
   const games = useMemo(() => {

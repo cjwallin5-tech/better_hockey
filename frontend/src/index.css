@@ -1195,6 +1195,7 @@ main > header:not(.player-banner) > h1::after {
 
 /* Leaderboards: a place in the list, with medals for the top three */
 .rank-badge { flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; color: var(--muted); font-family: var(--num); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rank-badge.tied { letter-spacing: -.02em; }
 .rank-badge.medal { border-radius: 50%; color: #1a1306; font-weight: 800; }
 .rank-badge.m1 { background: linear-gradient(135deg, #ffe08a, #e0a526); box-shadow: 0 0 0 2px color-mix(in srgb, #e0a526 40%, transparent); }
 .rank-badge.m2 { background: linear-gradient(135deg, #f1f4f8, #aab4c3); box-shadow: 0 0 0 2px color-mix(in srgb, #aab4c3 40%, transparent); }
@@ -1298,3 +1299,125 @@ td.sorted { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 /* A bare input inside a table cell stays compact, so it doesn't make its row taller than the others. */
 td input:not([class]):not([type=checkbox]):not([type=radio]) { padding: 5px 8px; }
 
+
+/* News lists */
+.news-list { list-style: none; margin: 0; padding: 0; }
+.news-item { padding: 14px 0; border-top: 1px solid var(--line); }
+.news-item:first-child { border-top: 0; padding-top: 0; }
+.news-title { font-weight: 600; font-size: 16px; line-height: 1.35; color: var(--text); text-decoration: none; }
+.news-title:hover { color: var(--accent); text-decoration: underline; }
+.news-summary { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.news-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.news-source { font-weight: 600; }
+.news-tag { padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); text-decoration: none; }
+.news-tag:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.news-note { margin: 18px 0 0; color: var(--muted); font-size: 12px; }
+
+/* Team season calendar */
+.cal-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 0 0 14px; }
+.cal-legend { color: var(--muted); font-size: 12px; }
+.cal-months { margin-bottom: 14px; }
+.cal-month { margin: 0 0 18px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
+.cal-month h3 { display: flex; align-items: baseline; gap: 12px; margin: 0; font-size: 20px; color: var(--text); }
+.cal-step { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); font-size: 22px; line-height: 1; cursor: pointer; }
+.cal-step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.cal-step:disabled { opacity: .35; cursor: default; }
+.cal-month h3 small { color: var(--muted); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.cal { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 4px; }
+.cal th { padding: 2px 0 4px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-align: center; text-transform: uppercase; }
+.cal td { position: relative; height: 92px; padding: 6px 8px; text-align: left; vertical-align: top; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+.cal td.cal-blank { border-color: transparent; background: transparent; }
+.cal td.today { outline: 2px solid var(--accent); outline-offset: -1px; }
+.cal td.home { border-color: color-mix(in srgb, var(--text) 38%, var(--line)); }
+.cal td.w { background: color-mix(in srgb, var(--accent) 14%, var(--card)); }
+.cal td.otl { background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+.cal td.live { background: color-mix(in srgb, var(--accent) 22%, var(--card)); }
+.cal-date { display: block; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.cal-game .logo { width: 26px; height: 26px; margin: 1px 0; }
+.cal-game, .card a.cal-game { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; color: var(--text); text-decoration: none; }
+.cal-game:hover .cal-vs { color: var(--accent); }
+.cal-vs { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.cal-res { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cal td.w .cal-res, .cal td.live .cal-res { color: var(--accent); font-weight: 700; }
+.cal td.l .logo { opacity: .6; }
+.cal-b2b { position: absolute; top: 5px; right: 6px; padding: 0 5px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .05em; }
+@media (max-width: 700px) {
+  .cal { border-spacing: 2px; }
+  .cal td { height: 66px; padding: 3px 4px; }
+  .cal-game .logo { width: 22px; height: 22px; }
+  .cal-vs { display: none; }
+  .cal-res { font-size: 10px; line-height: 1.15; white-space: normal; }
+  .cal-b2b { top: 3px; right: 3px; padding: 0 3px; font-size: 8px; }
+  .cal-month h3 { font-size: 17px; }
+}
+.news-list.cols .news-item { border-top: 0; border-bottom: 1px solid var(--line); padding: 14px 0; break-inside: avoid; }
+@media (min-width: 900px) { .news-list.cols { column-count: 2; column-gap: 48px; } }
+
+/* International medals */
+.medal-dot { display: inline-block; width: 13px; height: 13px; border-radius: 50%; vertical-align: -2px; }
+.medal-dot.gold { background: linear-gradient(135deg, #ffe08a, #e0a526); box-shadow: 0 0 0 1px color-mix(in srgb, #e0a526 55%, transparent); }
+.medal-dot.silver { background: linear-gradient(135deg, #f1f4f8, #aab4c3); box-shadow: 0 0 0 1px color-mix(in srgb, #aab4c3 60%, transparent); }
+.medal-dot.bronze { background: linear-gradient(135deg, #f0b27a, #b9692f); box-shadow: 0 0 0 1px color-mix(in srgb, #b9692f 55%, transparent); }
+.intl-count { display: inline-flex; align-items: center; gap: 5px; margin-right: 14px; font-weight: 600; color: var(--text); }
+.intl-result { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.intl-table tr.minor td { color: var(--muted); }
+.intl-table tr.minor td .intl-result { color: var(--text); }
+.intl-club { margin: 0 0 12px; font-size: 14px; }
+.intl-club .badge { margin: 0 6px 0 0; }
+.intl-honors { margin: 0 0 14px; }
+.intl-honors h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.intl-honors ul { margin: 0; padding: 0; list-style: none; }
+.intl-honors li { padding: 3px 0; font-size: 14px; }
+.intl-honor-year { display: inline-block; min-width: 42px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Filters: the everyday ones in the row, the rest behind a button */
+.filters-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
+.filters-toggle:hover, .filters-toggle.open { border-color: color-mix(in srgb, var(--text) 30%, var(--line)); }
+.filters-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--bg); font-size: 11px; font-weight: 700; }
+.filter-panel { margin-top: -6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+
+/* The view dropdown that replaces the row of stat tabs */
+.view-menu { margin-bottom: 14px; }
+.view-menu select { min-width: 280px; font-weight: 600; }
+
+/* A collapsed explainer (possession stats) */
+.guide { margin: 0 0 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.guide > summary { padding: 12px 16px; cursor: pointer; font-weight: 600; list-style: none; }
+.guide > summary::-webkit-details-marker { display: none; }
+.guide > summary::before { content: '▸'; display: inline-block; width: 1.1em; color: var(--accent); }
+.guide[open] > summary::before { content: '▾'; }
+.guide-body { padding: 0 16px 16px; color: var(--muted); font-size: 14px; line-height: 1.55; max-width: 860px; }
+.guide-body p { margin: 0 0 12px; }
+.guide-body strong { color: var(--text); }
+.guide-body em { display: block; margin-top: 4px; color: var(--text); font-style: normal; }
+.guide-body dl { display: grid; gap: 12px; margin: 0 0 12px; }
+.guide-body dt { color: var(--text); font-weight: 600; }
+.guide-body dd { margin: 2px 0 0; }
+.guide-foot { padding-top: 4px; border-top: 1px solid var(--line); }
+
+/* Glossary page */
+.glossary-jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; }
+.glossary-jump a { padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); font-size: 14px; text-decoration: none; }
+.glossary-jump a:hover { border-color: color-mix(in srgb, var(--text) 30%, var(--line)); }
+.glossary-group { margin: 0 0 36px; scroll-margin-top: 72px; }
+.glossary-group h2 { margin: 0 0 6px; }
+.glossary-intro { max-width: 760px; margin: 0 0 16px; color: var(--muted); }
+.glossary dl { display: grid; gap: 14px; margin: 0; max-width: 860px; }
+.glossary-term { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); scroll-margin-top: 72px; }
+.glossary-term:target { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.glossary-term dt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-weight: 600; }
+.glossary-anchor { color: var(--text); text-decoration: none; }
+.glossary-anchor:hover { color: var(--accent); }
+.glossary-abbr { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: .04em; }
+.glossary-term dd { margin: 6px 0 0; color: var(--muted); }
+.glossary-term dd p { margin: 0 0 6px; }
+.glossary-read { color: var(--text); }
+.guide-body dt a { color: var(--text); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.guide-body dt a:hover { color: var(--accent); }
+
+/* The popover that explains a stat label when you hover a table header */
+.term-pop { position: fixed; z-index: 40; max-width: calc(100vw - 16px); padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: 0 10px 30px rgb(16 24 40 / .22); font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none; text-align: left; line-height: 1.45; }
+.term-pop strong { display: block; margin-bottom: 4px; color: var(--text); font-size: 14px; }
+.term-pop p { margin: 0 0 8px; color: var(--muted); }
+.term-pop a { color: var(--accent); font-weight: 600; }

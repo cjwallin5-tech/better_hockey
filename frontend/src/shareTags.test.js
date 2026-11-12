@@ -2,11 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { isPage, withTags } from './shareTags.js'
 
-const html = '<head><title>NHL Stats</title><meta charset="utf-8" /></head>'
+const html = '<head><title>Faceoff</title><meta charset="utf-8" /></head>'
 
 test('the title is replaced by the tags, which bring their own title', () => {
-  const out = withTags(html, '<title>Connor McDavid · NHL Stats</title>\n<meta property="og:title" content="x" />')
-  assert.ok(out.includes('<title>Connor McDavid · NHL Stats</title>'))
+  const out = withTags(html, '<title>Connor McDavid · Faceoff</title>\n<meta property="og:title" content="x" />')
+  assert.ok(out.includes('<title>Connor McDavid · Faceoff</title>'))
   assert.ok(out.includes('og:title'))
   assert.ok(out.includes('<meta charset="utf-8" />'))
   assert.equal(out.match(/<title>/g).length, 1)
@@ -18,7 +18,7 @@ test('no tags leaves the page exactly as it was', () => {
 })
 
 test('dollar signs in the tags are not treated as replacement patterns', () => {
-  const out = withTags(html, "<title>Costs $& and $1 · NHL Stats</title>")
+  const out = withTags(html, "<title>Costs $& and $1 · Faceoff</title>")
   assert.ok(out.includes('Costs $& and $1'))
 })
 

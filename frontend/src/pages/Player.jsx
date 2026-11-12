@@ -3,6 +3,7 @@ import PenaltyKill from '../components/PenaltyKill.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
+import PlayerNews from '../components/PlayerNews.jsx'
 import Career from '../components/Career.jsx'
 import Trophies from '../components/Trophies.jsx'
 import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
@@ -26,7 +27,9 @@ import { RolePanel } from '../components/Roles.jsx'
 import { CorsiChart, DefenseBars, GameBars, PaceChart } from '../components/Charts.jsx'
 import PlayerBanner from '../components/PlayerBanner.jsx'
 import Awards from '../components/Awards.jsx'
+import InternationalMedals from '../components/InternationalMedals.jsx'
 import { describe } from '../glossary.js'
+import PossessionGuide from '../components/PossessionGuide.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
@@ -125,6 +128,7 @@ export default function Player() {
                 </div>
                 <Career playerId={p.player_id} />
                 <Awards playerId={p.player_id} />
+                <InternationalMedals playerId={p.player_id} />
                 <Rankings playerId={p.player_id} kind="skater" />
                 <Comparables playerId={p.player_id} />
               </>
@@ -256,6 +260,7 @@ export default function Player() {
 
               <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
 
+              <PossessionGuide />
               <div className="charts">
                 <PaceChart
                   games={[...games].reverse()}
@@ -269,6 +274,7 @@ export default function Player() {
               </>
             ),
           },
+          { id: 'news', label: 'News', content: <PlayerNews playerId={p.player_id} name={p.name} team={p.team} /> },
         ]}
       />
     </main>

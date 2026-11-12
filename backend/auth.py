@@ -329,7 +329,7 @@ def put_favorite_team(body: FavoriteIn, request: Request):
 # --- Saved leaderboard views --------------------------------------------------------------------
 # A view is a page plus the filter/sort query string that page keeps in its URL. Only these pages can
 # be saved, and the query is re-encoded from parsed pairs so nothing but simple filter values is kept.
-VIEW_PATHS = {"/skaters", "/goalies", "/alltime", "/alltime/skaters", "/alltime/goalies"}
+VIEW_PATHS = {"/skaters", "/goalies", "/alltime", "/alltime/skaters", "/alltime/goalies", "/best-seasons/skaters", "/best-seasons/goalies"}
 MAX_VIEWS = 30
 MAX_QUERY_PAIRS, MAX_KEY, MAX_VALUE = 20, 30, 100
 
@@ -510,14 +510,14 @@ def _reset_throttled(*keys: str) -> bool:
 
 def _send_reset_email(email: str, link: str):
     body = (
-        f"Someone asked to reset the password for this NHL Stats account.\n\n"
+        f"Someone asked to reset the password for this Faceoff account.\n\n"
         f"Reset it here (the link works once and expires in {RESET_MINUTES} minutes):\n{link}\n\n"
         "If that wasn't you, ignore this email; your password hasn't changed."
     )
     if not config.SMTP_HOST:
         log.warning("SMTP_HOST is not set, so no email was sent. Reset link for %s: %s", email, link)
         return
-    if not mail.send_with_retry(email, "Reset your NHL Stats password", body, attempts=RESET_SEND_ATTEMPTS):
+    if not mail.send_with_retry(email, "Reset your Faceoff password", body, attempts=RESET_SEND_ATTEMPTS):
         log.error("Couldn't send a password reset email to %s after %d tries", email, RESET_SEND_ATTEMPTS)
 
 
