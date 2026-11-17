@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
-const MENU_WIDTH = 540
+const MENU_WIDTH = 380
 
 /** A "More" dropdown for the less-used pages, in labelled columns so it stays scannable. groups: [{ title, items: [[path, label]] }] */
 export default function NavMore({ groups }) {

@@ -29,7 +29,7 @@ export default function TradePartners({ league, roster, values, info, slots, isC
     return (
       <section>
         <h2>Trade partners</h2>
-        <p className="status">This looks for trades that help both you and another team in your league, so it needs their rosters. <Link to="/leagues">Start or join a league</Link> and pick it on this page.</p>
+        <p className="status">This looks for trades that help both you and another team in your league, so it needs their rosters. <Link to="/fantasy?section=leagues">Start or join a league</Link> and pick it on this page.</p>
       </section>
     )
   }

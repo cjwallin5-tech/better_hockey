@@ -95,7 +95,7 @@ export default function League() {
     }
   }
 
-  const back = <BackLink to="/leagues" />
+  const back = <BackLink to="/fantasy?section=leagues" />
   if (!signedIn) return <main>{back}<p className="status"><Link to="/account">Log in</Link> to see your leagues.</p></main>
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>

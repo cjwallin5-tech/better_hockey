@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PageShell from '../components/PageShell.jsx'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 
 const day = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
-export default function Milestones() {
+export default function Milestones({ embedded = false }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [kind, setKind] = useState('skater')
@@ -44,16 +45,16 @@ export default function Milestones() {
     return data.reached.filter((m) => m.kind === kind && (stat === 'all' || m.stat === stat) && (!majorOnly || m.major))
   }, [data, kind, stat, majorOnly])
 
-  if (error) return <main><p className="status">Couldn't load milestones: {error}</p></main>
-  if (!data) return <main><PageSkeleton /></main>
+  if (error) return <PageShell embedded={embedded}><p className="status">Couldn't load milestones: {error}</p></PageShell>
+  if (!data) return <PageShell embedded={embedded}><PageSkeleton /></PageShell>
 
   const route = kind === 'goalie' ? 'goalie' : 'player'
   const switchKind = (k) => { setKind(k); setStat('all') }
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Milestone watch</h1>
+        {!embedded && <h1>Milestone watch</h1>}
         <p>
           Active players closing in on career milestones. "Games" are the player's own
           appearances at their current rate: this season's pace once they have 20 GP, otherwise
@@ -127,6 +128,6 @@ export default function Milestones() {
           </tbody>
         </table>
       </div>
-    </main>
+    </PageShell>
   )
 }

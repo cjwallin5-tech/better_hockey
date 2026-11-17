@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import PageShell from '../components/PageShell.jsx'
 import { createLeague, joinLeague, setActive, useLeagues } from '../leagues.js'
 import { useLeague, useScoring } from '../fantasy.js'
 import { cleanLeague } from '../value.js'
@@ -7,7 +8,7 @@ import { Skeleton } from '../components/Skeleton.jsx'
 import SignInPrompt from '../components/SignInPrompt.jsx'
 
 /** Your leagues, with forms to start one or join one by invite code. */
-export default function Leagues() {
+export default function Leagues({ embedded = false }) {
   const { signedIn, status, leagues, activeId, error } = useLeagues()
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -48,8 +49,8 @@ export default function Leagues() {
 
   if (!signedIn) {
     return (
-      <main>
-        <header><h1>Leagues</h1><p>Share rosters with the friends in your fantasy league so the site knows who is actually available.</p></header>
+      <PageShell embedded={embedded}>
+        <header>{!embedded && <h1>Leagues</h1>}<p>Share rosters with the friends in your fantasy league so the site knows who is actually available.</p></header>
         <SignInPrompt lead={params.get('join') ? 'You were invited to a league. Log in or create an account, then come back to this same invite link to join it.' : 'Leagues are shared by invite code, so everyone needs an account.'}>
           <ol className="start-steps">
             <li><strong>Start a league</strong> and share its invite code with your league mates.</li>
@@ -57,14 +58,14 @@ export default function Leagues() {
             <li><strong>Set it active</strong> on the Fantasy page, and the waiver wire shows who is really available.</li>
           </ol>
         </SignInPrompt>
-      </main>
+      </PageShell>
     )
   }
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Leagues</h1>
+        {!embedded && <h1>Leagues</h1>}
         <p>
           A league shares each member's roster for it with the others in it, and you can hold a different roster in each league. With one set as your active league, the waiver wire shows
           who is really available and the matchup projector can load a league-mate's team. Only league members can see rosters, and only
@@ -124,6 +125,6 @@ export default function Leagues() {
         </form>
         <p className="muted">You get an invite link to send to the others. You can add teams yourself for friends who don't use the site.</p>
       </section>
-    </main>
+    </PageShell>
   )
 }

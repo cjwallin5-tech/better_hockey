@@ -32,9 +32,11 @@ export default function PlayerBio({ playerId }) {
         <p className="bio-line muted">
           Born {new Date(`${bio.birth_date}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
           {' '}(age {age(bio.birth_date)}) in {[bio.birth_city, bio.birth_state, bio.birth_country].filter(Boolean).join(', ')}
-          {bio.draft ? ` · Drafted ${bio.draft.year}, round ${bio.draft.round} (#${bio.draft.overall} overall) by ${bio.draft.team}` : ' · Undrafted'}
         </p>
       )}
+      <p className="bio-line muted">
+        {bio.draft ? `Drafted ${bio.draft.year}, round ${bio.draft.round} (#${bio.draft.overall} overall) by ${bio.draft.team}` : 'Undrafted'}
+      </p>
     </div>
   )
 }

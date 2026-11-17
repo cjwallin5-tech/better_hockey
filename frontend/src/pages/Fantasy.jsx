@@ -10,6 +10,7 @@ import DraftHelper from '../components/DraftHelper.jsx'
 import MockDraft from '../components/MockDraft.jsx'
 import PlayoffPlanner from '../components/PlayoffPlanner.jsx'
 import { useAuth } from '../auth.js'
+import PageShell from '../components/PageShell.jsx'
 import { refresh as refreshLeagues, setActive as setActiveLeague, startLeagueRoster, takenByOthers, useLeagues } from '../leagues.js'
 import { useRoster } from '../roster.js'
 import { markOwners } from '../searchOwners.js'
@@ -192,7 +193,7 @@ function StartRoster({ leagueName, personalCount }) {
   )
 }
 
-function FantasyPage() {
+function FantasyPage({ embedded = false }) {
   const { list, togglePlayer, replacePlayers, source, personalCount } = useRoster()
   const [params, setParams] = useSearchParams()
   const { user, sync } = useAuth()
@@ -263,9 +264,9 @@ function FantasyPage() {
   const goalieTotals = goalieRows.map((r) => r.row).filter(Boolean)
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Your fantasy team</h1>
+        {!embedded && <h1>Your fantasy team</h1>}
         <p>
           Track your fantasy players under your league's scoring.{' '}
           {source.kind === 'league'
@@ -313,9 +314,9 @@ function FantasyPage() {
                 {leagues.leagues.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>{' '}
               {leagues.active ? <>Other teams' rosters make the waiver wire exact. <Link to={`/league/${leagues.active.id}`}>Open league</Link>.</> : null}{' '}
-              <Link to="/leagues">All leagues</Link>
+              <Link to="/fantasy?section=leagues">All leagues</Link>
             </>
-          ) : <>Playing in a league with friends? <Link to="/leagues">Start or join one</Link> so the waiver wire knows who is available.</>}
+          ) : <>Playing in a league with friends? <Link to="/fantasy?section=leagues">Start or join one</Link> so the waiver wire knows who is available.</>}
         </p>
       )}
 
@@ -542,21 +543,21 @@ function FantasyPage() {
           },
         ]}
       />
-    </main>
+    </PageShell>
   )
 }
 
 /** Fantasy is an account feature: signed out, this page asks you to log in (a signed-in roster is saved to the account and synced). */
-export default function Fantasy() {
+export default function Fantasy({ embedded = false }) {
   const { user, ready } = useAuth()
-  if (!ready) return <main><Skeleton /></main>
+  if (!ready) return <PageShell embedded={embedded}><Skeleton /></PageShell>
   if (!user) {
     return (
-      <main>
-        <header><h1>Your fantasy team</h1><p>Track your fantasy players under your league's scoring.</p></header>
+      <PageShell embedded={embedded}>
+        <header>{!embedded && <h1>Your fantasy team</h1>}<p>Track your fantasy players under your league's scoring.</p></header>
         <SignInPrompt lead="Your roster, lineup optimizer, waiver wire, draft helper and matchup tools are saved to a free account, so they follow you to any device and power your daily email." />
-      </main>
+      </PageShell>
     )
   }
-  return <FantasyPage />
+  return <FantasyPage embedded={embedded} />
 }

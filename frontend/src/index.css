@@ -1025,7 +1025,7 @@ main { position: relative; isolation: isolate; }
 }
 
 /* Grouped "More" menu: labelled columns on wide screens */
-.nav-more-menu.grouped { grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 4px 12px; width: 540px; max-width: calc(100vw - 16px); padding: 14px; }
+.nav-more-menu.grouped { grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 4px 12px; width: 380px; max-width: calc(100vw - 16px); padding: 14px; }
 .nav-group { display: grid; align-content: start; gap: 2px; }
 .nav-group-title { padding: 0 12px 6px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 
@@ -1421,3 +1421,66 @@ td input:not([class]):not([type=checkbox]):not([type=radio]) { padding: 5px 8px;
 .term-pop strong { display: block; margin-bottom: 4px; color: var(--text); font-size: 14px; }
 .term-pop p { margin: 0 0 8px; color: var(--muted); }
 .term-pop a { color: var(--accent); font-weight: 600; }
+
+/* --- Player page, plainer: sections divided by hairlines instead of boxed in cards, no glows, no logo watermark,
+   sentence-case labels, less explanatory prose. Applies site-wide (#root outranks the older per-component rules). --- */
+#root { --hair: color-mix(in srgb, var(--text) 14%, var(--bg)); }
+
+/* Sections: no boxes */
+#root .card, #root .context, #root .chart, #root .def-card, #root .tile, #root .table-wrap,
+#root .explain, #root .luck-guide, #root .scoring {
+  background: none; background-image: none; box-shadow: none; border-radius: 0;
+}
+#root .card, #root .context, #root .scoring { padding: 28px 0 0; border: 0; border-top: 1px solid var(--hair); }
+#root .player-overview { gap: 40px; margin-bottom: 8px; }
+#root .player-overview > .explain, #root .player-overview > aside > .card { border-top: 0; padding-top: 8px; }
+#root .player-overview > aside { gap: 32px; }
+#root .context { margin: 20px 0; padding: 16px 0 0; }
+#root .table-wrap { border: 1px solid var(--hair); }
+#root .chart { padding: 20px; border: 1px solid var(--hair); }
+#root .def-card, #root .tile { padding: 12px 0; border: 0; border-bottom: 1px solid var(--hair); }
+#root .def-grid, #root .tiles { gap: 0 40px; }
+#root .bar { height: 3px; border-radius: 0; }
+#root .bar div { border-radius: 0; }
+#root h2 { margin: 48px 0 10px; font-size: 18px; }
+
+/* Labels: sentence case, no letter-spacing */
+#root .eyebrow, #root .explain-sub { font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text); }
+#root .explain-sub { margin-top: 24px; color: var(--muted); font-size: 13px; font-weight: 500; }
+#root .proj-main strong, #root .proj-row dd, #root .explain-row-value, #root .finding-price { font-stretch: 100%; font-weight: 700; }
+
+/* Explanation: lose the callout, the pill badges and the intro blurbs */
+#root .explain-takeaway { padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted); }
+#root .explain-blurb { display: none; }
+#root .finding .badge { padding: 0; border: 0; background: none; font-size: 13px; font-weight: 600; color: var(--accent); }
+#root .finding .badge.warn { color: var(--text); }
+#root .explain-bar, #root .explain-bar i { border-radius: 0; height: 6px; }
+#root .projection .sub { color: var(--muted); }
+
+/* Tabs and chips already underline; make the sub-pills match */
+#root .subtabs button { border: 0; border-radius: 0; background: none; padding: 4px 0; margin-right: 8px; color: var(--muted); }
+#root .subtabs button.on { background: none; color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* Player banner: keep the team rule, headshot ring and logo, but no colour wash across the card */
+#root .player-banner { background: var(--card); background-image: none; border-radius: 0; }
+
+/* --- Site-wide, continued: tiles that sit in grids are flat, square and outlined; no colour washes, glows or decorative rink marks --- */
+#root .slate-card, #root .result, #root .tn-card, #root .spot, #root .featured, #root .live-card, #root .pg-game,
+#root .team-tile, #root .glossary-term, #root .notice, #root .player-banner {
+  background: var(--card); background-image: none; box-shadow: none; border-radius: 0;
+}
+#root .spot:hover, #root .team-tile:hover { background: color-mix(in srgb, var(--text) 3%, var(--card)); }
+#root .hero::before { display: none; }
+#root main > header:not(.player-banner) > h1::after { display: none; }
+#root .feat-label, #root .slate-when { letter-spacing: 0; text-transform: none; }
+
+/* Every table keeps an outline: the ones inside .table-wrap get it from the wrapper, bare ones get it themselves */
+#root :not(.table-wrap) > table { border: 1px solid var(--hair); }
+/* Bordered bare tables need room between the text and the outline */
+#root table.mini td, #root table.mini th { padding: 11px 12px; }
+#root table.mini .num { padding-left: 10px; }
+
+/* Rows are separated by a full-strength line (the last row sits on the table's own border) */
+#root tbody td, #root table.mini td { border-bottom: 1px solid var(--hair); }
+#root tbody tr:last-child td, #root table.mini tr:last-child td { border-bottom: 0; }
+#root thead th { border-bottom: 1px solid var(--hair); }

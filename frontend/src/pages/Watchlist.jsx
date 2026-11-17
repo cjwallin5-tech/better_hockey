@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PageShell from '../components/PageShell.jsx'
 import DigestToggle from '../components/DigestToggle.jsx'
 import { useWatchlist } from '../watchlist.js'
 import { Skeleton } from '../components/Skeleton.jsx'
@@ -8,7 +9,7 @@ import SignInPrompt from '../components/SignInPrompt.jsx'
 import WatchSuggestions from '../components/WatchSuggestions.jsx'
 
 /** Players, prospects and teams followed in the daily email. Add from here, or with the Watch button on a player or team page. */
-export default function Watchlist() {
+export default function Watchlist({ embedded = false }) {
   const { signedIn, status, items, limit, error, toggle } = useWatchlist()
   const [pool, setPool] = useState(null) // everything that can be watched
   const [query, setQuery] = useState('')
@@ -36,12 +37,12 @@ export default function Watchlist() {
 
   if (!signedIn) {
     return (
-      <main>
-        <header><h1>Watchlist</h1><p>Follow players, prospects and teams outside your fantasy roster and get a section about them in the morning email.</p></header>
+      <PageShell embedded={embedded}>
+        <header>{!embedded && <h1>Watchlist</h1>}<p>Follow players, prospects and teams outside your fantasy roster and get a section about them in the morning email.</p></header>
         <SignInPrompt lead="Follow any player, prospect or team and get their games, hot and cold spells and milestones in your morning email.">
           <WatchSuggestions />
         </SignInPrompt>
-      </main>
+      </PageShell>
     )
   }
 
@@ -61,9 +62,9 @@ export default function Watchlist() {
   )
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Watchlist</h1>
+        {!embedded && <h1>Watchlist</h1>}
         <p>
           Follow players, prospects and teams outside your fantasy roster. The morning email gets a Watchlist section with their games
           today, who is hot or cold, role changes and career milestones that are close or just reached. For a prospect it says how
@@ -97,6 +98,6 @@ export default function Watchlist() {
       {list('prospect', 'Prospects')}
       {list('team', 'Teams')}
       <DigestToggle />
-    </main>
+    </PageShell>
   )
 }

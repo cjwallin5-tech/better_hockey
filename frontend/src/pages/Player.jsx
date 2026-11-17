@@ -95,7 +95,7 @@ export default function Player() {
   const { player: p, games, games_per_season, percentiles, peer_group, peer_count, peer_min_gp } = data
 
   return (
-    <main>
+    <main className="player-page">
       {back}
       <PlayerBanner
         p={p}
@@ -123,14 +123,14 @@ export default function Player() {
                   <Explain playerId={p.player_id} name={p.name} />
                   <aside>
                     <Projection playerId={p.player_id} />
-                    <Trophies playerId={p.player_id} />
                   </aside>
                 </div>
+                <Rankings playerId={p.player_id} kind="skater" />
                 <Career playerId={p.player_id} />
+                <Comparables playerId={p.player_id} />
+                <Trophies playerId={p.player_id} />
                 <Awards playerId={p.player_id} />
                 <InternationalMedals playerId={p.player_id} />
-                <Rankings playerId={p.player_id} kind="skater" />
-                <Comparables playerId={p.player_id} />
               </>
             ),
           },
@@ -260,7 +260,6 @@ export default function Player() {
 
               <PaceHistory base={`/api/skaters/${p.player_id}/pace-history`} title="This season vs. past seasons" selectable />
 
-              <PossessionGuide />
               <div className="charts">
                 <PaceChart
                   games={[...games].reverse()}
@@ -271,6 +270,7 @@ export default function Player() {
                 <DefenseBars games={[...games].reverse()} />
                 <CorsiChart games={[...games].reverse()} />
               </div>
+              <PossessionGuide />
               </>
             ),
           },

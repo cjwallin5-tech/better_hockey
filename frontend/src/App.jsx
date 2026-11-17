@@ -1,11 +1,9 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { useTheme } from './theme.js'
 import Home from './pages/Home.jsx'
 import { initAuth, useAuth } from './auth.js'
 import NavMore from './components/NavMore.jsx'
 import Freshness from './components/Freshness.jsx'
-import Icon from './components/Icon.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import GlobalSearch from './components/GlobalSearch.jsx'
 import { pages, warm } from './routes.js'
@@ -21,28 +19,23 @@ const Compare = lazy(pages.Compare)
 const Game = lazy(pages.Game)
 const Goalie = lazy(pages.Goalie)
 const Goalies = lazy(pages.Goalies)
-const Milestones = lazy(pages.Milestones)
 const Glossary = lazy(pages.Glossary)
 const Player = lazy(pages.Player)
 const ResetPassword = lazy(pages.ResetPassword)
 const Schedule = lazy(pages.Schedule)
 const Awards = lazy(pages.Awards)
 const AdvancedStats = lazy(pages.AdvancedStats)
-const Matchups = lazy(pages.Matchups)
 const Roles = lazy(pages.Roles)
 const Trophy = lazy(pages.Trophy)
 const Account = lazy(pages.Account)
-const Watchlist = lazy(pages.Watchlist)
 const Projections = lazy(pages.Projections)
 const Tonight = lazy(pages.Tonight)
 const MyTeam = lazy(pages.MyTeam)
-const Leagues = lazy(pages.Leagues)
 const Accuracy = lazy(pages.Accuracy)
 const Absences = lazy(pages.Absences)
 const League = lazy(pages.League)
 const Prospects = lazy(pages.Prospects)
 const Prospect = lazy(pages.Prospect)
-const Lottery = lazy(pages.Lottery)
 const Fantasy = lazy(pages.Fantasy)
 const Standings = lazy(pages.Standings)
 const Team = lazy(pages.Team)
@@ -67,10 +60,10 @@ function BestSeasonsRedirect({ goalie }) {
 }
 
 /** An old page's address, sent to its tab on the merged page, keeping any query (a link's filters or players) after the tab. */
-function RedirectToTab({ to, tab }) {
+function RedirectToTab({ to, tab, param = 'tab' }) {
   const { search } = useLocation()
   const rest = search.replace(/^\?/, '')
-  return <Navigate to={`${to}?tab=${tab}${rest ? `&${rest}` : ''}`} replace />
+  return <Navigate to={`${to}?${param}=${tab}${rest ? `&${rest}` : ''}`} replace />
 }
 
 /** The routes, wrapped so a crash on one page shows a message, and moving to another page clears it. */
@@ -86,7 +79,7 @@ function Pages() {
           <Route path="/player/:id" element={<Player />} />
           <Route path="/goalies" element={<Goalies />} />
           <Route path="/goalie/:id" element={<Goalie />} />
-          <Route path="/milestones" element={<Milestones />} />
+          <Route path="/milestones" element={<RedirectToTab to="/awards" tab="milestones" />} />
           <Route path="/glossary" element={<Glossary />} />
           <Route path="/alltime" element={<AllTimeRedirect />} />
           <Route path="/alltime/skaters" element={<AllTime key="skater" kind="skater" />} />
@@ -105,24 +98,24 @@ function Pages() {
           <Route path="/head-to-head" element={<RedirectToTab to="/compare" tab="head-to-head" />} />
           <Route path="/luck" element={<RedirectToTab to="/projections" tab="luck" />} />
           <Route path="/roles" element={<Roles />} />
-          <Route path="/matchups" element={<Matchups />} />
+          <Route path="/matchups" element={<RedirectToTab to="/projections" tab="matchups" />} />
           <Route path="/awards" element={<Awards />} />
           <Route path="/trophy" element={<RedirectToTab to="/awards" tab="winners" />} />
           <Route path="/trophies" element={<Navigate to="/awards" replace />} />
           <Route path="/trophy/:id" element={<Trophy />} />
           <Route path="/account" element={<Account />} />
           <Route path="/fantasy" element={<Fantasy />} />
-          <Route path="/lottery" element={<Lottery />} />
+          <Route path="/lottery" element={<RedirectToTab to="/prospects" tab="lottery" />} />
           <Route path="/prospects" element={<Prospects />} />
           <Route path="/prospect/:id" element={<Prospect />} />
           <Route path="/projections" element={<Projections />} />
           <Route path="/tonight" element={<Tonight />} />
           <Route path="/my-team" element={<MyTeam />} />
-          <Route path="/leagues" element={<Leagues />} />
+          <Route path="/leagues" element={<RedirectToTab to="/fantasy" param="section" tab="leagues" />} />
           <Route path="/accuracy" element={<Accuracy />} />
           <Route path="/absences" element={<Absences />} />
           <Route path="/league/:id" element={<League />} />
-          <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/watchlist" element={<RedirectToTab to="/fantasy" param="section" tab="watchlist" />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/standings" element={<Standings />} />
           <Route path="/team/:abbrev" element={<Team />} />
@@ -147,24 +140,18 @@ function warmLink(e) {
 }
 
 const MAIN_LINKS = [['/skaters', 'Skaters'], ['/goalies', 'Goalies'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/tonight', 'Tonight'], ['/news', 'News'], ['/my-team', 'My team']]
-// The less-used pages, grouped so the menu reads as four short lists instead of one long one.
+// The less-used pages, in two even columns.
 const moreGroups = (user) => [
-  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects'], ['/milestones', 'Milestones'], ['/absences', 'Who\u2019s out']] },
-  { title: 'Fantasy tools', items: [['/watchlist', 'Watchlist'], ['/leagues', 'Leagues'], ['/projections', 'Projections'], ['/matchups', 'Matchups']] },
-  { title: 'League', items: [['/schedule', 'Schedule'], ['/lottery', 'Draft lottery'], ['/advanced-stats', 'Advanced stats'], ['/awards', 'Awards'], ['/glossary', 'Glossary'], ...(user?.admin ? [['/accuracy', 'Accuracy']] : [])] },
+  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones'], ['/absences', 'Who\u2019s out']] },
+  { title: 'League & stats', items: [['/schedule', 'Schedule'], ['/projections', 'Projections & matchups'], ['/advanced-stats', 'Advanced stats'], ['/glossary', 'Glossary'], ...(user?.admin ? [['/accuracy', 'Accuracy']] : [])] },
 ]
 
 /** The top bar. Wide screens get the full link row; phones get the logo, search and a menu button that opens every page. */
-function TopBar({ dark, toggle, user }) {
+function TopBar({ user }) {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
   useEffect(() => { setOpen(false) }, [pathname])
   const groups = moreGroups(user)
-  const theme = (
-    <button className="theme-toggle" onClick={toggle} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
-      <Icon name={dark ? 'sun' : 'moon'} /> {dark ? 'Light' : 'Dark'}
-    </button>
-  )
   return (
     <header className="topbar" onPointerOver={warmLink} onFocus={warmLink}>
       <nav className="topnav">
@@ -179,7 +166,6 @@ function TopBar({ dark, toggle, user }) {
         <GlobalSearch />
         <div className="nav-wide">
           <NavLink to="/account" className="nav-account">{user ? user.email : 'Log in'}</NavLink>
-          {theme}
         </div>
         <button type="button" className="nav-menu-btn" aria-expanded={open} aria-label={open ? 'Close menu' : 'Open menu'} onClick={() => setOpen(!open)}>
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -202,8 +188,7 @@ function TopBar({ dark, toggle, user }) {
           ))}
           <div className="nav-panel-foot">
             <NavLink to="/account" className="nav-account">{user ? user.email : 'Log in'}</NavLink>
-            {theme}
-          </div>
+            </div>
         </div>
       )}
     </header>
@@ -211,13 +196,12 @@ function TopBar({ dark, toggle, user }) {
 }
 
 export default function App() {
-  const { dark, toggle } = useTheme()
   const { user } = useAuth()
   useEffect(initAuth, [])
   useEffect(() => installTabScroll(), [])   // fades and scroll-into-view for tab rows that scroll sideways on a phone
   return (
     <BrowserRouter>
-      <TopBar dark={dark} toggle={toggle} user={user} />
+      <TopBar user={user} />
       <ScrollToTop />
       <Pages />
       <GlossaryTips />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PageShell from '../components/PageShell.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
 import { SORTS, chance, ordinal, shade, visibleTeams } from '../lotteryView.js'
@@ -11,7 +12,7 @@ const SORT_LABELS = [
 ]
 
 /** The draft lottery: each team's chance of missing the playoffs, finishing last, and of every pick from first to sixteenth. */
-export default function Lottery() {
+export default function Lottery({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [sort, setSort] = useState(initial.get('sort') ?? 'first_overall')
   const [all, setAll] = useState(initial.get('all') === '1')
@@ -33,9 +34,9 @@ export default function Lottery() {
   }, [data, sort, all])
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Draft lottery</h1>
+        {!embedded && <h1>Draft lottery</h1>}
         <p>
           Every team's chance of missing the playoffs, of finishing with the worst record, and of each pick in the first round, from
           playing out the rest of the season thousands of times and then running the NHL's lottery on each ending. Mostly a spring
@@ -143,10 +144,10 @@ export default function Lottery() {
           <p className="sub">
             Not modelled: who owns each pick (a traded or conditional pick changes who drafts there), and the NHL's limit on a team moving up in the
             lottery more than twice in five years. The rules are the NHL's 2026 ones; check its guide for any change before next spring. Who is in the
-            class is on the <Link to="/prospects?tab=draft">Prospects</Link> page.
+            class is on the <Link to="/prospects?view=draft">Prospects</Link> page.
           </p>
         </>
       )}
-    </main>
+    </PageShell>
   )
 }

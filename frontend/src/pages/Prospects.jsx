@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PageShell from '../components/PageShell.jsx'
 import { CountryFlag } from '../components/Flag.jsx'
 import { ProspectName, draftText, ppg, svp } from '../components/ProspectBits.jsx'
 import { useUrlSync } from '../urlState.js'
@@ -30,7 +31,7 @@ function TeamProspects() {
   const [league, setLeague] = useState(initial.get('league') ?? '')
   const [sort, setSort] = useState(initial.get('sort') ?? 'points_per_game')
   const [q, setQ] = useState('')
-  useUrlSync([['tab', 'prospects', 'prospects'], ['team', team, ''], ['pos', position, ''], ['league', league, ''], ['sort', sort, 'points_per_game']])
+  useUrlSync([['view', 'prospects', 'prospects'], ['team', team, ''], ['pos', position, ''], ['league', league, ''], ['sort', sort, 'points_per_game']])
   const [teams, setTeams] = useState([])
   useEffect(() => {
     fetch('/api/teams').then((r) => r.json()).then((rows) => setTeams([...rows].sort((a, b) => a.name.localeCompare(b.name)))).catch(() => {})
@@ -177,13 +178,13 @@ function DraftClass() {
   )
 }
 
-export default function Prospects() {
+export default function Prospects({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
-  const [tab, setTab] = useState(initial.get('tab') === 'draft' ? 'draft' : 'prospects')
+  const [tab, setTab] = useState(initial.get('view') === 'draft' ? 'draft' : 'prospects')
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Prospects</h1>
+        {!embedded && <h1>Prospects</h1>}
         <p>Players who haven't made the NHL yet: the prospects each team holds, with their junior, college, European and minor-league stats, and the upcoming draft class.</p>
       </header>
       <div className="tabs" role="tablist">
@@ -191,6 +192,6 @@ export default function Prospects() {
         <button role="tab" aria-selected={tab === 'draft'} className={tab === 'draft' ? 'on' : ''} onClick={() => setTab('draft')}>Draft class</button>
       </div>
       {tab === 'prospects' ? <TeamProspects /> : <DraftClass />}
-    </main>
+    </PageShell>
   )
 }

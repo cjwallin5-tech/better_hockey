@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PageShell from '../components/PageShell.jsx'
 import TeamLogo from '../components/TeamLogo.jsx'
 import RestBadge from '../components/RestBadge.jsx'
 import { MatchupTag, pctOff } from '../components/Matchups.jsx'
@@ -142,16 +143,16 @@ function Ratings() {
   )
 }
 
-export default function Matchups() {
+export default function Matchups({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
-  const [tab, setTab] = useState(initial.get('tab') === 'ratings' ? 'ratings' : 'schedule')
+  const [tab, setTab] = useState(initial.get('view') === 'ratings' ? 'ratings' : 'schedule')
   const [days, setDays] = useState(initial.get('days') ?? '7')
   const [who, setWho] = useState(initial.get('who') === 'goalies' ? 'goalies' : 'skaters')
-  useUrlSync([['tab', tab, 'schedule'], ['days', days, '7'], ['who', who, 'skaters']])
+  useUrlSync([['view', tab, 'schedule'], ['days', days, '7'], ['who', who, 'skaters']])
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <header>
-        <h1>Matchups</h1>
+        {!embedded && <h1>Matchups</h1>}
         <p>
           Which teams have the softest and toughest schedules coming up, and how every team rates as an opponent. Good for
           deciding who to start or stream, and for breaking ties. A game on the second night of a back-to-back against a rested team is rated lower (and the rested side's higher), because teams score about a quarter of a goal fewer in those; see <Link to="/schedule?tab=rest">back-to-backs</Link>.
@@ -162,6 +163,6 @@ export default function Matchups() {
         <button role="tab" aria-selected={tab === 'ratings'} className={tab === 'ratings' ? 'on' : ''} onClick={() => setTab('ratings')}>Team ratings</button>
       </div>
       {tab === 'schedule' ? <Schedule days={days} setDays={setDays} who={who} setWho={setWho} /> : <Ratings />}
-    </main>
+    </PageShell>
   )
 }
