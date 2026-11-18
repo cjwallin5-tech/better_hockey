@@ -5,13 +5,44 @@ import TeamMark from '../components/TeamMark.jsx'
 import { teamColor } from '../teamColors.js'
 import { useRoster } from '../roster.js'
 import { useWatchlist } from '../watchlist.js'
+import { useFavoriteTeam } from '../favorite.js'
 import { useUrlSync } from '../urlState.js'
 import { notableTips } from '../matchupTip.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import { useLiveScores } from '../components/ScoreStrip.jsx'
 
 const startTime = (iso) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : 'time TBD')
 const FINISHED = ['FINAL', 'OFF']
 const pct = (p) => `${Math.round(p * 100)}%`
+const ET_TODAY = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) // the day the schedule is kept by
+const addDays = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+const weekday = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' })
+const monthDay = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
+const periodLabel = (g) => {
+  if (g.period_type === 'SO') return 'Shootout'
+  if (g.period_type === 'OT') return g.period > 4 ? `${g.period - 3}OT` : 'OT'
+  return ['', '1st', '2nd', '3rd'][g.period] ?? ''
+}
+
+/** Day by day: step to the previous or next day, jump to any of the days around the one shown, or back to today. */
+function DayNav({ current, today, onPick }) {
+  const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(current, n))
+  return (
+    <div className="day-nav" role="group" aria-label="Choose a day">
+      <button type="button" className="day-step" onClick={() => onPick(addDays(current, -1))} aria-label="Previous day">‹</button>
+      <div className="day-chips">
+        {days.map((d) => (
+          <button key={d} type="button" className={`day-chip${d === current ? ' on' : ''}${d === today ? ' today' : ''}`} aria-pressed={d === current} onClick={() => onPick(d)}>
+            <span>{d === today ? 'Today' : weekday(d)}</span>
+            <b>{monthDay(d)}</b>
+          </button>
+        ))}
+      </div>
+      <button type="button" className="day-step" onClick={() => onPick(addDays(current, 1))} aria-label="Next day">›</button>
+      <input type="date" className="day-jump" value={current} onChange={(e) => e.target.value && onPick(e.target.value)} aria-label="Jump to a date" />
+    </div>
+  )
+}
 
 function Goalie({ g, team }) {
   return (
@@ -55,18 +86,25 @@ function Side({ abbrev, name, win }) {
   )
 }
 
-function GameCard({ g, rank }) {
+function GameCard({ g, mine, liveGame }) {  // mine: null, 'team' (the team you follow) or 'watch' (a team on your watchlist)
   const finished = FINISHED.includes(g.state)
-  const live = g.state === 'LIVE' || g.state === 'CRIT'
+  const live = Boolean(liveGame) || g.state === 'LIVE' || g.state === 'CRIT'
+  const away = liveGame ? liveGame.away.score : g.away_score
+  const home = liveGame ? liveGame.home.score : g.home_score
+  const scored = (finished || live) && away != null && home != null
   const name = (side) => g[`${side}_info`]?.name ?? g[side]
   const homeWin = g.home_win
   const stars = [...g.stars.away, ...g.stars.home]
   return (
     <li className={`tn-card${live ? ' live' : ''}`} style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) }}>
       <div className="tn-head">
-        {rank != null && <span className="tn-rank">#{rank}</span>}
+        {mine && <span className="tn-rank tn-mine" title={mine === 'team' ? 'Your team plays in this game' : 'A team on your watchlist plays in this game'}>{mine === 'team' ? 'Your team' : 'Watchlist'}</span>}
         <span className="tn-time">{startTime(g.start_time)}</span>
-        {(finished || live) && <Link to={`/game/${g.game_id}`} className="tn-state">{finished ? 'Final' : 'Live'}</Link>}
+        {(finished || live) && (
+          <Link to={`/game/${g.game_id}`} className="tn-state">
+            {finished ? 'Final' : liveGame ? (liveGame.intermission ? `End of ${periodLabel(liveGame)}` : `${periodLabel(liveGame)} ${liveGame.time_remaining ?? ''}`.trim()) : 'Live'}
+          </Link>
+        )}
         <span className="tn-rest">
           {['tired', 'edge'].includes(g.rest.away) && <><RestBadge kind={g.rest.away} /> {g.away}</>}{' '}
           {['tired', 'edge'].includes(g.rest.home) && <><RestBadge kind={g.rest.home} /> {g.home}</>}
@@ -76,8 +114,8 @@ function GameCard({ g, rank }) {
       <div className="tn-matchup">
         <Side abbrev={g.away} name={name('away')} win={homeWin != null ? 1 - homeWin : null} />
         <div className="tn-mid">
-          <span>@</span>
-          {g.expected_goals != null && <small title="Expected total goals">{g.expected_goals.toFixed(1)} goals</small>}
+          {scored ? <span className="tn-score">{away} <i>–</i> {home}</span> : <span>@</span>}
+          {!scored && g.expected_goals != null && <small title="Expected total goals">{g.expected_goals.toFixed(1)} goals</small>}
         </div>
         <Side abbrev={g.home} name={name('home')} win={homeWin} />
       </div>
@@ -112,12 +150,21 @@ function GameCard({ g, rank }) {
   )
 }
 
-/** Tonight's games ranked by how worth watching they are for you: closeness, scoring, the playoff race, stars, your players. */
+/** Which of the teams you follow plays in a game: 'team' for the one set in My team, 'watch' for one on your watchlist, else null. */
+const followedIn = (g, favorite, watched) => {
+  if (favorite && (g.home === favorite || g.away === favorite)) return 'team'
+  return watched.includes(g.home) || watched.includes(g.away) ? 'watch' : null
+}
+
+/** A day's games: your team's, then watchlist teams', then the rest, each by start time, each with scores once played and the reasons it is worth a look. */
 export default function Tonight() {
   const initial = new URLSearchParams(window.location.search)
-  const [sort, setSort] = useState(initial.get('sort') === 'time' ? 'time' : 'interest')
   const [date, setDate] = useState(initial.get('date') ?? '')
-  useUrlSync([['sort', sort, 'interest'], ['date', date, '']])
+  const today = ET_TODAY()
+  const current = date || today
+  const { favorite } = useFavoriteTeam()
+  const live = useLiveScores()
+  useUrlSync([['date', date, '']])
   const { list } = useRoster()
   const watch = useWatchlist()
   const [state, setState] = useState({ key: null, data: null, error: null })
@@ -149,38 +196,28 @@ export default function Tonight() {
   const { data, error } = state.key === key ? state : { data: null, error: null }
   const games = useMemo(() => {
     if (!data) return []
-    const rows = [...data.games]
-    if (sort === 'time') return rows
-    return rows.sort((a, b) => b.score - a.score || (a.start_time ?? '').localeCompare(b.start_time ?? ''))
-  }, [data, sort])
+    // your team's game, then watchlist teams' games, then the rest; each group by start time
+    const tier = (g) => ({ team: 0, watch: 1 })[followedIn(g, favorite, teams)] ?? 2
+    return [...data.games].sort((a, b) => tier(a) - tier(b) || String(a.start_time ?? '').localeCompare(String(b.start_time ?? '')) || a.game_id - b.game_id)
+  }, [data, favorite, teams])
 
   return (
     <main>
       <header>
-        <h1>What to watch</h1>
+        <h1>Games</h1>
         <p>
-          The day's games ranked by how much they're worth your attention: how even the teams are, how many goals to expect, the
-          playoff race, star scorers, and your own roster and watchlist players. The weights are judgment calls, not a measurement,
-          so use it to sort the night, not to predict it. {watch.signedIn || list.players.length ? '' : 'Add players to your fantasy team or watchlist to see your own players here.'}
+          Every game by day, with your team's game first, then watchlist teams' games, then the rest, each by start time, with scores for the ones played. Each upcoming game lists what
+          makes it worth a look: how even the teams are, how many goals to expect, the playoff race, star scorers, and your own roster and
+          watchlist players. {watch.signedIn || list.players.length ? '' : 'Add players to your fantasy team or watchlist to see your own players here.'}
         </p>
       </header>
-      <div className="h2h-picks">
-        <label className="h2h-pick">Sort by
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="interest">Most worth watching</option>
-            <option value="time">Start time</option>
-          </select>
-        </label>
-        <label className="h2h-pick">Date
-          <input type="date" value={date || data?.date || ''} onChange={(e) => setDate(e.target.value)} />
-        </label>
-      </div>
+      <DayNav current={current} today={today} onPick={(d) => setDate(d === today ? '' : d)} />
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && games.length === 0 && <p className="status">No games on {data.date}.</p>}
       {games.length > 0 && (
         <ul className="tn-list">
-          {games.map((g, i) => <GameCard key={g.game_id} g={g} rank={sort === 'interest' ? i + 1 : null} />)}
+          {games.map((g) => <GameCard key={g.game_id} g={g} mine={followedIn(g, favorite, teams)} liveGame={live[g.game_id]} />)}
         </ul>
       )}
       {games.some((g) => g.shot_fit) && (

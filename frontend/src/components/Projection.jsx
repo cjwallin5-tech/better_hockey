@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 
 const n0 = (v) => Math.round(v)
 
@@ -43,7 +42,7 @@ export default function Projection({ playerId }) {
         <div><dd>{n0(p.expected_games)}</dd><dt>games left</dt></div>
       </dl>
       <p className="sub">
-        {projectionNote(p)} Injuries are not predicted. <Link to="/projections">See every skater's projection →</Link>
+        {projectionNote(p)} Injuries are not predicted.
       </p>
     </section>
   )

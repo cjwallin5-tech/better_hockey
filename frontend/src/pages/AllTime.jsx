@@ -3,9 +3,7 @@ import { useEffect, useState } from 'react'
 import HhofMark from '../components/HhofMark.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
-import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
-import SavedViews from '../components/SavedViews.jsx'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
 import RankBadge from '../components/RankBadge.jsx'
@@ -230,22 +228,6 @@ export default function AllTime({ kind }) {
   if (hasParam) p.set('has', hasParam)
   const query = p.toString()
 
-  const exportAll = async () => {
-    const p = new URLSearchParams(query)
-    p.set('export', 'true'); p.set('limit', '10000'); p.set('offset', '0')
-    const r = await fetch(`${api}?${p}`)
-    if (!r.ok) return
-    const { rows } = await r.json()
-    const cols = seasonBoard
-      ? [{ key: 'name', label: 'Player' }, ...(kind === 'skater' ? [{ key: 'position', label: 'Pos' }] : []), ...allColumns.filter((c) => c.key !== 'first_season')]
-      : [
-        { key: 'name', label: 'Player' }, ...(kind === 'skater' ? [{ key: 'position', label: 'Pos' }] : []),
-        { key: 'birth_country', label: 'Country' }, { key: 'first_season', label: 'Debut season' },
-        ...allColumns.filter((c) => c.key !== 'first_season' && c.key !== 'season_id' && !c.text),
-      ]
-    downloadText(seasonBoard ? `best-${kind}-seasons.csv` : `all-time-${kind}s-${gameType === 3 ? 'playoffs' : 'regular-season'}.csv`, toCsv(cols, rows))
-  }
-
 
   useEffect(() => {
     if (view.games) return undefined // the single-game list loads itself (GameRecords)
@@ -305,13 +287,13 @@ export default function AllTime({ kind }) {
             : 'Career totals and the best single seasons for every goalie in NHL history. Early eras have blank stats.'}
         </p>
       </header>
-      <SavedViews path={`/alltime/${kind}s`} />
-
-      <ViewMenu
-        groups={[...new Set(visibleViews.map((v) => v.group))].map((g) => ({ label: g, views: visibleViews.filter((v) => v.group === g) }))}
-        activeId={view.id}
-        onSelect={(id) => switchView(visibleViews.find((v) => v.id === id))}
-      />
+      <div className="toolbar-row">
+        <ViewMenu
+          groups={[...new Set(visibleViews.map((v) => v.group))].map((g) => ({ label: g, views: visibleViews.filter((v) => v.group === g) }))}
+          activeId={view.id}
+          onSelect={(id) => switchView(visibleViews.find((v) => v.id === id))}
+        />
+      </div>
 
       <RankBy
         options={(QUICK_RANK[view.id] ?? []).filter(([key]) => view.games || columns.some((c) => c.key === key)).map(([key, label]) => ({ key, label }))}
@@ -360,7 +342,6 @@ export default function AllTime({ kind }) {
           </label>
         </>}
         tail={!view.games && <>
-          <button className="link-button" onClick={exportAll} title="Download every player matching the filters (up to 10,000)">Download CSV</button>
           <span className="count">{loading ? 'Loading…' : `${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`}</span>
         </>}
       />
@@ -374,7 +355,7 @@ export default function AllTime({ kind }) {
         <p className="status">Couldn't load the board: {error}</p>
       ) : (
         <div className="table-wrap" style={loading ? { opacity: 0.6 } : undefined}>
-          <table>
+          <table className="board">
             <thead>
               <tr>
                 <th className="left" title="Sort by name" onClick={() => onSort({ key: 'name', asc: true })} aria-sort={sort.key === 'name' ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>

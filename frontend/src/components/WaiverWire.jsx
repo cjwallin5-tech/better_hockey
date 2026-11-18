@@ -148,9 +148,9 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, take
                     {r.hurt && <span className="badge warn" title="Not in the team's last games">out {r.gamesOut}</span>}
                     {r.hot && <span className="badge" title="Recent point pace is well above the season pace">hot stretch</span>}
                     {r.luck?.flag === 'cold' && <span className="badge" title={goalie ? 'Saving fewer than the shots faced should allow: likely to improve' : 'Scoring below what the shots and chances support: likely to rebound'}>due</span>}
-                    {r.luck?.flag === 'hot' && <span className="badge warn" title={goalie ? 'Saving more than the shots faced should allow: may cool off' : 'Scoring above what the shots and chances support: may cool off'}>running hot</span>}
-                    {r.ownedBy && <span className="badge warn" title={`On ${r.ownedBy} in your league`}>on {r.ownedBy}</span>}
-                    {r.likelyOwned && <span className="badge warn" title="Ranks high enough that a league your size has probably rostered this player">likely owned</span>}
+                    {r.luck?.flag === 'hot' && <span className="badge caution" title={goalie ? 'Saving more than the shots faced should allow: may cool off' : 'Scoring above what the shots and chances support: may cool off'}>running hot</span>}
+                    {r.ownedBy && <span className="badge caution" title={`On ${r.ownedBy} in your league`}>on {r.ownedBy}</span>}
+                    {r.likelyOwned && <span className="badge caution" title="Ranks high enough that a league your size has probably rostered this player">likely owned</span>}
                   </td>
                   <td><button className="link-button" onClick={() => onAdd({ player_id: r.id, name: r.name }, kind)}>Add</button></td>
                 </tr>

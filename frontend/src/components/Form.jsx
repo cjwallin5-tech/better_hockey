@@ -29,15 +29,13 @@ function WindowTabs({ options, value, onChange }) {
  */
 export function SkaterForm({ games }) {
   const { scoring } = useScoring()
-  const [w, setW] = useState(5)
   const count = games.length
   if (count === 0) return null
   const season = skaterForm(games, null, scoring)
   const rows = [...windowsFor(count)].reverse().map((n) => ({ label: `Last ${n}`, n, line: skaterForm(games, n, scoring) }))
   const showFantasy = Object.values(scoring).some(Number)
   const missing = missingScoring(scoring)
-  const options = TREND_WINDOWS.filter((n) => n <= count)
-  const win = options.includes(w) ? w : options[options.length - 1] ?? 5
+  const win = Math.min(10, count) // one fixed window: the table above already compares the last 5, 10 and 20 games
   const raw = games.map((g) => g.points)
   const roll = rollingMean(games, win, (g) => g.points)
 
@@ -79,12 +77,11 @@ export function SkaterForm({ games }) {
       {showFantasy && missing.length > 0 && (
         <p className="muted">Fantasy points here leave out power-play bonus and game-winning-goal points, which game logs don't carry.</p>
       )}
-      {options.length > 0 && (
+      {count >= 3 && (
         <>
-          <WindowTabs options={options} value={win} onChange={setW} />
           <RollingChart
             title="Points per game, trending"
-            games={games} raw={raw} roll={roll} w={win}
+            games={games} raw={raw} roll={roll} w={win} hideRaw avgValue={`${n2(season.ppg)} per game`}
             avg={season.ppg} avgLabel="Season average" rawLabel="Points in the game"
             fmt={(v) => String(+v.toFixed(1))}
             tip={(i) => (

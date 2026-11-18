@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 
 const signed = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))}`
 const KIND = { luck: 'Results vs. chances', real: 'Real change' }
@@ -157,7 +156,7 @@ export default function Explain({ playerId, name }) {
         <p>
           <strong>Luck</strong> is scoring above or below what the chances support: a player finishing better than their shots predict, or
           linemates scoring more than <em>their</em> shots predict while the player is on the ice (which adds assists). Luck tends to fade
-          (see <Link to="/projections?tab=luck">Luck &amp; regression</Link>).{' '}
+          (see the Luck panel further down the page).{' '}
           <strong>Real change</strong> is things the player controls or is given: how many shots they take, how good those shots are, how much they play and
           where. It tends to last for as long as the role does.{' '}
           <strong>Everything else</strong> is the part the factors can't account for.

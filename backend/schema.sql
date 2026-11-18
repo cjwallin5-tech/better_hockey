@@ -376,6 +376,9 @@ ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS period SMALLINT;
 ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS time_sec INTEGER;
 ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS is_home BOOLEAN;
 ALTER TABLE shot_hist_game ADD COLUMN IF NOT EXISTS timed BOOLEAN NOT NULL DEFAULT false;
+-- a follow-up attempt within a second of the same team's shot on goal (see shots.follow_flags); `rebound` now means a follow-up within 3 seconds
+ALTER TABLE shot ADD COLUMN IF NOT EXISTS quick_follow BOOLEAN;
+ALTER TABLE shot_hist ADD COLUMN IF NOT EXISTS quick_follow BOOLEAN;
 
 -- Ice time by situation for every skater game this season, from the NHL stats API's per-game time-on-ice report.
 -- Feeds the role-change views (roles.py): who moved up or down the power-play units, who is playing more or less.

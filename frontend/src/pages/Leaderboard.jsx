@@ -4,10 +4,10 @@ import Avatar from '../components/Avatar.jsx'
 import RankBadge from '../components/RankBadge.jsx'
 import { placesFor } from '../rank.js'
 import { Link } from 'react-router-dom'
-import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
-import SavedViews from '../components/SavedViews.jsx'
 import PossessionGuide from '../components/PossessionGuide.jsx'
+import TabGuide from '../components/TabGuide.jsx'
+import ViewMenu from '../components/ViewMenu.jsx'
 import FilterPanel from '../components/FilterPanel.jsx'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
@@ -33,6 +33,24 @@ const VIEWS = [
     defaultSort: 'pp_toi_per_game',
     note: 'Ice time per game by situation (EV = even strength, PP = power play, SH = short-handed).',
   },
+  {
+    id: 'outlook',
+    label: 'Projection & luck',
+    defaultSort: 'proj_points',
+    note: 'Projection is where the season is headed (current points plus the expected rest of the season, with an 80% range for the finish); it does not predict injuries or trades. Luck compares goals and points with what the player\'s shots and linemates\' shots predict; the gap fades over time. xP is expected points; Luck z says how unusual the gap is (1.5 or more is flagged hot or cold). Early in a season a few games swing all of this a lot.',
+  },
+  {
+    id: 'speed',
+    label: 'Speed & shots',
+    defaultSort: 'top_speed_mph',
+    note: 'From the NHL\'s EDGE tracking (speeds in mph, distance in miles). Players the NHL hasn\'t tracked yet show a dash.',
+  },
+]
+
+// How the views are grouped in the dropdown.
+const VIEW_GROUPS = [
+  { title: 'Results', ids: ['scoring', 'special', 'outlook'] },
+  { title: 'How they play', ids: ['defense', 'possession', 'speed'] },
 ]
 
 // The stats people rank by most, per view (only those the current season's columns have are offered).
@@ -40,6 +58,8 @@ const QUICK_RANK = {
   scoring: [['points', 'Points'], ['goals', 'Goals'], ['assists', 'Assists'], ['point_pace', 'Pace'], ['plus_minus', '+/-'], ['shots', 'Shots'], ['toi_per_game_sec', 'Ice time']],
   defense: [['hits', 'Hits'], ['blocked_shots', 'Blocks'], ['takeaways', 'Takeaways'], ['sh_toi_per_game', 'PK time'], ['hits_per60', 'Hits/60'], ['blocks_per60', 'Blocks/60'], ['takeaways_per60', 'Takeaways/60']],
   possession: [['sat_pct', 'CF%'], ['xgf_pct', 'xGF%'], ['sat_rel', 'CF% Rel'], ['ixg', 'ixG'], ['goals_minus_ixg', 'G − ixG'], ['pdo_5v5', 'PDO']],
+  outlook: [['proj_points', 'Projected points'], ['proj_goals', 'Projected goals'], ['luck_points_diff', 'P − xP (hot)'], ['luck_points_z', 'Luck z']],
+  speed: [['top_speed_mph', 'Top speed'], ['top_shot_mph', 'Hardest shot'], ['bursts_22_plus', '22+ mph bursts'], ['avg_shot_mph', 'Avg shot'], ['distance_per_game', 'Distance/GP']],
   special: [['pp_toi_per_game', 'PP time'], ['sh_toi_per_game', 'PK time'], ['pp_points', 'PP points'], ['toi_per_game_sec', 'Total ice time'], ['fo_win_pct', 'Faceoff %']],
 }
 
@@ -53,6 +73,8 @@ const fmtToi = (sec) =>
 // Columns built from this season's game-by-game data, which past seasons don't have.
 const CURRENT_ONLY = new Set([
   'point_pace', 'recent_points', 'recent_pace', 'ixg', 'goals_minus_ixg', 'xgf_pct', 'recent_cf_pct', 'recent_ff_pct', 'cf_pct_trend',
+  'proj_points', 'proj_goals', 'proj_assists', 'proj_low', 'proj_high', 'luck_xpoints', 'luck_points_diff', 'luck_points_z',
+  'luck_goals_diff', 'luck_goals_z', 'luck_flag',
 ])
 
 // Columns dropped on phones so the ones that matter (GP, G, A, P ...) fit without sideways scrolling.
@@ -98,6 +120,36 @@ export default function Leaderboard() {
 
   // A past season has no game-by-game data stored, so the pace, last-N-games and expected-goals columns are left out.
   const isPast = season != null
+  // Projections and luck come from their own endpoints, fetched once the tab is first opened (current season only).
+  const [outlook, setOutlook] = useState(null)
+  useEffect(() => {
+    if (viewId !== 'outlook' || isPast || outlook) return undefined
+    let ignore = false
+    Promise.all([getJson('/api/projections?limit=1000'), getJson('/api/luck/skaters?limit=1000')])
+      .then(([proj, luck]) => !ignore && setOutlook({
+        proj: new Map(proj.rows.map((r) => [r.player_id, r])),
+        luck: new Map(luck.rows.map((r) => [r.player_id, r])),
+      }))
+      .catch(() => !ignore && setOutlook({ proj: new Map(), luck: new Map() }))
+    return () => { ignore = true }
+  }, [viewId, isPast, outlook])
+  useEffect(() => {
+    if (isPast && viewId === 'outlook') { setViewId('scoring'); setSort({ key: 'points', dir: 'desc' }) }
+  }, [isPast, viewId])
+  const allRows = useMemo(() => {
+    if (!rows || !outlook) return rows
+    return rows.map((r) => {
+      const p = outlook.proj.get(r.player_id)
+      const l = outlook.luck.get(r.player_id)
+      return {
+        ...r,
+        proj_points: p?.final_points ?? null, proj_goals: p?.final_goals ?? null, proj_assists: p?.final_assists ?? null,
+        proj_low: p?.low_points ?? null, proj_high: p?.high_points ?? null,
+        luck_xpoints: l?.xpoints_adj ?? null, luck_points_diff: l?.points_diff_adj ?? null, luck_points_z: l?.points_z_adj ?? null,
+        luck_goals_diff: l?.diff_adj ?? null, luck_goals_z: l?.z_adj ?? null, luck_flag: l?.points_flag_adj ?? null,
+      }
+    })
+  }, [rows, outlook])
   const onSeason = (id) => { setRows(null); setSeason(id) }
 
   const maxGp = useMemo(() => Math.max(0, ...(rows ?? []).map((r) => r.games_played)), [rows])
@@ -133,7 +185,7 @@ export default function Leaderboard() {
         { key: 'point_pace', label: `Pace (${games})`, fmt: fmt1, accent: true, lowIf: (r) => r.games_played < STABLE_GP },
         { key: 'recent_points', label: `L${window} P` },
         { key: 'recent_pace', label: `L${window} Pace`, fmt: fmt1, accent: true, lowIf: (r) => r.recent_games < Math.min(window, STABLE_GP) },
-        { key: 'plus_minus', label: '+/-' },
+        { key: 'plus_minus', signed: true, label: '+/-' },
         { key: 'toi_per_game_sec', label: 'TOI', fmt: fmtToi },
         { key: 'shots', label: 'Shots' },
         { key: 'shooting_pct', label: 'S%', fmt: fmtPct },
@@ -160,22 +212,48 @@ export default function Leaderboard() {
         { key: 'sat_for', label: 'CF' },
         { key: 'sat_against', label: 'CA' },
         { key: 'sat_pct', label: 'CF%', fmt: fmtPct, accent: true },
-        { key: 'sat_rel', label: 'CF% Rel', fmt: fmtSignedPct },
+        { key: 'sat_rel', signed: true, label: 'CF% Rel', fmt: fmtSignedPct },
         { key: 'usat_for', label: 'FF' },
         { key: 'usat_against', label: 'FA' },
         { key: 'usat_pct', label: 'FF%', fmt: fmtPct, accent: true },
-        { key: 'usat_rel', label: 'FF% Rel', fmt: fmtSignedPct },
+        { key: 'usat_rel', signed: true, label: 'FF% Rel', fmt: fmtSignedPct },
         { key: 'zone_start_pct_5v5', label: 'OZ Start%', fmt: fmtPct },
         { key: 'ev_goals_for', label: 'EV GF' },
         { key: 'ev_goals_against', label: 'EV GA' },
         { key: 'ev_goals_for_pct', label: 'EV GF%', fmt: fmtPct },
         { key: 'pdo_5v5', label: 'PDO', fmt: fmtPct },
         { key: 'ixg', label: 'ixG', fmt: fmt1 },
-        { key: 'goals_minus_ixg', label: 'G − ixG', fmt: fmtSigned1 },
+        { key: 'goals_minus_ixg', signed: true, label: 'G − ixG', fmt: fmtSigned1 },
         { key: 'xgf_pct', label: 'xGF%', fmt: fmtPct, accent: true },
         { key: 'recent_cf_pct', label: `L${window} CF%`, fmt: fmtPct, accent: true, lowIf: onIceLow },
         { key: 'recent_ff_pct', label: `L${window} FF%`, fmt: fmtPct, lowIf: onIceLow },
-        { key: 'cf_pct_trend', label: `L${window} CF% vs season`, fmt: fmtSignedPct, lowIf: onIceLow },
+        { key: 'cf_pct_trend', signed: true, label: `L${window} CF% vs season`, fmt: fmtSignedPct, lowIf: onIceLow },
+      ],
+      outlook: [
+        { key: 'points', label: 'P' },
+        { key: 'proj_points', label: 'Proj P', fmt: fmt1, accent: true },
+        { key: 'proj_low', label: 'P low', fmt: fmt1 },
+        { key: 'proj_high', label: 'P high', fmt: fmt1 },
+        { key: 'proj_goals', label: 'Proj G', fmt: fmt1 },
+        { key: 'proj_assists', label: 'Proj A', fmt: fmt1 },
+        { key: 'luck_xpoints', label: 'xP', fmt: fmt1 },
+        { key: 'luck_points_diff', signed: true, label: 'P − xP', fmt: fmtSigned1, accent: true },
+        { key: 'luck_points_z', signed: true, label: 'Luck z', fmt: fmtSigned1 },
+        { key: 'luck_goals_diff', signed: true, label: 'G − xG', fmt: fmtSigned1 },
+        { key: 'luck_goals_z', signed: true, label: 'G luck z', fmt: fmtSigned1 },
+        { key: 'luck_flag', label: 'Luck', text: true },
+      ],
+      speed: [
+        { key: 'top_speed_mph', label: 'Top speed', fmt: fmt1, accent: true },
+        { key: 'top_shot_mph', label: 'Hardest shot', fmt: fmt1, accent: true },
+        { key: 'bursts_22_plus', label: '22+ mph bursts' },
+        { key: 'avg_shot_mph', label: 'Avg shot', fmt: fmt1 },
+        { key: 'hard_shots', label: '90+ mph shots' },
+        { key: 'distance_per_game', label: 'Miles/GP', fmt: (v) => v.toFixed(2) },
+        { key: 'distance_miles', label: 'Miles', fmt: fmt1 },
+        { key: 'edge_oz_pct', label: 'OZ time', fmt: fmtPct },
+        { key: 'edge_dz_pct', label: 'DZ time', fmt: fmtPct },
+        { key: 'hd_sog', label: 'HD SOG' },
       ],
       special: [
         { key: 'toi_per_game_sec', label: 'TOI', fmt: fmtToi },
@@ -210,9 +288,9 @@ export default function Leaderboard() {
   }
 
   const visible = useMemo(() => {
-    if (!rows) return []
+    if (!allRows) return []
     const q = search.trim().toLowerCase()
-    const filtered = rows.filter(
+    const filtered = allRows.filter(
       (r) =>
         r.games_played >= minGp &&
         (position === 'ALL' ||
@@ -234,7 +312,7 @@ export default function Leaderboard() {
       if (y == null) return -1
       return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sign
     })
-  }, [rows, search, position, minGp, sort, team, country, ageMin, ageMax, rookiesOnly])
+  }, [allRows, search, position, minGp, sort, team, country, ageMin, ageMax, rookiesOnly])
 
   const places = useMemo(() => placesFor(visible, sort.key), [visible, sort.key])
 
@@ -261,8 +339,6 @@ export default function Leaderboard() {
             : `Pace projects points over ${meta?.games_per_season ?? 84} games. L${meta?.recent_window ?? 10} Pace uses only each player's last ${meta?.recent_window ?? 10} games.`}
         </p>
       </header>
-      <SavedViews path="/skaters" />
-
       {maxGp < STABLE_GP && (
         <p className="notice">
           Early season: teams have played at most {maxGp} games, so pace projections are very
@@ -271,27 +347,24 @@ export default function Leaderboard() {
         </p>
       )}
 
-      <div className="tabs" role="tablist">
-        {VIEWS.map((v) => (
-          <button
-            key={v.id}
-            role="tab"
-            aria-selected={v.id === viewId}
-            className={v.id === viewId ? 'on' : ''}
-            onClick={() => onView(v.id)}
-          >
-            {v.label}
-          </button>
-        ))}
+      <div className="toolbar-row">
+        <ViewMenu
+          groups={VIEW_GROUPS.map((g) => ({
+            label: g.title,
+            views: VIEWS.filter((v) => g.ids.includes(v.id) && !(isPast && v.id === 'outlook')),
+          }))}
+          activeId={viewId}
+          onSelect={onView}
+        />
+        <RankBy
+          options={(QUICK_RANK[viewId] ?? []).filter(([key]) => columns.some((c) => c.key === key)).map(([key, label]) => ({ key, label }))}
+          sort={sort}
+          onPick={(key) => onSort(columns.find((c) => c.key === key))}
+        />
       </div>
       {viewId === 'possession' && <PossessionGuide />}
+      <TabGuide id={viewId} />
       {view.note && <p className="view-note">{view.note}</p>}
-
-      <RankBy
-        options={(QUICK_RANK[viewId] ?? []).filter(([key]) => columns.some((c) => c.key === key)).map(([key, label]) => ({ key, label }))}
-        sort={sort}
-        onPick={(key) => onSort(columns.find((c) => c.key === key))}
-      />
 
       <FilterPanel
         count={(position !== 'ALL' ? 1 : 0) + (country !== 'ALL' ? 1 : 0) + (ageMin !== '' || ageMax !== '' ? 1 : 0) + (rookiesOnly ? 1 : 0) + (minGpInput != null ? 1 : 0)}
@@ -333,15 +406,12 @@ export default function Leaderboard() {
         </>}
         tail={<>
           {team !== 'ALL' && <button className="link-button" onClick={() => setTeam('ALL')}>Clear team</button>}
-          <button className="link-button" onClick={() => downloadText('skaters.csv', toCsv(columns, visible))} title="Download the rows shown, with raw (unformatted) values">
-            Download CSV
-          </button>
           <span className="count">{visible.length} players</span>
         </>}
       />
 
       <div className="table-wrap">
-        <table>
+        <table className="board">
           <thead>
             <tr>
               {columns.map((c) => (
@@ -366,13 +436,13 @@ export default function Leaderboard() {
                 {columns.map((c) => (
                   <td
                     key={c.key}
-                    className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(r) ? 'low ' : '') + (sort.key === c.key ? 'sorted ' : '') + (PHONE_HIDDEN.has(c.key) ? 'hide-sm' : '')}
+                    className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(r) ? 'low ' : '') + (sort.key === c.key ? 'sorted ' : '') + (c.signed && r[c.key] != null ? (r[c.key] > 0 ? 'pos ' : r[c.key] < 0 ? 'neg ' : '') : '') + (PHONE_HIDDEN.has(c.key) ? 'hide-sm' : '')}
                     title={c.lowIf?.(r) ? 'Small sample: treat this pace with caution' : undefined}
                   >
                     {c.key === 'name' ? (
                       <span className="player-cell">
                         <RankBadge n={places[rankIndex].rank} tied={places[rankIndex].tied} />
-                        <Avatar playerId={r.player_id} team={r.team} name={r.name} />
+                        <Avatar playerId={r.player_id} team={r.team} name={r.name} size={34} />
                         <Link to={`/player/${r.player_id}`}>{r.name}</Link>
                         {r.traded && <span className="badge" title="Played for more than one team this season">↔ traded</span>}
                         {r.games_out >= 2 && (

@@ -4,9 +4,7 @@ import Avatar from '../components/Avatar.jsx'
 import RankBadge from '../components/RankBadge.jsx'
 import { placesFor } from '../rank.js'
 import { Link } from 'react-router-dom'
-import { downloadText, toCsv } from '../csv.js'
 import { useUrlSync } from '../urlState.js'
-import SavedViews from '../components/SavedViews.jsx'
 import { fmt1, STABLE_GP } from '../format.js'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
@@ -155,7 +153,6 @@ export default function Goalies() {
           {isPast ? 'Last-appearances form is only kept for the current season.' : `L${recentWindow} columns use each goalie's last ${recentWindow} appearances.`}
         </p>
       </header>
-      <SavedViews path="/goalies" />
       {maxGp < STABLE_GP && (
         <p className="notice">
           Early season: goalies have played at most {maxGp} games, so save percentage and GSAA
@@ -187,12 +184,11 @@ export default function Goalies() {
           <input type="number" min="1" value={minGp}
             onChange={(e) => setMinGpInput(Math.max(1, Number(e.target.value) || 1))} />
         </label>
-        <button className="link-button" onClick={() => downloadText('goalies.csv', toCsv(columns, visible))}>Download CSV</button>
         <span className="count">{visible.length} goalies</span>
       </div>
 
       <div className="table-wrap">
-        <table>
+        <table className="board">
           <thead>
             <tr>
               {columns.map((c) => (

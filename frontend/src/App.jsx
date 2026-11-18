@@ -24,15 +24,12 @@ const Player = lazy(pages.Player)
 const ResetPassword = lazy(pages.ResetPassword)
 const Schedule = lazy(pages.Schedule)
 const Awards = lazy(pages.Awards)
-const AdvancedStats = lazy(pages.AdvancedStats)
 const Roles = lazy(pages.Roles)
 const Trophy = lazy(pages.Trophy)
 const Account = lazy(pages.Account)
-const Projections = lazy(pages.Projections)
+const Matchups = lazy(pages.Matchups)
 const Tonight = lazy(pages.Tonight)
 const MyTeam = lazy(pages.MyTeam)
-const Accuracy = lazy(pages.Accuracy)
-const Absences = lazy(pages.Absences)
 const League = lazy(pages.League)
 const Prospects = lazy(pages.Prospects)
 const Prospect = lazy(pages.Prospect)
@@ -60,6 +57,12 @@ function BestSeasonsRedirect({ goalie }) {
 }
 
 /** An old page's address, sent to its tab on the merged page, keeping any query (a link's filters or players) after the tab. */
+/** A moved page: send the old address to the new one with its query (a chosen date, say) intact. */
+function RedirectKeepQuery({ to }) {
+  const { search } = useLocation()
+  return <Navigate to={`${to}${search}`} replace />
+}
+
 function RedirectToTab({ to, tab, param = 'tab' }) {
   const { search } = useLocation()
   const rest = search.replace(/^\?/, '')
@@ -91,14 +94,14 @@ function Pages() {
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/schedule-strength" element={<RedirectToTab to="/schedule" tab="strength" />} />
           <Route path="/rest" element={<RedirectToTab to="/schedule" tab="rest" />} />
-          <Route path="/advanced-stats" element={<AdvancedStats />} />
-          <Route path="/special-teams" element={<RedirectToTab to="/advanced-stats" tab="special-teams" />} />
-          <Route path="/score-effects" element={<RedirectToTab to="/advanced-stats" tab="score-effects" />} />
-          <Route path="/tracking" element={<RedirectToTab to="/advanced-stats" tab="tracking" />} />
+          <Route path="/advanced-stats" element={<Navigate to="/standings" replace />} />
+          <Route path="/special-teams" element={<Navigate to="/standings?stat=pp_xgf60" replace />} />
+          <Route path="/score-effects" element={<Navigate to="/standings?stat=xg_pct_adj" replace />} />
+          <Route path="/tracking" element={<Navigate to="/skaters?view=speed" replace />} />
           <Route path="/head-to-head" element={<RedirectToTab to="/compare" tab="head-to-head" />} />
-          <Route path="/luck" element={<RedirectToTab to="/projections" tab="luck" />} />
+          <Route path="/luck" element={<Navigate to="/skaters" replace />} />
           <Route path="/roles" element={<Roles />} />
-          <Route path="/matchups" element={<RedirectToTab to="/projections" tab="matchups" />} />
+          <Route path="/matchups" element={<Matchups />} />
           <Route path="/awards" element={<Awards />} />
           <Route path="/trophy" element={<RedirectToTab to="/awards" tab="winners" />} />
           <Route path="/trophies" element={<Navigate to="/awards" replace />} />
@@ -108,12 +111,12 @@ function Pages() {
           <Route path="/lottery" element={<RedirectToTab to="/prospects" tab="lottery" />} />
           <Route path="/prospects" element={<Prospects />} />
           <Route path="/prospect/:id" element={<Prospect />} />
-          <Route path="/projections" element={<Projections />} />
-          <Route path="/tonight" element={<Tonight />} />
+          <Route path="/projections" element={<Navigate to="/skaters" replace />} />
+          <Route path="/games" element={<Tonight />} />
+          <Route path="/tonight" element={<RedirectKeepQuery to="/games" />} />
           <Route path="/my-team" element={<MyTeam />} />
           <Route path="/leagues" element={<RedirectToTab to="/fantasy" param="section" tab="leagues" />} />
-          <Route path="/accuracy" element={<Accuracy />} />
-          <Route path="/absences" element={<Absences />} />
+          <Route path="/absences" element={<Navigate to="/skaters" replace />} />
           <Route path="/league/:id" element={<League />} />
           <Route path="/watchlist" element={<RedirectToTab to="/fantasy" param="section" tab="watchlist" />} />
           <Route path="/compare" element={<Compare />} />
@@ -139,11 +142,11 @@ function warmLink(e) {
   if (a) warm(new URL(a.href).pathname)
 }
 
-const MAIN_LINKS = [['/skaters', 'Skaters'], ['/goalies', 'Goalies'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/tonight', 'Tonight'], ['/news', 'News'], ['/my-team', 'My team']]
+const MAIN_LINKS = [['/skaters', 'Skaters'], ['/goalies', 'Goalies'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/games', 'Games'], ['/news', 'News'], ['/my-team', 'My team']]
 // The less-used pages, in two even columns.
 const moreGroups = (user) => [
-  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones'], ['/absences', 'Who\u2019s out']] },
-  { title: 'League & stats', items: [['/schedule', 'Schedule'], ['/projections', 'Projections & matchups'], ['/advanced-stats', 'Advanced stats'], ['/glossary', 'Glossary'], ...(user?.admin ? [['/accuracy', 'Accuracy']] : [])] },
+  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones']] },
+  { title: 'League & stats', items: [['/schedule', 'Schedule'], ['/matchups', 'Matchups'], ['/glossary', 'Glossary']] },
 ]
 
 /** The top bar. Wide screens get the full link row; phones get the logo, search and a menu button that opens every page. */

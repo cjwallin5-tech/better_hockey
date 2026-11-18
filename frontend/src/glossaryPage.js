@@ -62,6 +62,31 @@ export const GROUPS = [
     ],
   },
   {
+    id: 'tracking',
+    title: 'Speed and tracking (NHL EDGE)',
+    intro: 'Since 2021-22 the NHL tracks every player and the puck with sensors, which gives speeds and distances the box score never had. Speeds are in miles per hour and distances in miles.',
+    terms: [
+      { id: 'edge', name: 'NHL EDGE tracking', abbr: 'Speed & shots, EDGE', what: 'The NHL’s puck and player tracking. Players the system has not recorded yet show a dash.', read: 'Single-moment figures such as top speed or hardest shot are one event in a whole season, so they say who is capable of it, not who does it most.' },
+      { id: 'top-speed', name: 'Top skating speed', abbr: 'Top speed', what: 'The fastest the player skated at any point in the season, in mph.' },
+      { id: 'bursts', name: 'Speed bursts', abbr: '22+ mph bursts', what: 'The number of times the player skated faster than 22 mph (about 35 km/h). Bursts over 20 mph and 18 mph are counted the same way.', read: 'Unlike top speed, bursts count how often a player is that fast, so they are steadier from game to game.' },
+      { id: 'shot-speed', name: 'Shot speed', abbr: 'Hardest shot, Avg shot, 90+ mph shots', what: 'Hardest shot is the single fastest shot of the season; Avg shot is the average over all tracked shots; 90+ mph shots counts shot attempts (on goal, missed or blocked) at 90 mph or harder.', read: 'Harder is not always better: a well-placed 80 mph shot often beats a 95 mph one into the goalie’s chest.' },
+      { id: 'distance', name: 'Distance skated', abbr: 'Miles/GP, Miles', what: 'Total miles skated, and miles per game played. It follows ice time, so forwards and defensemen with big minutes lead.' },
+      { id: 'zone-time', name: 'Zone time', abbr: 'OZ time, DZ time', what: 'The share of the player’s ice time spent in the offensive and defensive zone.', read: 'It reflects role and team as much as the player: a team that controls the puck spends more time in the offensive zone.' },
+      { id: 'high-danger', name: 'High-danger shots', abbr: 'HD SOG', what: 'Shots on goal from the area in front of the net where most goals are scored.' },
+    ],
+  },
+  {
+    id: 'outlook',
+    title: 'Projections and luck columns',
+    intro: 'The Projection & luck tab of the skater leaderboard puts where each season is headed next to how lucky the player has been.',
+    terms: [
+      { id: 'projection', name: 'Season projection', abbr: 'Proj P, Proj G, Proj A', what: 'Current totals plus the expected rest of the season: the player’s scoring rate (blended with their earlier seasons and the shots they take) times the games their team has left and how likely they are to play in them.', read: 'It does not predict injuries, trades or role changes.' },
+      { id: 'projection-range', name: 'Projection range', abbr: 'P low, P high', what: 'The low and high end of an 80% range for the player’s final points: about four times in five the finish lands between them.' },
+      { id: 'expected-points', name: 'Expected points', abbr: 'xP, P − xP', what: 'The points the player’s own shots, plus the shots of the teammates they skate with (which turn into assists), predict. P − xP is actual minus expected.', read: 'Positive means running hot, negative means running cold. The gap tends to fade over time.' },
+      { id: 'luck-flag', name: 'Hot and cold flags', abbr: 'Luck, Luck z, G luck z, G − xG', what: 'Luck z measures how unusual the gap between actual and expected is, in standard deviations (see Standard deviations above); G − xG and G luck z are the same for goals. A gap of 1.5 or more is flagged hot or cold.', read: 'Early in a season a few games swing all of these a lot, so treat them as a prompt to look closer, not a verdict.' },
+    ],
+  },
+  {
     id: 'standings',
     title: 'Standings and playoffs',
     terms: [

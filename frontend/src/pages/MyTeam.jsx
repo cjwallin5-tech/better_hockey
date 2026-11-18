@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Schedule from '../components/Schedule.jsx'
-import SpecialTeams from '../components/SpecialTeams.jsx'
-import NewsList from '../components/NewsList.jsx'
-import TeamLogo from '../components/TeamLogo.jsx'
+import Team from './Team.jsx'
+import Avatar from '../components/Avatar.jsx'
 import { useFavoriteTeam } from '../favorite.js'
 import { useAuth } from '../auth.js'
 import SignInPrompt from '../components/SignInPrompt.jsx'
@@ -85,51 +83,26 @@ function SaveNote() {
   return <p className="sub save-note">Saved to your account, so your team follows you to any device you log in on.</p>
 }
 
-function MyTeamPage() {
-  const { favorite, setFavorite } = useFavoriteTeam()
-  const [changing, setChanging] = useState(false) // choosing another team; the saved one stays until a new one is picked
+/** The My team tab: the season game by game, results next to what the shots said, a rolling trend and the key players' form. */
+function SeasonLog({ abbrev }) {
   const [state, setState] = useState({ abbrev: null, data: null, error: null })
 
   useEffect(() => {
-    if (!favorite) return
     let ignore = false
-    fetch(`/api/teams/${favorite}/game-log`)
+    fetch(`/api/teams/${abbrev}/game-log`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'Team not found' : `API returned ${r.status}`))))
-      .then((data) => !ignore && setState({ abbrev: favorite, data, error: null }))
-      .catch((error) => !ignore && setState({ abbrev: favorite, data: null, error: error.message }))
+      .then((data) => !ignore && setState({ abbrev, data, error: null }))
+      .catch((error) => !ignore && setState({ abbrev, data: null, error: error.message }))
     return () => { ignore = true }
-  }, [favorite])
+  }, [abbrev])
 
-  const { data, error } = state.abbrev === favorite ? state : { data: null, error: null }
+  const { data, error } = state.abbrev === abbrev ? state : { data: null, error: null }
   const games = useMemo(() => (data ? [...data.games].reverse() : []), [data])
   const form = useMemo(() => (data ? data.games.slice(-10) : []), [data])
-
-  if (!favorite || changing) {
-    return (
-      <main>
-        <header><h1>My team</h1><p>Pick the team you follow and this page tracks its season game by game, with what the shots said next to each result.</p></header>
-        <SaveNote />
-        <TeamGrid onPick={(abbrev) => { setFavorite(abbrev); setChanging(false) }} onCancel={favorite ? () => setChanging(false) : null} keep={favorite} />
-      </main>
-    )
-  }
-  const t = data?.team
   const s = data?.summary
 
   return (
-    <main>
-      <header className="team-head">
-        {t && <TeamLogo team={t} size={56} />}
-        <div>
-          <h1>{t?.name ?? favorite}</h1>
-          <p>
-            {t && <>{t.wins}-{t.losses}-{t.ot_losses}, {t.points} points in {t.games_played} games. </>}
-            <Link to={`/team/${favorite}`}>Full team page</Link>
-          </p>
-        </div>
-      </header>
-      <p><button type="button" className="link-button" onClick={() => setChanging(true)}>Change team</button></p>
-      <SaveNote />
+    <>
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && data.games.length === 0 && <p className="status">No finished games yet.</p>}
@@ -140,7 +113,7 @@ function MyTeamPage() {
             <h2>Form</h2>
             <p>
               {form.map((g) => (
-                <Link key={g.game_id} to={`/game/${g.game_id}`} className={g.result === 'W' ? 'badge' : 'badge warn'} style={{ marginRight: 4 }}
+                <Link key={g.game_id} to={`/game/${g.game_id}`} className={g.result === 'W' ? 'badge good' : 'badge warn'} style={{ marginRight: 4 }}
                       title={`${day(g.date)} ${g.home_game ? 'vs' : '@'} ${g.opponent} ${g.gf}-${g.ga}`}>{g.result}</Link>
               ))}
               <span className="muted"> last {form.length}, oldest to newest</span>
@@ -199,10 +172,15 @@ function MyTeamPage() {
                   <tbody>
                     {data.players.map((p) => (
                       <tr key={p.player_id}>
-                        <td className="left"><Link to={`/player/${p.player_id}`}>{p.name}</Link> <span className="muted">{p.position}</span></td>
+                        <td className="left">
+                          <span className="player-cell">
+                            <Avatar playerId={p.player_id} team={abbrev} name={p.name} />
+                            <Link to={`/player/${p.player_id}`}>{p.name}</Link> <span className="muted">{p.position}</span>
+                          </span>
+                        </td>
                         <td>{p.games_played}</td><td>{p.points}</td><td>{fmt1(p.point_pace)}</td>
                         <td>{p.recent_points ?? '–'}</td><td>{fmt1(p.recent_pace)}</td>
-                        <td>{p.form === 'hot' ? <span className="badge">hot</span> : p.form === 'cold' ? <span className="badge warn">cold</span> : null}</td>
+                        <td>{p.form === 'hot' ? <span className="badge good">hot</span> : p.form === 'cold' ? <span className="badge warn">cold</span> : null}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -210,19 +188,39 @@ function MyTeamPage() {
               </div>
             </section>
           )}
-
-          <Schedule abbrev={favorite} />
-          <p className="muted small"><Link to={`/team/${favorite}?tab=calendar`}>Full season calendar</Link></p>
-          <SpecialTeams abbrev={favorite} />
-
-          <section className="card">
-            <h2>Team news</h2>
-            <NewsList team={favorite} limit={8} note empty="No recent stories about your team." />
-            <p className="muted small"><Link to={`/news?team=${favorite}`}>More news</Link></p>
-          </section>
         </>
       )}
-    </main>
+    </>
+  )
+}
+
+function MyTeamPage() {
+  const { favorite, setFavorite } = useFavoriteTeam()
+  const [changing, setChanging] = useState(false) // choosing another team; the saved one stays until a new one is picked
+
+  if (!favorite || changing) {
+    return (
+      <main>
+        <header><h1>My team</h1><p>Pick the team you follow and this page tracks its season game by game, with what the shots said next to each result.</p></header>
+        <SaveNote />
+        <TeamGrid onPick={(abbrev) => { setFavorite(abbrev); setChanging(false) }} onCancel={favorite ? () => setChanging(false) : null} keep={favorite} />
+      </main>
+    )
+  }
+
+  // Your team is shown as its normal team page, with one extra tab for the season game by game.
+  return (
+    <Team
+      abbrev={favorite}
+      mine
+      afterBanner={(
+        <p className="sub save-note">
+          <button type="button" className="link-button" onClick={() => setChanging(true)}>Change team</button>
+          {' · '}Saved to your account, so your team follows you to any device you log in on.
+        </p>
+      )}
+      extraTabs={[{ id: 'log', label: 'Game by game', content: <SeasonLog abbrev={favorite} /> }]}
+    />
   )
 }
 

@@ -64,8 +64,11 @@ class ShotHistRows(unittest.TestCase):
         self.assertTrue(self.rows[2][14])  # the empty-net goal
 
     def test_time_and_side_are_kept_for_score_state(self):
-        period, time_sec, is_home = self.rows[0][15:]
+        period, time_sec, is_home = self.rows[0][15:18]
         self.assertEqual((period, time_sec, is_home), (1, 600, True))
+
+    def test_the_quick_follow_flag_is_the_last_column(self):
+        self.assertEqual(self.rows[0][18], False)
 
 
 if __name__ == "__main__":

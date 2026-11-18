@@ -180,7 +180,7 @@ export function GameBars({ games }) {
                   y={y(game.points)}
                   width={barW}
                   height={y(0) - y(game.points)}
-                  rx="3"
+                  rx="1"
                   className={`game-bar ${i === idx ? 'on' : ''}`}
                 />
               )}
@@ -225,7 +225,7 @@ export function DefenseBars({ games }) {
         y={y(value)}
         width={barW}
         height={y(0) - y(value)}
-        rx="3"
+        rx="1"
         className={cls}
       />
     )
@@ -438,7 +438,7 @@ export function CorsiChart({ games }) {
                   y={Math.min(y(pct[i]), y(50))}
                   width={barW}
                   height={Math.max(Math.abs(y(pct[i]) - y(50)), 1)}
-                  rx="3"
+                  rx="1"
                   className={pct[i] >= 50 ? 'bar-above' : 'bar-below'}
                   opacity="0.85"
                 />
@@ -571,11 +571,11 @@ export function CompareChart({ title, series, xLabel, yLabel, yDomain, yFmt = (v
  * dashed reference lines for the season average and (optionally) a league figure. `games` is chronological and
  * `raw` / `roll` have one entry per game (null where there is nothing to draw). `tip(i)` returns the tooltip rows.
  */
-export function RollingChart({ title, games, raw, roll, avg, avgLabel, refLine, w, rawLabel, fmt, domain, ticks, tip, note }) {
+export function RollingChart({ title, games, raw, roll, avg, avgLabel, refLine, w, rawLabel, fmt, domain, ticks, tip, note, hideRaw = false, avgValue }) {
   const [plotRef, W] = useWidth()
   const PW = W - M.l - M.r
   const n = games.length
-  const nums = [...raw, ...roll, avg, refLine?.value].filter((v) => v != null)
+  const nums = [...(hideRaw ? [] : raw), ...roll, avg, refLine?.value].filter((v) => v != null)
   const auto = niceAxis(Math.max(...nums, 0))
   const [lo, hi] = domain ?? [0, auto.top]
   const tickList = ticks ?? auto.ticks
@@ -591,14 +591,36 @@ export function RollingChart({ title, games, raw, roll, avg, avgLabel, refLine, 
     .map((pt, i) => `${i ? 'L' : 'M'}${pt}`)
     .join(' ')
 
+  // Put the season-average label in whichever corner (left or right end, above or below the line) the rolling line is
+  // farthest from, so it never sits under the line.
+  let avgSpot = null
+  if (avg != null && avgValue) {
+    const labelW = (avgLabel.length + avgValue.length + 1) * 6.5
+    const spots = []
+    for (const side of ['right', 'left']) {
+      for (const dy of [-6, 14]) {
+        const x0 = side === 'right' ? W - M.r : M.l + 6
+        const [a, b] = side === 'right' ? [x0 - labelW, x0] : [x0, x0 + labelW]
+        const textY = y(avg) + dy
+        const clear = Math.min(
+          Infinity,
+          ...roll.map((v, i) => (v != null && x(i) >= a - 4 && x(i) <= b + 4 ? Math.abs(y(v) - (textY - 4)) : Infinity)),
+        )
+        const fits = textY > M.t + 8 && textY < M.t + PH - 2
+        spots.push({ x: x0, y: textY, anchor: side === 'right' ? 'end' : 'start', clear: fits ? clear : -1 })
+      }
+    }
+    avgSpot = spots.reduce((best, c) => (c.clear > best.clear ? c : best))
+  }
+
   return (
     <figure className="chart wide">
       <figcaption>
         <h3>{title}</h3>
         <ul className="legend">
-          <li><i className="key box above" /> {rawLabel}</li>
+          {!hideRaw && <li><i className="key box above" /> {rawLabel}</li>}
           <li><i className="key solid roll" /> {w}-game rolling</li>
-          <li><i className="key dashed" /> {avgLabel}</li>
+          <li><i className="key dashed" /> {avgLabel}{avgValue ? `: ${avgValue}` : ''}</li>
           {refLine && <li><i className="key dashed" style={{ borderTopColor: 'var(--series-2)' }} /> {refLine.label}</li>}
         </ul>
       </figcaption>
@@ -610,16 +632,21 @@ export function RollingChart({ title, games, raw, roll, avg, avgLabel, refLine, 
               <text x={M.l - 8} y={y(v)} dy="0.32em" textAnchor="end" className="axis">{fmt(v)}</text>
             </g>
           ))}
-          {avg != null && <line x1={M.l} x2={W - M.r} y1={y(avg)} y2={y(avg)} stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="5 4" />}
+          {avg != null && <line x1={M.l} x2={W - M.r} y1={y(avg)} y2={y(avg)} stroke="var(--muted)" strokeWidth="2" strokeDasharray="6 4" />}
           {refLine && <line x1={M.l} x2={W - M.r} y1={y(refLine.value)} y2={y(refLine.value)} stroke="var(--series-2)" strokeWidth="1.5" strokeDasharray="5 4" />}
           {games.map((game, i) => (
             <g key={game.game_id}>
               {i === idx && <rect x={x(i) - slot / 2} y={M.t} width={slot} height={PH} className="hover-band" />}
-              {raw[i] != null && <circle cx={x(i)} cy={y(raw[i])} r="3.5" fill="var(--series-1)" opacity="0.5" />}
+              {!hideRaw && raw[i] != null && <circle cx={x(i)} cy={y(raw[i])} r="3.5" fill="var(--series-1)" opacity="0.5" />}
               {i % step === 0 && <text x={x(i)} y={H - 8} textAnchor="middle" className="axis">{i + 1}</text>}
             </g>
           ))}
           <path d={rollPath} className="roll-line" />
+          {avgSpot && (
+            <text x={avgSpot.x} y={avgSpot.y} textAnchor={avgSpot.anchor} className="axis avg-label">
+              {avgLabel} {avgValue}
+            </text>
+          )}
         </svg>
         {g && (
           <Tooltip W={W} x={x(idx)}>

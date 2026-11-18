@@ -69,7 +69,6 @@ get("/api/head-to-head/teams?a=EDM&b=EDM", expect=400)
 get("/api/head-to-head/teams?a=EDM&b=ZZZ", expect=404)
 get(f"/api/head-to-head/player?player_id={go}&team=EDM", expect=404)
 get("/api/digest", expect=401)  # needs a signed-in account
-get("/api/views", expect=401)
 get("/api/games/1/shifts", expect=404)
 get(f"/api/players/{go}/comparables", expect=404)
 get(f"/api/players/{go}/defense", expect=404)

@@ -7,6 +7,8 @@ import { fmt1, fmtPct, STABLE_GP } from '../format.js'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 import { teamColor } from '../teamColors.js'
+import { useUrlSync } from '../urlState.js'
+import { TEAM_STATS, leagueRanks, sortByStat, statById, statValue } from '../teamStats.js'
 
 const VIEWS = [
   { id: 'division', label: 'Division', rank: 'division_rank', group: (t) => t.division, order: ['Atlantic', 'Metropolitan', 'Central', 'Pacific'] },
@@ -42,6 +44,24 @@ export default function Standings() {
   const [error, setError] = useState(null)
   const [viewId, setViewId] = useState('division')
   const [more, setMore] = useState(false) // every column, not just the essentials
+  const [statId, setStatId] = useState(() => (statById(new URLSearchParams(window.location.search).get('stat') ?? '') ? new URLSearchParams(window.location.search).get('stat') : ''))
+  useUrlSync([['stat', statId, '']])
+  const stat = statById(statId)
+  const [extras, setExtras] = useState({}) // source -> { abbrev -> that team's row }, fetched when a stat from it is first watched
+
+  useEffect(() => {
+    const url = { special: '/api/special-teams', score: '/api/score-effects' }[stat?.source]
+    if (!url || extras[stat.source]) return undefined
+    let ignore = false
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`API returned ${r.status}`))))
+      .then((d) => !ignore && setExtras((e) => ({ ...e, [stat.source]: Object.fromEntries(d.teams.map((x) => [x.team, x])) })))
+      .catch(() => !ignore && setExtras((e) => ({ ...e, [stat.source]: {} })))
+    return () => { ignore = true }
+  }, [stat, extras])
+  const statExtras = stat ? extras[stat.source] : undefined
+  const statLoading = stat && stat.source !== 'team' && !statExtras
+  const ranks = useMemo(() => (stat && teams && !statLoading ? leagueRanks(stat, teams, statExtras) : new Map()), [stat, teams, statExtras, statLoading])
 
   useEffect(() => {
     Promise.all([
@@ -72,6 +92,11 @@ export default function Standings() {
       .filter((g) => byGroup.has(g))
       .map((g) => ({ name: g, rows: byGroup.get(g).sort((a, b) => a[view.rank] - b[view.rank]), rank: view.rank }))
   }, [teams, view])
+  // Watching a stat orders each group by it (the wild card race keeps its own order) and numbers the rows by that order.
+  const shownGroups = useMemo(() => {
+    if (!stat || statLoading || view.id === 'wildcard') return groups
+    return groups.map((g) => ({ ...g, rows: sortByStat(stat, g.rows, statExtras), byStat: true }))
+  }, [groups, stat, statExtras, statLoading, view])
 
   if (error) return <main><p className="status">Couldn't load standings: {error}</p></main>
   if (!teams) return <main><PageSkeleton /></main>
@@ -111,6 +136,20 @@ export default function Standings() {
           Playoff odds
         </button>
         {viewId !== 'odds' && (
+          <label className="stat-watch" title="Show another team stat next to the standings and order each group by it">
+            Watch
+            <select value={statId} onChange={(e) => setStatId(e.target.value)} aria-label="Stat to watch">
+              <option value="">Standings order</option>
+              <optgroup label="Team stats">
+                {TEAM_STATS.filter((x) => x.source === 'team').map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+              </optgroup>
+              <optgroup label="Expected goals and special teams">
+                {TEAM_STATS.filter((x) => x.source !== 'team').map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+              </optgroup>
+            </select>
+          </label>
+        )}
+        {viewId !== 'odds' && (
           <button type="button" className="more-cols" aria-pressed={more} onClick={() => setMore(!more)}>
             {more ? 'Fewer stats' : 'More stats'}
           </button>
@@ -119,7 +158,7 @@ export default function Standings() {
 
       {viewId === 'odds' && <PlayoffOdds teams={teams} />}
 
-      {viewId !== 'odds' && groups.map(({ name, rows, rank, cutAfter }) => (
+      {viewId !== 'odds' && shownGroups.map(({ name, rows, rank, cutAfter, byStat }) => (
         <section key={name} className="standings-group">
           {view.id !== 'league' && <div className="eyebrow">{name}</div>}
           {rows.length === 0 && <p className="status">No teams yet.</p>}
@@ -127,11 +166,13 @@ export default function Standings() {
             <table className={`standings-table${more ? ' more' : ''}`}>
               <colgroup>
                 <col className="col-team" />
+                {stat && <col className="col-watched" />}
                 {Array.from({ length: more ? 14 : 9 }, (_, i) => <col key={i} />)}
               </colgroup>
               <thead>
                 <tr>
                   <th className="left" title={describe('Team')}>Team</th>
+                  {stat && <th className="watched" title={`${stat.label}: ${stat.tip}`}>{stat.short}</th>}
                   <th title={describe('GP')}>GP</th><th title={describe('W')}>W</th><th title={describe('L')}>L</th><th title={describe('OTL')}>OTL</th><th title={describe('PTS')}>PTS</th>
                   {more && <th title={describe('P%')}>P%</th>}
                   <th title={`Points pace over ${games} games`}>Pace</th>
@@ -150,12 +191,18 @@ export default function Standings() {
                       <td className="left team-cell">
                         <div className="team-inner">
                           <span className={`po-dot${inPlayoffs ? ' in' : ''}`} title={inPlayoffs ? 'In a playoff position' : undefined} />
-                          <span className="rank">{t[rank]}</span>
+                          <span className="rank">{byStat ? i + 1 : t[rank]}</span>
                           <TeamLogo team={t} />
                           <Link to={`/team/${t.abbrev}`}><span className="team-full">{t.name}</span><span className="team-short" title={t.name}>{t.abbrev}</span></Link>
                           {wildCard && view.id !== 'wildcard' && <span className="badge wc" title={`Wild card ${t.wildcard_rank}`}>WC{t.wildcard_rank}</span>}
                         </div>
                       </td>
+                      {stat && (
+                        <td className="watched accent">
+                          {statLoading ? '…' : (() => { const v = statValue(stat, t, statExtras); return v == null ? '–' : stat.fmt(v) })()}
+                          {ranks.get(t.abbrev) != null && <span className="league-rank" title="League rank in this stat (1 = best)"> #{ranks.get(t.abbrev)}</span>}
+                        </td>
+                      )}
                       <td>{t.games_played}</td><td>{t.wins}</td><td>{t.losses}</td>
                       <td>{t.ot_losses}</td><td><strong>{t.points}</strong></td>
                       {more && <td>{t.point_pct == null ? '–' : t.point_pct.toFixed(3).replace(/^0/, '')}</td>}
@@ -163,10 +210,10 @@ export default function Standings() {
                         {fmt1(t.points_pace)}
                       </td>
                       {more && <><td>{t.goals_for}</td><td>{t.goals_against}</td></>}
-                      <td>{t.goal_diff > 0 ? `+${t.goal_diff}` : t.goal_diff}</td>
+                      <td className={t.goal_diff > 0 ? 'pos' : t.goal_diff < 0 ? 'neg' : ''}>{t.goal_diff > 0 ? `+${t.goal_diff}` : t.goal_diff}</td>
                       {more && <><td>{fmtPct(t.pp_pct)}</td><td>{fmtPct(t.pk_pct)}</td></>}
                       <td>{t.l10_wins}-{t.l10_losses}-{t.l10_ot_losses}</td>
-                      <td>{t.streak_code}{t.streak_count}</td>
+                      <td className={`streak-${t.streak_code}`}>{t.streak_code}{t.streak_count}</td>
                     </tr>
                   )
                 })}

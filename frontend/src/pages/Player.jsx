@@ -31,6 +31,7 @@ import InternationalMedals from '../components/InternationalMedals.jsx'
 import { describe } from '../glossary.js'
 import PossessionGuide from '../components/PossessionGuide.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
+import { StatCards, Tile } from '../components/StatCards.jsx'
 
 const fmt1 = (v) => (v == null ? '–' : v.toFixed(1))
 const fmtToi = (sec) =>
@@ -58,12 +59,6 @@ const POSSESSION = [
   { key: 'ev_goals_for_pct', label: 'Even-strength goal share', fmt: fmtPct },
   { key: 'pp_points_per60', label: 'Power-play points / 60', fmt: fmt1 },
 ]
-
-const ordinal = (n) => {
-  const v = n % 100
-  if (v >= 11 && v <= 13) return `${n}th`
-  return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'}`
-}
 
 export default function Player() {
   const { id } = useParams()
@@ -110,6 +105,12 @@ export default function Player() {
           { label: 'TOI / game', value: fmtToi(p.toi_per_game_sec) },
         ]}
       />
+      {p.games_out >= 2 && (
+        <p className="notice">
+          <strong>Out:</strong> {p.name} hasn't played in {p.team}'s last {p.games_out} games. The NHL feed doesn't say why (injury,
+          healthy scratch, trade or call-down all look the same).
+        </p>
+      )}
 
       <PageTabs
         tabs={[
@@ -278,40 +279,5 @@ export default function Player() {
         ]}
       />
     </main>
-  )
-}
-
-function StatCards({ stats, p, percentiles }) {
-  return (
-    <div className="def-grid">
-      {stats.map((d) => {
-        const pct = percentiles[d.key]
-        return (
-          <div className="def-card" key={d.key}>
-            <div className="def-top">
-              <span>{d.label}</span>
-              <strong>{p[d.key] == null ? '–' : d.fmt ? d.fmt(p[d.key]) : p[d.key]}</strong>
-            </div>
-            <div className="bar" title={pct == null ? '' : `${ordinal(pct)} percentile`}>
-              <div style={{ width: `${pct ?? 0}%` }} />
-            </div>
-            <div className="def-foot">
-              {pct == null ? 'no data' : `${ordinal(pct)} percentile`}
-              {d.note && <em> · {d.note}</em>}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function Tile({ label, value, rank }) {
-  return (
-    <div className="tile">
-      <span>{label}</span>
-      <strong>{value ?? '–'}</strong>
-      {rank && <small className="tile-rank">{rank}</small>}
-    </div>
   )
 }

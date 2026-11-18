@@ -97,7 +97,7 @@ export default function ScheduleStrength({ embedded = false }) {
             </table>
           </div>
           <p className="sub">
-            Each game is priced with the same on-paper model as the What to watch page (expected-goal ratings, with home ice); a team's
+            Each game is priced with the same on-paper model as the Games page (expected-goal ratings, with home ice); a team's
             schedule figure is its expected points over those games minus what it would expect against an average opponent at the same
             venues, so negative means harder. It uses today's ratings for every opponent, pulled toward average while the sample is
             small, so the figures move as the season does.

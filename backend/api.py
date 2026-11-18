@@ -18,7 +18,6 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 import absences_db
-import accuracy
 import awards
 import bestseasons
 import records
@@ -187,13 +186,19 @@ SELECT s.*,
        round(oi.ff::numeric / NULLIF(oi.ff + oi.fa, 0), 4)::float AS recent_ff_pct,
        round(oi.gf::numeric / NULLIF(oi.gf + oi.ga, 0), 4)::float AS recent_gf_pct,
        -- change from the season-long Corsi share (positive = trending up)
-       round(oi.cf::numeric / NULLIF(oi.cf + oi.ca, 0) - s.sat_pct::numeric, 4)::float AS cf_pct_trend
+       round(oi.cf::numeric / NULLIF(oi.cf + oi.ca, 0) - s.sat_pct::numeric, 4)::float AS cf_pct_trend,
+       -- NHL EDGE tracking (NULL for players the NHL hasn't tracked this season)
+       ed.top_shot_mph, ed.avg_shot_mph, ed.top_speed_mph, ed.bursts_22_plus,
+       coalesce(ed.shots_90_100, 0) + coalesce(ed.shots_100_plus, 0) AS hard_shots,
+       round((ed.distance_miles / NULLIF(s.games_played, 0))::numeric, 2)::float AS distance_per_game,
+       ed.distance_miles, ed.oz_pct AS edge_oz_pct, ed.dz_pct AS edge_dz_pct, ed.hd_sog
 FROM skater_season s
 LEFT JOIN recent r USING (player_id)
 LEFT JOIN onice_recent oi USING (player_id)
 LEFT JOIN lineup_gap lgap USING (player_id)
 LEFT JOIN ixg ix USING (player_id)
 LEFT JOIN onice_xg ox USING (player_id)
+LEFT JOIN edge_skater_season ed ON ed.player_id = s.player_id AND ed.season_id = s.season_id AND ed.has_data
 WHERE s.season_id = %(season)s AND s.games_played > 0
 ORDER BY s.points DESC, s.games_played ASC
 """
@@ -1636,7 +1641,7 @@ def tonight_endpoint(date: str | None = None, ids: str = "", teams: str = ""):
             except ValueError:
                 raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
         games = conn.execute(
-            "SELECT game_id, start_time, state, home, away FROM game WHERE season_id = %s AND game_date = %s "
+            "SELECT game_id, start_time, state, home, away, home_score, away_score FROM game WHERE season_id = %s AND game_date = %s "
             "ORDER BY start_time, game_id", (config.SEASON_ID, day)).fetchall()
         ratings, league = matchups_db.team_table(conn, config.SEASON_ID)
         skaters = conn.execute(
@@ -1692,6 +1697,7 @@ def tonight_endpoint(date: str | None = None, ids: str = "", teams: str = ""):
                                     [y["name"] for y in yours], sorted(followed & {g["home"], g["away"]}))
         out.append({
             "game_id": g["game_id"], "start_time": g["start_time"], "state": g["state"], "home": g["home"], "away": g["away"],
+            "home_score": g["home_score"], "away_score": g["away_score"],
             "home_info": {k: h[k] for k in ("name", "logo_url", "logo_dark_url")} if h else None,
             "away_info": {k: a[k] for k in ("name", "logo_url", "logo_dark_url")} if a else None,
             "home_win": win, "expected_goals": total,
@@ -3202,7 +3208,7 @@ def luck_skaters(position: str = "", min_attempts: int = luck.MIN_ATTEMPTS, dir:
         raise HTTPException(400, "rank must be points or goals")
     if vs not in ("own", "average"):
         raise HTTPException(400, "vs must be own or average")
-    limit = max(1, min(limit, 200))
+    limit = max(1, min(limit, 1000))
     key = ("points_z" if rank == "points" else "z") + ("_adj" if vs == "own" else "")
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
         rows = luck_db.skater_rows(conn, config.SEASON_ID, config.GAMES_PER_SEASON, position, min_attempts)
@@ -3389,48 +3395,6 @@ def projections_goalies(ids: str = "", min_games: int = 1, sort: str = "final_wi
         out.append({"player_id": g["player_id"], "name": g["name"], "team": g["team"], **projections.goalie_final(r, games)})
     out.sort(key=lambda x: (-(x[sort] or 0), x["name"]))
     return {"season": config.SEASON_ID, "total": len(out), "rows": out[:limit]}
-
-
-_accuracy_cache = {"sig": None, "data": None}
-
-
-@app.get("/api/accuracy")
-def accuracy_endpoint(request: Request):
-    """Owner only. How well two of the site's predictions did this season, replayed game by game using only what was known
-    beforehand: the on-paper win chance (against simple baselines) and the probable-goalie model, plus the forward log of
-    predictions made before each game (predictions.py). See accuracy.py."""
-    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
-        auth.require_admin(conn, request)
-        games = conn.execute(
-            """SELECT game_id, game_date AS date, home, away, home_score, away_score FROM game
-               WHERE season_id = %s AND state IN ('OFF', 'FINAL') AND home_score IS NOT NULL ORDER BY game_date, game_id""",
-            (config.SEASON_ID,)).fetchall()
-        sig = (len(games), games[-1]["game_id"] if games else None)
-        if _accuracy_cache["sig"] == sig:
-            return {**_accuracy_cache["data"], "live": predictions.load_report()}
-        shots = {}
-        for r in conn.execute(
-                """SELECT game_id, t AS team, coalesce(sum(xg) FILTER (WHERE side = 'f'), 0)::float AS xgf,
-                          coalesce(sum(xg) FILTER (WHERE side = 'a'), 0)::float AS xga
-                   FROM (SELECT game_id, team AS t, xg, 'f' AS side FROM shot WHERE season_id = %(s)s
-                         UNION ALL SELECT game_id, opponent, xg, 'a' FROM shot WHERE season_id = %(s)s) x
-                   GROUP BY game_id, t""", {"s": config.SEASON_ID}):
-            shots[(r["game_id"], r["team"])] = {"xgf": r["xgf"], "xga": r["xga"]}
-        for r in conn.execute(
-                """SELECT game_id, count(*) FILTER (WHERE kind = 'goal') AS goals,
-                          count(*) FILTER (WHERE kind IN ('shot', 'goal')) AS sog
-                   FROM shot WHERE season_id = %s GROUP BY game_id""", (config.SEASON_ID,)):
-            shots[(r["game_id"], None)] = {"goals": r["goals"], "sog": r["sog"]}
-        starters = {}
-        for r in conn.execute(
-                """SELECT game_id, game_date AS date, team, player_id FROM goalie_game
-                   WHERE season_id = %s AND started ORDER BY toi_sec DESC NULLS LAST""", (config.SEASON_ID,)):
-            starters.setdefault((r["game_id"], r["team"]), {"game_id": r["game_id"], "date": r["date"], "team": r["team"], "starter": r["player_id"]})
-    data = {"season": config.SEASON_ID, "games_finished": len(games),
-            "win": accuracy.win_report(accuracy.win_replay(games, shots)),
-            "goalie": accuracy.goalie_report(accuracy.goalie_replay(list(starters.values())))}
-    _accuracy_cache.update(sig=sig, data=data)
-    return {**data, "live": predictions.load_report()}
 
 
 # --- Matchup quality ------------------------------------------------------------------------------

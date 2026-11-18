@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
 
@@ -143,7 +142,6 @@ export default function LuckPanel({ playerId, goalie }) {
           ? `, measured against their own finishing in ${row.prior_seasons} earlier season${row.prior_seasons === 1 ? '' : 's'} (${signed(row.skill * 100)}% vs an average shooter's goals from the same shots).`
           : '. There is no earlier season on file for this player, so this compares them with an average shooter.')}
         {' '}Early in a season a few games swing this a lot.
-        {' '}<Link to="/projections?tab=luck">See everyone →</Link>
       </p>
       {!row.enough && (
         <p className="status">Small sample so far ({goalie ? `${row.faced} shots faced` : `${row.attempts} shot attempts`}), so no hot or cold label yet.</p>

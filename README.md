@@ -38,6 +38,14 @@ Things worth knowing:
   HTML time-on-ice reports (checked identical on test games).
 - Expected goals come from our own model: `train_xg_fetch.py` + `train_xg.py` fit it on a past season
   and write `xg_model.json`. Re-run them to refresh it.
+  The model is a logistic regression on shot distance, angle, shot type, strength and two follow-up flags (`shots.follow_flags`): a
+  **rebound** is an attempt 2 to 3 seconds after the same team's shot on goal (it scores more than a first shot from the same spot), and a
+  **quick follow-up** is one within a second (it scores far less, because the goalie is still set). The flag was a single "within 3
+  seconds of any non-blocked attempt" until 2026-11-17, which mixed the two and came out negative; splitting it took held-out log loss from
+  0.2307 to 0.2277 and AUC from 0.740 to 0.751. After retraining or changing a flag, run `python ingest.py rescore-xg` to recompute xG,
+  `rebound` and `quick_follow` for every stored shot from the database (no NHL requests); the per-skater, pair and line on-ice xG are stored
+  from each game's shifts, so bump `LINES_VERSION` in `ingest.py` to have the next on-ice run redo the current season (past seasons' on-ice
+  xGF/xGA keep the older model until `backfill-onice` is run again).
 - Lineup gaps are *inferred* from games a team played without a player. The NHL doesn't publish injuries
   or transactions, so the UI says "not in the lineup", never "injured".
 - Per-player career data is fetched lazily by the API and cached in Postgres for 24 hours.
@@ -139,12 +147,12 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   picks, your open starting slots, the best player left and the best at a position you need. A Keepers table prices your roster by the
   round each would cost: surplus over the value of the player who typically goes mid-round, best surpluses up to your limit marked keep.
   State is kept in this browser only. Logic in `frontend/src/draft.js`. It only knows players with a game played this season.
-- **What to watch** (`/tonight`, nav "Tonight"): a day's games ranked by how worth watching they are, with the reasons: how even the two
+- **Games** (`/games`, nav "Games"; was What to watch at `/tonight`, which redirects): every game by day, with a day navigator (previous and next day, the week around the chosen day, Today, a date picker), scores on played games and the live score and clock for games in progress. Games with your team (marked "Your team") come first, then games with a watchlist team (marked "Watchlist"), then the rest, each group by start time; each shows the reasons it is worth a look (the interest ranking and its sort menu were removed): how even the two
   teams are (the matchup ratings and the streaming win model, plus home ice), expected goals, whether both teams are in the playoff race, a star
   scorer, and how many of your fantasy roster and watchlist players (or followed teams) play. Each card also lists the likely goalies, rest
   and top scorers. Weights in `backend/tonight.py` are judgment calls, not fitted. Early in a season playoff odds are near 50% for most
   teams, so stakes barely separates games until the standings spread out.
-- **My team** (`/my-team`, nav "My team"; "Make this my team" on any team page): the team you follow, game by game. Each finished game shows
+- **My team** (`/my-team`, nav "My team"; "Make this my team" on any team page): your team shown as its normal team page (`pages/Team.jsx`, same banner and tabs) with one extra "Game by game" tab, which it opens on (`SeasonLog` in `pages/MyTeam.jsx`) holding what follows. The team you follow, game by game. Each finished game shows
   the score next to what the stored shots said (expected goals for and against and their share, attempt share, shots on goal, power-play xG
   created and killed-penalty xG against), a rolling 5-game chart of xG share (the play) against goal share (the results), and a note on
   whether results are ahead of, behind or in line with the play (`backend/teamlog.py`, 5 points apart counts as ahead or behind). It also
@@ -171,7 +179,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   on other teams exactly instead of guessing ("likely available") and labels who owns each one, and the matchup projector can load a
   league-mate's team as the opponent. Only members can see rosters, and only team names are shown, never emails; the owner can rename or
   remove teams, reset the invite code or delete the league, and members can leave. **One roster per league**: the league picker on the Fantasy
-  page chooses which roster you are working on, and the Fantasy page, the "Add to team" stars, Tonight, Absences and the schedule grid all use
+  page chooses which roster you are working on, and the Fantasy page, the "Add to team" stars, Tonight and the schedule grid all use
   it ("League: None" is your personal roster, which still syncs as before). When you switch to a league whose team has no roster yet, the page
   asks whether to copy your personal roster or start empty; until you choose, that team keeps showing your personal roster, which is also how
   teams made before this existed behave. **Scoring, league format, slots, team count and categories are per league too.** They resolve in order: your own
@@ -187,22 +195,13 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   each team shows up to three with no player repeated, and each links to the trade analyzer. Order by biggest gain for you or fairest to both;
   untick "Only trades that help them too" for one-sided ones. It is the value model's view of fair (no injuries, keepers or managers'
   preferences, noisy early in the season). Logic in `frontend/src/tradefinder.js`.
-- **Accuracy** (`/accuracy`; owner only: the nav link and the `/api/accuracy` route are visible only to accounts listed in the `ADMIN_EMAILS`
-  environment variable, default `cjwallin5@gmail.com`; everyone else gets a 404). Its top section is a forward log: `backend/predictions.py`
-  runs after the nightly ingest (from `run_ingest.sh`), grades yesterday's stored predictions and stores today's win chances and probable
-  goalies in `prediction_log` before the games start; the first stored value is never overwritten, so this is a real track record
-  (run `python predictions.py` by hand to log or grade now). The rest of the page is how well two of the site's predictions did this season, graded fairly by replaying the
-  season in date order and rebuilding the model before each day from only the earlier games (`backend/accuracy.py`, tests check that a
-  prediction never changes when later games or its own result change). The on-paper win chance (the Tonight page's, from expected-goals
-  ratings) is scored by Brier, log loss and picking the winner against a coin flip, the home team's win rate so far and a goals-based
-  version of the same idea, with a 95% interval on each difference so "can't tell apart yet" is said when it is true, plus a calibration
-  table. The probable-goalie model is scored on how often its top pick started, the chance it gave the actual starter, back-to-backs
-  against rested, and two baselines, with a calibration table and an automatic note where it is over- or under-confident. Current season
-  only (expected goals are stored game by game just for this season); skater projections and the lineup optimizer are not covered.
-  The win model includes a home-ice shift of 54.5% (the home win rate over the 20,054 stored games from 2005-06 to 2021-22, taken from the
-  long history and not from this season), which took its Brier score on the first 115 predicted games from 0.240 to 0.232 and made it clearly
-  better than a coin flip and than the goals-based version (home-win-rate baseline still within the margin of error).
-- **Goalie projections** (Projections → Show: Goalies, `/api/projections/goalies`): wins, saves, goals against and shutouts at season's end =
+- **Standings stat picker** (`/standings`, the Watch menu): shows one more team stat as a highlighted column with its league rank and orders each group by it (goals for/against per game, shots, PP%, PK%, faceoff %, PP xG/60, PK xGA/60, xGF%, score-adjusted xGF% and shot share). Definitions are in `frontend/src/teamStats.js`; special-teams and score-adjusted figures are fetched only when picked. It replaced the Advanced stats page (old `/special-teams`, `/score-effects`, `/advanced-stats` links redirect to Standings, `/tracking` to the Speed & shots tab).
+- **Prediction log** (no page; the Accuracy page and its `/api/accuracy` route were removed 2026-11-17): `backend/predictions.py` still runs
+  after the nightly ingest (from `run_ingest.sh`), grades yesterday's stored predictions and stores today's win chances and probable goalies in
+  `prediction_log` before the games start (the first stored value is never overwritten). `backend/accuracy.py` still holds the scoring math and
+  replay used by `predictions.py` and its tests. The win model includes a home-ice shift of 54.5% (the home win rate over the 20,054 stored games
+  from 2005-06 on), chosen from the long history and not from this season.
+- **Goalie projections** (on each goalie's page; `/api/projections/goalies`): wins, saves, goals against and shutouts at season's end =
   what he has plus his expected starts left (the streaming start-chance model run to the last game) times the per-start value from the
   two teams' ratings. No range, and recent usage is assumed to continue (a backup who takes over is not predicted). Not backtested.
 - **Accounts** (`/account`): optional email + password sign-in (scrypt-hashed, HttpOnly cookie session) that syncs the fantasy
@@ -211,13 +210,13 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `PUBLIC_URL` (the site's address, used in the link) for the API; any provider's
   SMTP works (Resend, SES, Gmail...). With `SMTP_HOST` unset, the link is printed to the API log instead, which is for local
   development only. Over HTTPS the session cookie is marked Secure; put the API behind HTTPS before exposing it publicly.
-- **Speed & shots** (`/tracking`, under More, plus a section on each player page): the NHL's EDGE puck and player tracking, since 2021-22.
+- **Speed & shots** (the Speed & shots tab of the Skater Stats leaderboard, plus a section on each player page; the standalone `/tracking` page and the Advanced stats page were removed 2026-11-17, so goalie EDGE and past-season EDGE leaderboards no longer have a page, though `/api/tracking/*` remains): the NHL's EDGE puck and player tracking, since 2021-22.
   Hardest shots, top skating speed, bursts over 22 mph, average shot speed, distance skated, zone time and high-danger shots for
   skaters, and save % by shot range for goalies, each with the NHL's own percentile. `backend/edge.py` flattens the NHL responses;
   `python ingest.py backfill-edge` loads past seasons. The NHL allows only about 70 requests a minute, so the full backfill takes
   hours: it loads the core stats for everyone first, then the speed extras (bursts, average shot speed, shot-speed bands) in a
   second sweep. The nightly run tops up the current season (core stats for players who played; extras weekly).
-- **Luck & regression** (`/luck`, under More): who is scoring or saving more, or less, than their shots predict. For skaters it compares
+- **Luck & regression** (the standalone `/luck` page and the Season projections tab were removed 2026-11-17; the same figures are on each player page's Luck panel and Projection section and, for everyone at once, on the Projection & luck tab of the Skater Stats leaderboard (`/skaters?view=outlook`, current season only; projected points and goals with the 80% range, expected points, points minus expected, and luck z, all sortable), and `/luck` and `/projections` redirect to the skater leaderboard; the Projections & matchups page is now just Matchups at `/matchups`; earlier text calls this the `/luck` page): who is scoring or saving more, or less, than their shots predict. For skaters it compares
   goals with the summed xG of their shots, and points with an estimate that adds assists gained or lost when teammates finish
   above or below their shots while the player is on the ice (plus shooting % against expected, a full-season pace, on-ice goals
   against expected at 5v5, and the NHL's PDO); for goalies, goals saved above expected. Each gap gets a z-score from the shots' own variance, and
@@ -312,7 +311,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
 - **Controls look the same everywhere** (`frontend/src/index.css`, end of the file): a bare `<button>`, `<select>`, `<input>` or `<textarea>` with no
   class gets the site's pill button and field look through `:where()` rules at zero specificity, so every control that has its own styling
   (tabs, chips, pagers, search lists, the `.controls` filter rows) keeps exactly its own look and a new control can't fall back to the
-  browser default. Labelled fields (`.h2h-pick`, label above the control: Prospects, Projections, Matchups, Lottery, Advanced stats, Leagues, Compare,
+  browser default. Labelled fields (`.h2h-pick`, label above the control: Prospects, Projections, Matchups, Lottery, Leagues, Compare,
   Tonight, the Fantasy draft and pickups) keep their small label but the control itself is 15px like the filter rows on the main pages, a checkbox
   in one is a checkbox with its words beside it, and a bare input in a table cell stays compact. Found by measuring every page's header,
   intro text, tabs, tables, headings, notices and controls against the main pages and by diffing the computed style of all 84 unstyled controls
@@ -333,8 +332,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   `PUBLIC_URL` must be the real site address for the links inside the tags to work from outside (in dev it is localhost, so a real chat app
   can't fetch the picture until the site is deployed). `GET /api/share/title` gives the app each page's tab title (`frontend/src/pageTitle.js`)
   so the tab stays right as you move around. Pillow is in `backend/requirements.txt`.
-- **Saved views**: signed-in users can save the current filters and sort on the skater, goalie and all-time leaderboards under
-  a name (up to 30) and reopen them with one click. A view is just the page's URL query string, kept per account.
+- **Saved views** were removed 2026-11-17 (the filters and sort of a leaderboard already live in its URL, so a bookmark or a shared link does the same job). The `saved_view` table is no longer created; an existing database still has it, with any saved rows, and `DROP TABLE saved_view;` clears it.
 - **Era-adjusted scoring**: the All-Time page's "Era-adjusted" view and the Compare page's adjusted charts rescale each season's
   goals and assists to today's scoring level (the last five completed seasons), separately for forwards and defensemen
   (`backend/era.py` explains the method and what it leaves out). The nightly ingest recomputes the stored career figures.
@@ -382,7 +380,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   on them plus faceoffs and takeaways; both were fitted on the 16 seasons since the NHL began tracking shot-attempt share. Early in the season the model is fed 400 plausible finishes drawn around the rest-of-season projections (plus a guessed 12%
   chance of a long absence), so a lead after ten games counts for little. Not backtested in that early-season mode; skaters only for the Hart and Calder;
   defense, narrative and the playoffs are not seen.
-- **Who's out** (`/absences`, under More; also a "TEAMMATE OUT" section in the daily email for your roster): regulars who have missed their team's
+- **Who's out** (the standalone `/absences` page was removed 2026-11-17; a player who has missed 2+ team games now gets an "Out" notice on their own player page, and `/absences` redirects to the leaderboard; the "TEAMMATE OUT" section in the daily email for your roster): regulars who have missed their team's
   latest games and what their teammates in the same position group are getting (`backend/absences.py`, `absences_db.py`, `/api/absences`). "Out" is
   inferred from the box scores (the NHL publishes no injury list), so a scratch or a trade looks the same as an injury. Four seasons of games
   (`backend/analysis/backtest_absences.py`; per-game ice time cached by `analysis/absence_data.py` in `backend/data/absence_toi.json.gz`) show that only a
@@ -413,7 +411,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   stored with locations by `backfill-shots`). After a season rolls over, run `backfill-shots` for it, which includes locations.
 - **Score effects and clutch** (a "Score effects" page under More, and a "Close games and clutch" section on each skater's Advanced tab): a shot's score
   state is the shooter's lead just before it, worked out in SQL from each game's own goals (`backend/scorestate.py`, `scorestate_db.py`;
-  `/api/score-effects`, `/api/skaters/{id}/score-state`; `frontend/src/scoreState.js`, `ScoreEffects.jsx`, `ScoreState.jsx`). Even-strength shots in
+  `/api/score-effects`, `/api/skaters/{id}/score-state`; `frontend/src/scoreState.js`, `ScoreState.jsx`). Even-strength shots in
   regulation only. The page shows how the score shifts shots, xG and goals league-wide and every team's xG and shot-attempt share with the score
   effect removed (each team's events re-weighted so the league sits at 50% in every state; it moves xG share by under half a point, so it mostly
   confirms the raw ranking). The player panel compares his finishing in close, late moments (third period, within a goal) with his own finishing
@@ -428,14 +426,14 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   similar shots in that spot"; the model knows nothing about the shooter, so a player who finishes well shows positive numbers everywhere. Pools every
   season with stored locations (`?span=all`, the default; `?span=current`), with each zone's result by season. Both zone maps are drawn from the
   shooter's end of the ice, so a left-catching goalie's glove side is on the right of the picture.
-- **Goalie matchup tips** (a "Goalie zones" line on each game card of the What to watch page; `shot_fit` in `/api/tonight`): for each side, how the team's
+- **Goalie matchup tips** (a "Goalie zones" line on each game card of the Games page; `shot_fit` in `/api/tonight`): for each side, how the team's
   shot zones (this season blended with last, `backend/matchupfit_db.py`) line up with the opposing probable goalie's zone record (the goalie map's
   nine zones, pooled over seasons and shrunk toward average by 300 pseudo-shots), in goals per game to the shooting team on top of the goalie's overall level
   (`backend/matchupfit.py`; `frontend/src/matchupTip.js`). Only fits of 0.1 goals or more are shown. `analysis/backtest_goalie_zones.py` checked it from
   earlier seasons only: the zone detail predicted later goals allowed with a coefficient of about 1.0 (se 0.4), but a typical fit is only about 0.1 goals.
 - **Schedule strength** (a "Schedule strength" page under More; `/api/schedule-strength`): how hard each team's remaining games are, next to the schedule already
   played, the next ten games and the back-to-backs left (`backend/sos.py`; `frontend/src/pages/ScheduleStrength.jsx`, `scheduleStrength.js`). Every game is
-  priced with the What to watch page's on-paper model (xG ratings with home ice); a team's figure is its expected points over those games minus what it
+  priced with the Games page's on-paper model (xG ratings with home ice); a team's figure is its expected points over those games minus what it
   would expect against a league-average opponent at the same venues, so home and road mix does not count and negative means harder. It uses today's ratings for
   every opponent, so it moves as the season does, and it is small early (about plus or minus 0.8 points over 70 games, a few tenths of a point is noise).
   Not an input to the playoff odds, which simulate the real schedule themselves.

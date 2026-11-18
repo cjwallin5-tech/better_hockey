@@ -14,6 +14,7 @@ import TeamCalendar from '../components/TeamCalendar.jsx'
 import { fmt1, fmtPct, fmtToi, STABLE_GP } from '../format.js'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
+import Avatar from '../components/Avatar.jsx'
 
 const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmtSigned = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
@@ -24,8 +25,13 @@ const ordinal = (n) => {
   return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'}`
 }
 
-export default function Team() {
-  const { abbrev } = useParams()
+/**
+ * A team's page. `abbrev` can be passed in (the My team page does) instead of read from the URL; with `mine` there is no back link;
+ * `afterBanner` renders under the banner and `extraTabs` go before Overview, so the first one is the tab the page opens on.
+ */
+export default function Team({ abbrev: abbrevProp, mine = false, afterBanner = null, extraTabs = [] }) {
+  const params = useParams()
+  const abbrev = abbrevProp ?? params.abbrev
   const [result, setResult] = useState({ abbrev: null, data: null, error: null })
 
   useEffect(() => {
@@ -40,7 +46,7 @@ export default function Team() {
   }, [abbrev])
 
   const { data, error } = result.abbrev === abbrev ? result : { data: null, error: null }
-  const back = <BackLink to="/standings" />
+  const back = mine ? null : <BackLink to="/standings" />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>
 
@@ -63,9 +69,11 @@ export default function Team() {
           { label: 'Penalty kill %', value: fmtPct(t.pk_pct) },
         ]}
       />
+      {afterBanner}
 
       <PageTabs
         tabs={[
+          ...extraTabs,
           {
             id: 'overview',
             label: 'Overview',
@@ -113,7 +121,12 @@ export default function Team() {
                   <tbody>
                     {roster.map((p) => (
                       <tr key={p.player_id}>
-                        <td className="left"><Link to={`/player/${p.player_id}`}>{p.name}</Link></td>
+                        <td className="left">
+                          <span className="player-cell">
+                            <Avatar playerId={p.player_id} team={t.abbrev} name={p.name} />
+                            <Link to={`/player/${p.player_id}`}>{p.name}</Link>
+                          </span>
+                        </td>
                         <td className="left">{p.position}</td>
                         <td>{p.games_played}</td><td>{p.goals}</td><td>{p.assists}</td><td>{p.points}</td>
                         <td className={'accent' + (p.games_played < STABLE_GP ? ' low' : '')}>{fmt1(p.point_pace)}</td>
@@ -145,7 +158,12 @@ export default function Team() {
                     <tbody>
                       {goalies.map((g) => (
                         <tr key={g.player_id}>
-                          <td className="left"><Link to={`/goalie/${g.player_id}`}>{g.name}</Link></td>
+                          <td className="left">
+                            <span className="player-cell">
+                              <Avatar playerId={g.player_id} team={t.abbrev} name={g.name} />
+                              <Link to={`/goalie/${g.player_id}`}>{g.name}</Link>
+                            </span>
+                          </td>
                           <td>{g.games_played}</td><td>{g.games_started}</td>
                           <td>{g.wins}</td><td>{g.losses}</td><td>{g.ot_losses}</td>
                           <td className="accent">{fmtSv(g.save_pct)}</td>

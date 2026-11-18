@@ -1,23 +1,27 @@
 /**
- * "Rank by" quick picks for a leaderboard: one button per stat people sort by most, so changing what the list is ranked on is one click
- * instead of hunting for a column header. options: [{ key, label }]; the active one shows the direction, and clicking it again flips it.
+ * "Rank by" dropdown for a leaderboard: the stats people sort by most in one menu, so changing what the list is ranked on does not mean
+ * hunting for a column header, plus a button that flips the order. options: [{ key, label }]; sort: { key, dir }; onPick(key) picks a stat,
+ * and picking the stat already in use flips the direction (the pages' sort handlers work that way), which is what the button does.
  */
 export default function RankBy({ options, sort, onPick }) {
   if (options.length === 0) return null
+  const inMenu = options.some((o) => o.key === sort.key)
+  const desc = sort.dir !== 'asc'
   return (
-    <div className="rankby" role="group" aria-label="Rank by">
-      <span className="rankby-label">Rank by</span>
-      {options.map((o) => {
-        const on = sort.key === o.key
-        return (
-          <button
-            key={o.key} type="button" className={`rankby-chip${on ? ' on' : ''}`} aria-pressed={on}
-            title={on ? 'Click again to flip the order' : `Rank by ${o.label}`} onClick={() => onPick(o.key)}
-          >
-            {o.label}{on && <i aria-hidden="true">{sort.dir === 'asc' ? ' ▲' : ' ▼'}</i>}
-          </button>
-        )
-      })}
+    <div className="controls rankby">
+      <label>
+        Rank by
+        <select value={inMenu ? sort.key : ''} onChange={(e) => onPick(e.target.value)} aria-label="Rank by">
+          {!inMenu && <option value="" disabled>Sorted by a column heading</option>}
+          {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+      </label>
+      <button
+        type="button" className="rankby-dir" onClick={() => onPick(sort.key)}
+        title="Flip the order" aria-label={desc ? 'Highest first; click to show lowest first' : 'Lowest first; click to show highest first'}
+      >
+        <i aria-hidden="true">{desc ? '▼' : '▲'}</i> {desc ? 'High to low' : 'Low to high'}
+      </button>
     </div>
   )
 }

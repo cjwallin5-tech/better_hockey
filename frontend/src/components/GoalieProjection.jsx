@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { goalieProjectionFigures, goalieProjectionNote, goalieRange } from '../goalieProjection.js'
 
 /** Projected finish for one goalie: wins as the headline, with saves, goals against, shutouts and starts left. Nothing when
@@ -31,7 +30,7 @@ export default function GoalieProjection({ playerId }) {
       </dl>
       <p className="sub">
         {goalieProjectionNote(p)} The starts come from how his team has been using its goalies, and the range covers luck and
-        uncertainty in the start count, not injuries, trades or a backup taking over. <Link to="/projections?kind=goalies">See every goalie's projection →</Link>
+        uncertainty in the start count, not injuries, trades or a backup taking over.
       </p>
     </section>
   )

@@ -34,3 +34,12 @@ test('a header label links to its glossary entry, or to a search when it has non
   assert.equal(glossaryLink('GP'), '/glossary?q=GP')
   assert.equal(baseLabel('P ▼'), 'P')
 })
+
+test('the leaderboard tab guides link to glossary terms that exist', async () => {
+  const { TAB_GUIDES } = await import('./tabGuides.js')
+  const ids = new Set(GROUPS.flatMap((g) => g.terms.map((t) => t.id)))
+  for (const [tab, guide] of Object.entries(TAB_GUIDES)) {
+    assert.ok(GROUPS.some((g) => g.id === guide.section), `${tab} section`)
+    for (const [, , id] of guide.items) assert.ok(ids.has(id), `${tab}: ${id}`)
+  }
+})

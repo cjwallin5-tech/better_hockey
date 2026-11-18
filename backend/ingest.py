@@ -614,7 +614,7 @@ def box_rows(game_id, box):
     return rows
 
 
-LINES_VERSION = 3  # bump when the on-ice computation gains new outputs (3: expected goals on the pair and line tables)
+LINES_VERSION = 4  # bump to redo every game's on-ice work (3: expected goals on the pair and line tables; 4: the split rebound flag in the xG model)
 MIN_SHIFT_COVERAGE = 0.95  # below this, a game's shift data is treated as unusable
 
 
@@ -673,13 +673,13 @@ def store_shots(cur, game_id, pbp, shift_rows, skater_ids):
     cur.execute("DELETE FROM shot WHERE game_id = %s", (game_id,))
     cur.executemany(
         """INSERT INTO shot (game_id, event_id, season_id, period, time_sec, team, opponent, shooter_id, goalie_id,
-                             kind, shot_type, x, y, distance, angle, strength, situation, empty_net, rebound, xg)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                             kind, shot_type, x, y, distance, angle, strength, situation, empty_net, rebound, xg, quick_follow)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
            ON CONFLICT (game_id, event_id) DO NOTHING""",
         [(game_id, r["event_id"], config.SEASON_ID, r["period"], r["time_sec"], abbrev[r["team_id"]],
           abbrev[pbp["awayTeam"]["id"] if r["is_home"] else pbp["homeTeam"]["id"]], r["shooter_id"],
           r["goalie_id"], r["kind"], r["shot_type"], r["x"], r["y"], r["distance"], r["angle"],
-          r["strength"], r["situation"], r["empty_net"], r["rebound"], r["xg"]) for r in rows if r["event_id"] is not None],
+          r["strength"], r["situation"], r["empty_net"], r["rebound"], r["xg"], r["quick_follow"]) for r in rows if r["event_id"] is not None],
     )
     onice = onice_xg(rows, shift_rows, skater_ids)
     cur.executemany(
@@ -843,6 +843,50 @@ def backfill_onice(conn, seasons, limit=None):
     print(f"on-ice backfill: {stored} games stored, {unusable} without usable shift data")
 
 
+def rescore_xg(conn, batch=20000):
+    """Recompute rebound, quick_follow and xG for every stored shot (the shot table and shot_hist) from columns already in the
+    database, with the current xg_model.json and shots.follow_flags, so a retrained model or a changed flag applies everywhere
+    without a single NHL request. Attempts are taken in (period, time, event id) order, which matches the feed's order closely.
+    Does not touch the on-ice xG stored per skater, pair and line: those need each game's shifts (bump LINES_VERSION)."""
+    plans = [
+        ("shot", "team", "SELECT game_id, event_id, period, time_sec, team AS side, kind, shot_type, x, distance, angle, strength, empty_net "
+                         "FROM shot ORDER BY game_id, period, time_sec, event_id"),
+        ("shot_hist", "is_home", "SELECT game_id, event_id, period, time_sec, is_home AS side, kind, shot_type, x, distance, angle, strength, empty_net "
+                                 "FROM shot_hist WHERE time_sec IS NOT NULL ORDER BY game_id, period, time_sec, event_id"),
+    ]
+    for table, _, query in plans:
+        with conn.cursor(name=f"rescore_{table}") as read:
+            read.itersize = 50000
+            read.execute(query)
+            pending, game, updates, total, changed = [], None, [], 0, 0
+
+            def flush(rows):
+                nonlocal updates, total
+                flags = shotlib.follow_flags([{"team_id": r["side"], "period": r["period"], "time_sec": r["time_sec"], "kind": r["kind"]} for r in rows])
+                for r, (rebound, quick) in zip(rows, flags):
+                    s = {**r, "team_id": r["side"], "rebound": rebound, "quick_follow": quick}
+                    updates.append((rebound, quick, shotlib.xg(s), r["game_id"], r["event_id"]))
+                total += len(rows)
+
+            cols = [d.name for d in read.description]
+            for tup in read:
+                row = dict(zip(cols, tup))
+                if game is not None and row["game_id"] != game:
+                    flush(pending)
+                    pending = []
+                    if len(updates) >= batch:
+                        conn.cursor().executemany(f"UPDATE {table} SET rebound = %s, quick_follow = %s, xg = %s WHERE game_id = %s AND event_id = %s", updates)
+                        updates = []
+                game = row["game_id"]
+                pending.append(row)
+            if pending:
+                flush(pending)
+            if updates:
+                conn.cursor().executemany(f"UPDATE {table} SET rebound = %s, quick_follow = %s, xg = %s WHERE game_id = %s AND event_id = %s", updates)
+        conn.commit()
+        print(f"rescore xG: {total:,} rows of {table} rescored", flush=True)
+
+
 def fetch_pbp(game_id):
     pbp = get_json(f"{config.WEB_API}/gamecenter/{game_id}/play-by-play")
     time.sleep(0.3)
@@ -851,13 +895,13 @@ def fetch_pbp(game_id):
 
 def shot_hist_rows(game_id, season_id, pbp):
     """(game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg, shot_type, x, y, distance, angle,
-    rebound, empty_net, period, time_sec, is_home) for every shot attempt in a game."""
+    rebound, empty_net, period, time_sec, is_home, quick_follow) for every shot attempt in a game."""
     rows = []
     for r in shotlib.extract_shots(pbp):
         if r["event_id"] is not None:
             rows.append((game_id, r["event_id"], season_id, r["shooter_id"], r["goalie_id"], r["kind"], r["strength"],
                          shotlib.xg(r), r["shot_type"], r["x"], r["y"], r["distance"], r["angle"], r["rebound"],
-                         r["empty_net"], r["period"], r["time_sec"], r["is_home"]))
+                         r["empty_net"], r["period"], r["time_sec"], r["is_home"], r["quick_follow"]))
     return rows
 
 
@@ -883,8 +927,8 @@ def backfill_shots(conn, seasons, limit=None):
             rows = shot_hist_rows(game_id, season_of[game_id], pbp)
             cur.executemany(
                 """INSERT INTO shot_hist (game_id, event_id, season_id, shooter_id, goalie_id, kind, strength, xg,
-                                          shot_type, x, y, distance, angle, rebound, empty_net, period, time_sec, is_home)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (game_id, event_id) DO NOTHING""", rows)
+                                          shot_type, x, y, distance, angle, rebound, empty_net, period, time_sec, is_home, quick_follow)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (game_id, event_id) DO NOTHING""", rows)
             cur.execute("INSERT INTO shot_hist_game (game_id, season_id, shots, located, timed) VALUES (%s,%s,%s,true,true) ON CONFLICT (game_id) DO NOTHING",
                         (game_id, season_of[game_id], len(rows)))
             conn.commit()
@@ -912,9 +956,10 @@ def backfill_shot_locations(conn, seasons, limit=None):
         for i, (game_id, pbp) in enumerate(pool.map(fetch_pbp, [t[0] for t in todo]), 1):
             rows = shot_hist_rows(game_id, None, pbp)
             cur.executemany(
-                """UPDATE shot_hist SET shot_type = %s, x = %s, y = %s, distance = %s, angle = %s, rebound = %s, empty_net = %s
+                """UPDATE shot_hist SET shot_type = %s, x = %s, y = %s, distance = %s, angle = %s, rebound = %s, empty_net = %s,
+                                        quick_follow = %s
                    WHERE game_id = %s AND event_id = %s""",
-                [(r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[0], r[1]) for r in rows])
+                [(r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[18], r[0], r[1]) for r in rows])
             cur.execute("UPDATE shot_hist_game SET located = true WHERE game_id = %s", (game_id,))
             conn.commit()
             done += 1
@@ -1872,6 +1917,12 @@ if __name__ == "__main__":
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             backfill_shot_locations(conn, seasons, limit)
+    elif sys.argv[1:2] == ["rescore-xg"]:
+        # python ingest.py rescore-xg   (after retraining xg_model.json or changing the shot flags; no NHL requests)
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            rescore_xg(conn)
     elif sys.argv[1:2] == ["backfill-shot-times"]:
         # python ingest.py backfill-shot-times [20222023,20232024,...] [--limit N]
         seasons, limit = parse_backfill_args(sys.argv[2:], [config.SEASON_ID - 10001 * i for i in range(1, 5)])

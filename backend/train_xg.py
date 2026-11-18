@@ -30,7 +30,9 @@ def main(path):
     def build(gs):
         X, y = [], []
         for g in gs:
-            for s in g:
+            # the saved shots carry the flags from whichever definition was current when they were fetched: recompute them
+            flagged = [{**s, "rebound": r, "quick_follow": q} for s, (r, q) in zip(g, shots.follow_flags(g))]
+            for s in flagged:
                 if s["kind"] == "block" or s["empty_net"] or s["x"] is None or s["strength"] is None:
                     continue
                 X.append(shots.features(s))

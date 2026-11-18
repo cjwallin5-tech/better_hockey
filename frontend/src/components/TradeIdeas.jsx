@@ -111,7 +111,7 @@ export default function TradeIdeas({ data, values, roster }) {
               </table>
             </div>
           )}
-          <p className="sub">Luck is measured on <Link to="/projections?tab=luck">Luck &amp; regression</Link>, where the method and its limits are explained.</p>
+          <p className="sub">Luck is each player's goals and points against what their shots predict; the method is explained on a player's Luck panel.</p>
         </>
       )}
     </section>

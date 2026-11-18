@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
-import LiveGames from '../components/LiveGames.jsx'
-import Slate from '../components/Slate.jsx'
+import ScoreStrip, { useLiveScores } from '../components/ScoreStrip.jsx'
 import TeamMark from '../components/TeamMark.jsx'
 import { teamColor } from '../teamColors.js'
 import TeamLogo from '../components/TeamLogo.jsx'
@@ -21,6 +20,9 @@ const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
 
 export default function Home() {
   const [records, setRecords] = useState(null)
+  const live = useLiveScores()
+  const [selectedId, setSelectedId] = useState(null) // the game picked in the strip, or null for the page's own pick
+  const [shownId, setShownId] = useState(null)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
@@ -47,18 +49,24 @@ export default function Home() {
   const streak = data.hot[0]
   const bestTeam = data.teams[0]
   const goalie = data.goalies[0]
+  const short = (name) => { const [first, ...rest] = (name ?? '').split(' '); return rest.length ? `${first[0]}. ${rest.join(' ')}` : name }
   const spot = [
-    lead && { label: 'Point pace leader', num: fmt1(lead.pace), who: `${lead.name} · ${lead.team}`, team: lead.team, to: `/player/${lead.player_id}`, player: lead },
-    streak && { label: 'Longest point streak', num: streak.streak, unit: 'games', who: `${streak.name} · ${streak.team}`, team: streak.team, to: `/player/${streak.player_id}`, player: streak },
-    bestTeam && { label: 'Best team by pace', num: fmt1(bestTeam.points_pace), who: `${bestTeam.name}`, team: bestTeam.abbrev, to: `/team/${bestTeam.abbrev}` },
-    goalie && { label: 'Top goalie by GSAA', num: signed(goalie.gsaa), who: `${goalie.name} · ${goalie.team}`, team: goalie.team, to: `/goalie/${goalie.player_id}`, player: goalie },
+    lead && { label: 'Point pace leader', num: fmt1(lead.pace), who: `${short(lead.name)} · ${lead.team}`, team: lead.team, to: `/player/${lead.player_id}`, player: lead },
+    streak && { label: 'Point streak', num: streak.streak, unit: 'games', who: `${short(streak.name)} · ${streak.team}`, team: streak.team, to: `/player/${streak.player_id}`, player: streak },
+    bestTeam && { label: 'Best team, pace', num: fmt1(bestTeam.points_pace), who: `${bestTeam.common_name ?? bestTeam.name}`, team: bestTeam.abbrev, to: `/team/${bestTeam.abbrev}` },
+    goalie && { label: 'Top goalie, GSAA', num: signed(goalie.gsaa), who: `${short(goalie.name)} · ${goalie.team}`, team: goalie.team, to: `/goalie/${goalie.player_id}`, player: goalie },
   ].filter(Boolean)
 
   return (
     <main>
-      <header className="hero">
-        <h1>Faceoff</h1>
-        <p>Point pace, defensive stats and career context the official site doesn't show.</p>
+      <ScoreStrip live={live} shownId={shownId} onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))} />
+      <h1 className="sr-only">Faceoff</h1>
+
+      <FeaturedGame selectedId={selectedId} live={live} onShown={setShownId} />
+
+      <section className="block leaders" aria-label="Season leaders">
+        <div className="eyebrow">Season leaders</div>
+        <p className="leaders-note">Point pace, defensive stats and career context the official site doesn't show.</p>
         <div className="spotlight">
           {spot.map((t) => (
             <Link key={t.label} to={t.to} className="spot" style={{ '--team': teamColor(t.team) }}>
@@ -66,29 +74,18 @@ export default function Home() {
               <strong className="spot-num">{t.num}{t.unit && <small>{t.unit}</small>}</strong>
               <span className="spot-who"><TeamMark abbrev={t.team} size={20} />{t.who}</span>
               {t.player
-                ? <span className="spot-photo"><Avatar playerId={t.player.player_id} team={t.team} name={t.player.name} size={84} /></span>
-                : <span className="spot-photo logo-only" aria-hidden="true"><TeamMark abbrev={t.team} size={84} /></span>}
+                ? <span className="spot-photo"><Avatar playerId={t.player.player_id} team={t.team} name={t.player.name} size={160} /></span>
+                : <span className="spot-photo logo-only" aria-hidden="true"><TeamMark abbrev={t.team} size={160} /></span>}
             </Link>
           ))}
         </div>
-      </header>
-
-      <LiveGames />
-
-      <FeaturedGame />
+      </section>
 
       <section className="block" aria-label="Top stories">
         <div className="eyebrow">Top stories</div>
         <NewsList top limit={6} columns note />
         <p className="muted small"><Link to="/news">All news &rarr;</Link></p>
       </section>
-
-      {data.upcoming.length > 0 && (
-        <section className="block" aria-label="Upcoming games">
-          <div className="eyebrow">{data.upcoming_day ? longDay(data.upcoming_day) : 'Upcoming'}</div>
-          <Slate games={data.upcoming} />
-        </section>
-      )}
 
       {data.games.length > 0 && (
         <section className="block" aria-label="Last night's results">
