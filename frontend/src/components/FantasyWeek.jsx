@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MatchupTag, pctOff, ratioLabel, useMatchupTeams } from './Matchups.jsx'
 import RestBadge from './RestBadge.jsx'
 import { describe } from '../glossary.js'
-
-const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
+import { useRosterWeek } from '../fantasyData.js'
+import { dayName } from '../format.js'
 
 // A game's own ratio already includes the rest adjustment (see matchups.py); the opponent's season-long rating is the fallback.
 const ratioFor = (teams, g, kind) => g[kind === 'goalie' ? 'goalie_ratio' : 'skater_ratio'] ?? teams.get(g.opponent)?.[kind === 'goalie' ? 'goalie_ratio' : 'skater_ratio'] ?? null
@@ -28,20 +27,8 @@ function WeekMatchup({ games, kind, teams }) {
 /** Roster alerts (lineup gaps, trades) and each player's team games over the next week. */
 export default function FantasyWeek({ players }) {
   const key = players.map((p) => p.id).join(',')
-  const [state, setState] = useState({ key: null, data: null })
   const teams = useMatchupTeams()
-
-  useEffect(() => {
-    if (!key) return
-    let ignore = false
-    fetch(`/api/fantasy/week?ids=${key}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => !ignore && setState({ key, data }))
-      .catch(() => !ignore && setState({ key, data: null }))
-    return () => { ignore = true }
-  }, [key])
-
-  const d = state.key === key ? state.data : null
+  const d = useRosterWeek(players.map((p) => p.id))
   if (!key || !d) return null
   const rows = players.map((p) => ({ p, w: d.players[p.id] })).filter((r) => r.w)
   if (rows.length === 0) return null

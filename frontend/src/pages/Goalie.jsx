@@ -15,7 +15,7 @@ import { GoalieForm } from '../components/Form.jsx'
 import CareerPlayer from './CareerPlayer.jsx'
 import Context from '../components/Context.jsx'
 import { GsaaChart } from '../components/Charts.jsx'
-import { fmt1, fmtToi } from '../format.js'
+import { fmt1, fmtToi, fmtSv, fmt2 } from '../format.js'
 import PlayerBanner from '../components/PlayerBanner.jsx'
 import Awards from '../components/Awards.jsx'
 import InternationalMedals from '../components/InternationalMedals.jsx'
@@ -24,9 +24,8 @@ import PageSkeleton from '../components/Skeleton.jsx'
 import { StatCards, Tile } from '../components/StatCards.jsx'
 import { GOALIE_STATS, goaliePercentiles } from '../goaliePercentiles.js'
 import { getJson } from '../lists.js'
+import Info from '../components/Info.jsx'
 
-const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
-const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
 const fmtSigned = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
 
 export default function Goalie() {
@@ -54,7 +53,7 @@ export default function Goalie() {
   }, [id])
 
   const { data, error } = result.id === id ? result : { data: null, error: null }
-  const back = <BackLink to="/goalies" />
+  const back = <BackLink to="/players?kind=goalie" />
   if (error === 'Goalie not found') return <CareerPlayer id={Number(id)} goalie />
   if (error) return <main>{back}<p className="status">{error}</p></main>
   if (!data) return <main>{back}<PageSkeleton /></main>
@@ -93,11 +92,8 @@ export default function Goalie() {
                 <Context playerId={g.player_id} goalie />
                 <div className="player-overview">
                   <section className="explain">
-                    <h2>Season performance</h2>
-                    <p className="sub">
-                      Percentile among {peerCount || '–'} goalies with at least {minStarts || '–'} starts. League-average save % is {fmtSv(lg)}.
-                      Recent form covers the last {window} appearances.
-                    </p>
+                    <h2>Season performance<Info label="Season performance">Percentile among {peerCount || '–'} goalies with at least {minStarts || '–'} starts. League-average save % is {fmtSv(lg)}.
+                      Recent form covers the last {window} appearances.</Info></h2>
                     <StatCards stats={GOALIE_STATS} p={g} percentiles={percentiles} />
                   </section>
                   <aside>

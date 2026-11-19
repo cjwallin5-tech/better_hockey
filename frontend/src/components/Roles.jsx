@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useByIds } from '../fantasyData.js'
 
 /** m:ss for a number of seconds. */
 export const mmss = (s) => (s == null ? '–' : `${Math.floor(Math.round(s) / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`)
@@ -7,20 +7,7 @@ export const signedMmss = (s) => (s == null ? '–' : `${s < 0 ? '−' : '+'}${m
 const unitName = (u) => u ?? 'no PP'
 
 /** Role-change figures for a list of skater ids, keyed by id (an object), or null until loaded. */
-export function useRoles(ids, window = 5) {
-  const key = [...new Set(ids)].sort((a, b) => a - b).join(',')
-  const [state, setState] = useState({ key: null, data: null })
-  useEffect(() => {
-    if (!key) return undefined
-    let ignore = false
-    fetch(`/api/roles/players?ids=${key}&window=${window}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => !ignore && setState({ key: `${key}|${window}`, data }))
-      .catch(() => !ignore && setState({ key: `${key}|${window}`, data: null }))
-    return () => { ignore = true }
-  }, [key, window])
-  return state.key === `${key}|${window}` ? state.data?.players ?? null : null
-}
+export const useRoles = (ids, window = 5) => useByIds('/api/roles/players', ids, `&window=${window}`)?.players ?? null
 
 /** A short badge and a sentence for one skater's role change, or null when nothing moved. */
 export function roleSummary(row) {

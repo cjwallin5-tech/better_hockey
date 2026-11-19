@@ -7,6 +7,9 @@ import { MatchupTag, pctOff } from '../components/Matchups.jsx'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import Note from '../components/Note.jsx'
+import PageIntro from '../components/PageIntro.jsx'
+import { dayName } from '../format.js'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -21,7 +24,6 @@ function useApi(url) {
   return state.url === url ? state : { data: null, error: null }
 }
 
-const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const n2 = (v) => (v == null ? '–' : v.toFixed(2))
 const signed = (v, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`
 
@@ -46,11 +48,11 @@ function Schedule({ days, setDays, who, setWho }) {
           </select>
         </label>
       </div>
-      <p className="sub">
+      <Note label="How the opportunity index works">
         Each team's games over the next {days} days, ranked by the opportunity index: the sum over its games of how much softer
         (+) or tougher (−) the opponent is than average, so it rewards both easy opponents and more games. 0.15 is worth about
         a sixth of an extra average game of chances. Differences between teams are modest, so use it to break ties.
-      </p>
+      </Note>
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && rows.length === 0 && <p className="status">No games, or no ratings yet.</p>}
@@ -101,13 +103,13 @@ function Ratings() {
           </select>
         </label>
       </div>
-      <p className="sub">
+      <Note label="How the ratings are built">
         Built from expected goals (xG) on every shot, not from goals: early in a season a team's goals against says little about
         the rest of it, while its shot quality says more (tested on four past seasons). Each rating is pulled toward the league
         average by {data?.priors?.team_games ?? 20} games' worth, so it moves slowly. A goalie's effect is pulled harder still
         ({(data?.priors?.goalie_shots ?? 8000).toLocaleString()} shots' worth), because goaltending results barely repeat from year to year.
         "Offense" above 0% scores more than average; "Defense" above 0% gives up more.
-      </p>
+      </Note>
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && rows.length === 0 && <p className="status">No shot data stored yet.</p>}
@@ -152,11 +154,8 @@ export default function Matchups({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Matchups</h1>}
-        <p>
-          Which teams have the softest and toughest schedules coming up, and how every team rates as an opponent. Good for
-          deciding who to start or stream, and for breaking ties. A game on the second night of a back-to-back against a rested team is rated lower (and the rested side's higher), because teams score about a quarter of a goal fewer in those; see <Link to="/schedule?tab=rest">back-to-backs</Link>.
-        </p>
+        <PageIntro title="Matchups" embedded={embedded}>Which teams have the softest and toughest schedules coming up, and how every team rates as an opponent. Good for
+          deciding who to start or stream, and for breaking ties. A game on the second night of a back-to-back against a rested team is rated lower (and the rested side's higher), because teams score about a quarter of a goal fewer in those; see <Link to="/schedule?tab=rest">back-to-backs</Link>.</PageIntro>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'schedule'} className={tab === 'schedule' ? 'on' : ''} onClick={() => setTab('schedule')}>Schedule strength</button>

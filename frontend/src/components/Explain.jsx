@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import Covering, { useCoverage } from './Covering.jsx'
+import Info from './Info.jsx'
 
 const signed = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v))}`
 const KIND = { luck: 'Results vs. chances', real: 'Real change' }
@@ -52,25 +54,6 @@ function Row({ label, note, value, scale, tone }) {
   )
 }
 
-/** The sentence about what to expect, from how much of the change is luck. */
-function Takeaway({ d }) {
-  if (d.change == null || !d.luck_total) return null
-  const luck = Math.round(d.luck_total)
-  if (Math.abs(luck) < 3) return null
-  if (luck > 0) {
-    return (
-      <p className="explain-takeaway">
-        <strong>What it means:</strong> about {luck} points of the pace is luck that should fade, so expect the pace to come down. The projected finish beside this card shows where it is likely to land.
-      </p>
-    )
-  }
-  return (
-    <p className="explain-takeaway">
-      <strong>What it means:</strong> results are running about {Math.abs(luck)} points below what the chances support, so expect the pace to come back up. The projected finish beside this card shows where it is likely to land.
-    </p>
-  )
-}
-
 /**
  * The opening sentence: this season's pace against last season. Last season's total is shown as it happened (points in games) next to
  * the same rate stretched to this season's length, because that stretched number is what the comparison uses and is not a real total.
@@ -91,7 +74,8 @@ function Lead({ d, name }) {
 }
 
 /** What changed for one skater: pace against last season, split into luck and real change, with the biggest factors listed. */
-export default function Explain({ playerId, name }) {
+export default function Explain({ playerId, name, team, gamesOut = 0, lastGame = null }) {
+  const coverage = useCoverage(playerId, gamesOut)
   const [state, setState] = useState({ id: null, data: null })
   useEffect(() => {
     let ignore = false
@@ -102,9 +86,9 @@ export default function Explain({ playerId, name }) {
     return () => { ignore = true }
   }, [playerId])
   const d = state.id === playerId ? state.data : null
-  if (!d) return null
+  if (!d && !coverage.has) return null
 
-  const split = d.change != null && (d.luck_total || d.real_total)
+  const split = d && d.change != null && (d.luck_total || d.real_total)
   const rows = split ? [
     { label: 'Luck', note: 'tends to fade', value: d.luck_total, tone: 'luck' },
     { label: 'Real change', note: 'tends to last', value: d.real_total, tone: 'real' },
@@ -114,15 +98,24 @@ export default function Explain({ playerId, name }) {
 
   return (
     <section className="card explain">
-      <div className="eyebrow">What changed</div>
-      {split ? (
+      <div className="eyebrow">
+        What changed
+        {d && (
+          <Info label="How to read this">
+            Pace is the points over a full {d.games}-game season at this season&rsquo;s rate. The change from last season splits into <strong>luck</strong> (finishing,
+            and linemates&rsquo; finishing: tends to fade), <strong>real change</strong> (shots, shot quality, ice time and role: tends to last) and everything
+            else. The factors overlap, so they won&rsquo;t add up exactly.{d.early && ' Early in the season a few games swing all of this.'}
+          </Info>
+        )}
+      </div>
+      {coverage.has && <Covering coverage={coverage} name={name} team={team} gamesOut={gamesOut} lastGame={lastGame} />}
+      {!d ? null : split ? (
         <>
           <p className="explain-lead"><Lead d={d} name={name} /></p>
           <div className="explain-sub">Where the {signed(d.change)} comes from</div>
           <ul className="explain-rows">
             {rows.map((r) => <Row key={r.label} {...r} scale={scale} />)}
           </ul>
-          <Takeaway d={d} />
         </>
       ) : d.pace != null ? (
         <p className="explain-lead">
@@ -133,13 +126,12 @@ export default function Explain({ playerId, name }) {
         <p className="explain-lead">{d.headline}</p>
       )}
 
-      {d.findings.length > 0 && GROUPS.map((g) => {
+      {d && d.findings.length > 0 && GROUPS.map((g) => {
         const items = d.findings.filter((f) => f.kind === g.kind)
         if (items.length === 0) return null
         return (
           <div className="explain-group" key={g.kind}>
-            <h3>{g.title}</h3>
-            <p className="explain-blurb">{g.blurb}</p>
+            <h3>{g.title}<Info label={g.title}>{g.blurb}</Info></h3>
             <ul className="findings">
               {items.map((f) => <Finding key={f.key} f={f} games={d.games} />)}
             </ul>
@@ -147,26 +139,6 @@ export default function Explain({ playerId, name }) {
         )
       })}
 
-      <details className="howto">
-        <summary>How to read this</summary>
-        <p>
-          <strong>Pace</strong> is the points a player would finish with over a full {d.games}-game season if they keep scoring at this season's rate,
-          shown next to last season's total. The change is then split into three parts.
-        </p>
-        <p>
-          <strong>Luck</strong> is scoring above or below what the chances support: a player finishing better than their shots predict, or
-          linemates scoring more than <em>their</em> shots predict while the player is on the ice (which adds assists). Luck tends to fade
-          (see the Luck panel further down the page).{' '}
-          <strong>Real change</strong> is things the player controls or is given: how many shots they take, how good those shots are, how much they play and
-          where. It tends to last for as long as the role does.{' '}
-          <strong>Everything else</strong> is the part the factors can't account for.
-        </p>
-        <p>
-          {d.early && 'It is early in the season, so a handful of games can swing any of this: treat it as a first read. '}
-          The factors overlap a little (more ice time also means more shots), so they won't add up exactly. Injuries, and coaching changes
-          that don't show up in ice time, aren't known.
-        </p>
-      </details>
     </section>
   )
 }

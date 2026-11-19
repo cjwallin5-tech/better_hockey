@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import TrophyImage from './TrophyImage.jsx'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
+import Note from './Note.jsx'
 
 const pct = (p) => (p >= 0.995 ? '>99%' : p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`)
 const BASIS = {
@@ -31,13 +32,13 @@ export default function AwardOdds() {
 
   return (
     <>
-      <p className="sub">
+      <Note label="How these odds work">
         These come from a model of what voters rewarded in the seasons from 2005-06 to 2024-25 (2009-10 on for the Norris and Selke), applied to {data.draws.toLocaleString()} plausible
         finishes to this season (so a lead early on counts for much less than the same lead in April). On seasons it had not seen, it gave the
         eventual winner much more than a guess among the candidates would have. It does not know a player’s story, injuries still to come
         (a flat 12% chance of missing part of the rest of the season is assumed), or the playoffs, and it only considers skaters for the Hart and Calder.
         Goalies rarely win those.
-      </p>
+      </Note>
       {Object.entries(data.awards).map(([key, award]) => (
         <section key={key}>
           <h2 className="trophy-name"><TrophyImage name={award.trophy} />{award.trophy}</h2>

@@ -5,17 +5,17 @@ import ScoreStrip, { useLiveScores } from '../components/ScoreStrip.jsx'
 import TeamMark from '../components/TeamMark.jsx'
 import { teamColor } from '../teamColors.js'
 import TeamLogo from '../components/TeamLogo.jsx'
-import { fmt1, fmtToi } from '../format.js'
+import { fmt1, fmtToi, fmtSv as sv } from '../format.js'
 import MovingUp from '../components/MovingUp.jsx'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 import Avatar from '../components/Avatar.jsx'
 import FeaturedGame from '../components/FeaturedGame.jsx'
 import NewsList from '../components/NewsList.jsx'
+import Info from '../components/Info.jsx'
 
 const longDay = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
 
 export default function Home() {
@@ -45,16 +45,16 @@ export default function Home() {
 
   const gs = data.games_per_season
   const player = (p) => <Link to={`/player/${p.player_id}`}>{p.name}</Link>
-  const lead = data.point_pace[0]
-  const streak = data.hot[0]
-  const bestTeam = data.teams[0]
+  const mostPoints = data.points_leaders?.[0]
+  const mostGoals = data.goals_leaders?.[0]
+  const topTeam = data.teams[0]
   const goalie = data.goalies[0]
   const short = (name) => { const [first, ...rest] = (name ?? '').split(' '); return rest.length ? `${first[0]}. ${rest.join(' ')}` : name }
   const spot = [
-    lead && { label: 'Point pace leader', num: fmt1(lead.pace), who: `${short(lead.name)} · ${lead.team}`, team: lead.team, to: `/player/${lead.player_id}`, player: lead },
-    streak && { label: 'Point streak', num: streak.streak, unit: 'games', who: `${short(streak.name)} · ${streak.team}`, team: streak.team, to: `/player/${streak.player_id}`, player: streak },
-    bestTeam && { label: 'Best team, pace', num: fmt1(bestTeam.points_pace), who: `${bestTeam.common_name ?? bestTeam.name}`, team: bestTeam.abbrev, to: `/team/${bestTeam.abbrev}` },
+    mostPoints && { label: 'Most points', num: mostPoints.points, unit: 'pts', who: `${short(mostPoints.name)} · ${mostPoints.team}`, team: mostPoints.team, to: `/player/${mostPoints.player_id}`, player: mostPoints },
+    mostGoals && { label: 'Most goals', num: mostGoals.goals, unit: 'goals', who: `${short(mostGoals.name)} · ${mostGoals.team}`, team: mostGoals.team, to: `/player/${mostGoals.player_id}`, player: mostGoals },
     goalie && { label: 'Top goalie, GSAA', num: signed(goalie.gsaa), who: `${short(goalie.name)} · ${goalie.team}`, team: goalie.team, to: `/goalie/${goalie.player_id}`, player: goalie },
+    topTeam && { label: 'Top team', num: topTeam.points, unit: 'pts', who: `${topTeam.common_name ?? topTeam.name}`, team: topTeam.abbrev, to: `/team/${topTeam.abbrev}` },
   ].filter(Boolean)
 
   return (
@@ -66,7 +66,6 @@ export default function Home() {
 
       <section className="block leaders" aria-label="Season leaders">
         <div className="eyebrow">Season leaders</div>
-        <p className="leaders-note">Point pace, defensive stats and career context the official site doesn't show.</p>
         <div className="spotlight">
           {spot.map((t) => (
             <Link key={t.label} to={t.to} className="spot" style={{ '--team': teamColor(t.team) }}>
@@ -223,7 +222,7 @@ export default function Home() {
               ))}
             </tbody>
           </table>
-          <p className="muted small"><Link to="/goalies">All goalies →</Link></p>
+          <p className="muted small"><Link to="/players?kind=goalie">All goalies →</Link></p>
         </section>
 
             </div>,
@@ -235,11 +234,8 @@ export default function Home() {
                 content: <div className="home-grid">
         
           <section className="card record-card">
-            <h2>Record watch</h2>
-            <p className="muted small">
-              Who's on pace (projected to {gs} games) against the best single seasons ever. Very early
-              in a season these paces swing wildly.
-            </p>
+            <h2>Record watch<Info label="Record watch">Who's on pace (projected to {gs} games) against the best single seasons ever. Very early
+              in a season these paces swing wildly.</Info></h2>
             {['points', 'goals', 'assists'].map((stat) => {
               const r = records.records[stat]
               return (

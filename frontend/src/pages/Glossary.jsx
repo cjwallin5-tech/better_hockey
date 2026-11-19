@@ -81,7 +81,7 @@ export default function Glossary() {
         )}
       </section>
 
-      <p className="sub">Looking for the possession stats in context? See the <Link to="/skaters?view=possession">Possession tab on the Skaters page</Link>, the <Link to="/skaters?view=speed">Speed &amp; shots tab</Link> or the <Link to="/skaters?view=outlook">Projection &amp; luck tab</Link>.</p>
+      <p className="sub">Looking for the possession stats in context? See the <Link to="/players?view=possession">Possession tab on the Players page</Link>, the <Link to="/players?view=speed">Speed &amp; shots tab</Link> or the <Link to="/players?view=outlook">Projection &amp; luck tab</Link>.</p>
     </main>
   )
 }

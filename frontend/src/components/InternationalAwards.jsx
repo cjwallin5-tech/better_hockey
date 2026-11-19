@@ -4,6 +4,8 @@ import { getJson } from '../lists.js'
 import { hasBronze } from '../international.js'
 import Medal from './Medal.jsx'
 import { Skeleton } from './Skeleton.jsx'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
 
 const SHOWN = 12 // editions listed before "show all"
 const AWARD_LABEL = { mvp: 'MVP', goaltender: 'Goaltender', defense: 'Defenseman', forward: 'Forward' }
@@ -73,10 +75,10 @@ export default function InternationalAwards() {
 
   return (
     <>
-      <p className="sub">
+      <Note label="About these medals">
         Medals in the major men's national-team tournaments, for the players in our data. A player's medal comes from his team's finish in the
         year he played. World Cup and 4 Nations have a final but no bronze medal game, so they list a champion and a runner-up.
-      </p>
+      </Note>
       <div className="tabs" role="tablist" aria-label="Tournament">
         {results.tournaments.map((x) => (
           <button key={x.id} type="button" role="tab" aria-selected={x.id === event} className={x.id === event ? 'on' : ''} onClick={() => pick(x.id)}>{x.label}</button>
@@ -188,10 +190,7 @@ export default function InternationalAwards() {
       </section>
       {club && (
         <section className="card">
-          <h2>Triple Gold Club</h2>
-          <p className="sub">
-            Players who have won the Stanley Cup, an Olympic gold medal and a World Championship gold medal. The year shown for each is the first time.
-          </p>
+          <h2>Triple Gold Club<Info label="Triple Gold Club">Players who have won the Stanley Cup, an Olympic gold medal and a World Championship gold medal. The year shown for each is the first time.</Info></h2>
           {club.members.length === 0 ? <p className="status">No members found yet.</p> : (
             <div className="table-wrap">
               <table className="mini">

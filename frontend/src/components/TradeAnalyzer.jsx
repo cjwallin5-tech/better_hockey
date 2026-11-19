@@ -6,6 +6,7 @@ import { LuckBadge, useLuck } from './Luck.jsx'
 import { RoleBadge, useRoles } from './Roles.jsx'
 import { describe } from '../glossary.js'
 import ShareButtons from './ShareButtons.jsx'
+import Info from './Info.jsx'
 
 const signedZ = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`
 const signed = (v, d = 0) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`
@@ -159,14 +160,11 @@ export default function TradeAnalyzer({ data, values, roster, categories }) {
 
   return (
     <section>
-      <h2>Trade analyzer</h2>
-      <p className="sub">
-        {categories
+      <h2>Trade analyzer<Info label="Trade analyzer">{categories
           ? 'Value is the total z-score above the best free player at the same position over the rest of the season, across the categories your league counts (see Player values for how it is estimated). The category table shows where you gain and lose. '
           : 'Value is fantasy points above the best free player at the same position over the rest of the season, under your scoring and league (see Player values for how it is estimated). '}
         Hot and cold badges show who is running above or below what their shots
-        predict, and role badges show recent power-play or ice-time moves, neither of which is in the value itself.
-      </p>
+        predict, and role badges show recent power-play or ice-time moves, neither of which is in the value itself.</Info></h2>
       <div className="trade-grid">
         <Side title="You give" ids={give} setIds={setGive} side={t.give} pool={pool} taken={taken} info={info} luck={luck} roles={roles} rosterOptions={rosterOptions} cats={Boolean(categories)} />
         <Side title="You get" ids={get} setIds={setGet} side={t.get} pool={pool} taken={taken} info={info} luck={luck} roles={roles} cats={Boolean(categories)} />

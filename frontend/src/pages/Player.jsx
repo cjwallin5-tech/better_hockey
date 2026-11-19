@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom'
 import PageTabs from '../components/PageTabs.jsx'
 import PlayerNews from '../components/PlayerNews.jsx'
 import Career from '../components/Career.jsx'
+import LeagueFinishes from '../components/LeagueFinishes.jsx'
 import Trophies from '../components/Trophies.jsx'
 import Rankings, { rankNote, useRankings } from '../components/Rankings.jsx'
 import CareerPlayer from './CareerPlayer.jsx'
@@ -81,7 +82,7 @@ export default function Player() {
   const current = result.id === id ? result : { data: null, error: null }
   const { data, error } = current
 
-  const back = <BackLink to="/skaters" />
+  const back = <BackLink to="/players" />
   // No current-season data (retired or inactive): show the career page instead of an error.
   if (error === 'Player not found') return <CareerPlayer id={Number(id)} goalie={false} />
   if (error) return <main>{back}<p className="status">{error}</p></main>
@@ -99,18 +100,13 @@ export default function Player() {
           { label: 'Goals', value: p.goals, rank: rank('goals'), big: true },
           { label: 'Assists', value: p.assists, rank: rank('assists'), big: true },
           { label: 'GP', value: p.games_played, rank: rank('games_played'), big: true },
+          { label: '1st / 2nd assists', value: `${p.primary_assists} / ${p.secondary_assists}` },
           { label: 'Point pace', value: fmt1(p.point_pace) },
           { label: `Last ${p.recent_games ?? 0} pace`, value: fmt1(p.recent_pace) },
           { label: '+/-', value: p.plus_minus, rank: rank('plus_minus') },
           { label: 'TOI / game', value: fmtToi(p.toi_per_game_sec) },
         ]}
       />
-      {p.games_out >= 2 && (
-        <p className="notice">
-          <strong>Out:</strong> {p.name} hasn't played in {p.team}'s last {p.games_out} games. The NHL feed doesn't say why (injury,
-          healthy scratch, trade or call-down all look the same).
-        </p>
-      )}
 
       <PageTabs
         tabs={[
@@ -121,13 +117,14 @@ export default function Player() {
               <>
                 <Context playerId={p.player_id} />
                 <div className="player-overview">
-                  <Explain playerId={p.player_id} name={p.name} />
+                  <Explain playerId={p.player_id} name={p.name} team={p.team} gamesOut={p.games_out ?? 0} lastGame={p.last_game_date ?? null} />
                   <aside>
                     <Projection playerId={p.player_id} />
                   </aside>
                 </div>
                 <Rankings playerId={p.player_id} kind="skater" />
                 <Career playerId={p.player_id} />
+                <LeagueFinishes playerId={p.player_id} />
                 <Comparables playerId={p.player_id} />
                 <Trophies playerId={p.player_id} />
                 <Awards playerId={p.player_id} />

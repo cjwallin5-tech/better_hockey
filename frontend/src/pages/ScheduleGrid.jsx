@@ -5,6 +5,7 @@ import { useRoster } from '../roster.js'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 import { getJson } from '../lists.js'
+import PageIntro from '../components/PageIntro.jsx'
 
 const short = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const dayShort = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -55,11 +56,8 @@ export default function ScheduleGrid({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Schedule grid</h1>}
-        <p>
-          Games each team plays per week (Monday to Sunday). Light weeks (2 or fewer) are shaded amber and heavy weeks (4 or more)
-          green. A dot marks a game on back-to-back nights. Hover a cell for the dates and opponents. <Link to="/schedule?tab=rest">How much a back-to-back costs a team →</Link>
-        </p>
+        <PageIntro title="Schedule grid" embedded={embedded}>Games each team plays per week (Monday to Sunday). Light weeks (2 or fewer) are shaded amber and heavy weeks (4 or more)
+          green. A dot marks a game on back-to-back nights. Hover a cell for the dates and opponents. <Link to="/schedule?tab=rest">How much a back-to-back costs a team →</Link></PageIntro>
       </header>
 
       <div className="controls">

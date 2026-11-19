@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fmtPct } from '../format.js'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
 
 const mins = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
 const pct = (v) => (v == null ? '–' : fmtPct(v))
@@ -79,14 +80,11 @@ export function Linemates({ playerId }) {
 
   return (
     <section>
-      <h2>Linemates &amp; chemistry</h2>
-      <p className="sub">
-        Most 5v5 time with each teammate. The question is whether this player's team gets a bigger share of the good chances with the teammate
+      <h2>Linemates &amp; chemistry<Info label="Linemates & chemistry">Most 5v5 time with each teammate. The question is whether this player's team gets a bigger share of the good chances with the teammate
         than it gets when he plays without him: {hasXg ? 'the share of expected goals (xG), our own shot-quality model' : 'the share of shot attempts (Corsi), since expected goals are not stored for these games yet'}.
         The lift is the difference in points of share, and the verdict only speaks after {minutes} minutes together and says how sure the
         data lets it be. The last chemistry column is the same lift from the teammate's side. It can't tell a pairing's effect from usage:
-        time apart is usually with other linemates, opponents and zone starts, so treat a verdict as a clue. {NOTE}
-      </p>
+        time apart is usually with other linemates, opponents and zone starts, so treat a verdict as a clue. {NOTE}</Info></h2>
       {(data.best || data.worst) && (
         <p>
           {data.best && <>Best fit: <Link to={`/player/${data.best.player_id}`}>{data.best.name}</Link>. </>}

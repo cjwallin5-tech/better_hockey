@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { CompareChart } from './Charts.jsx'
 import { seasonLabel } from '../career.js'
-import { fmtToi } from '../format.js'
+import { fmtToi, lastName } from '../format.js'
 import { describe } from '../glossary.js'
 import { Link } from 'react-router-dom'
 import { CareerSummary } from './Career.jsx'
 import { rankNote, useRankings } from './Rankings.jsx'
+import Note from './Note.jsx'
 
 const STATS = [
   { id: 'hits', label: 'Hits' },
@@ -24,7 +25,6 @@ const ONICE_NOTE =
   '"vs. teammates" is the team\'s xGA/60 with the player on the ice minus with him off it in the same games, ' +
   'so negative is better. It still reflects linemates, zone starts and opponents, so treat it as a clue. ' +
   'Hover for the percentile among same-role skaters (higher is better).'
-const lastName = (full) => full.split(' ').slice(1).join(' ') || full
 
 function useDefense(id) {
   const [result, setResult] = useState({ id: null, data: null })
@@ -73,12 +73,12 @@ function DefenseCareer({ playerId, seasons }) {
           ['Takeaways minus giveaways', net == null ? null : `${net > 0 ? '+' : ''}${net.toLocaleString()}`],
         ]}
       />
-      <p className="sub">
+      <Note label="About these totals">
         Career totals since {seasonLabel(seasons[0].season_id)}, the first season these were recorded, so a career that began earlier is only
         counted from then. All-time leaders: {[['hits', 'Hits'], ['blocked_shots', 'Blocks'], ['takeaways', 'Takeaways'], ['giveaways', 'Giveaways']].map(([key, label], i) => (
           <span key={key}>{i > 0 && ' · '}<Link to={`/alltime/skaters?v=defense&sort=${key}`}>{label}</Link></span>
         ))}.
-      </p>
+      </Note>
     </>
   )
 }

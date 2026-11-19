@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
 
 const MIN_SECONDS = 60   // combinations that shared less than a minute are noise
 const MAX_ROWS = 6
@@ -46,12 +47,9 @@ export default function GameLines({ lines, pairs, sides }) {
   if (lines.length === 0 && pairs.length === 0) return null
   return (
     <section>
-      <h2>Lines and pairings</h2>
-      <p className="sub">
-        Five-on-five only, ranked by ice time together, so the first row is the most-used combination, not necessarily the nominal first
+      <h2>Lines and pairings<Info label="Lines and pairings">Five-on-five only, ranked by ice time together, so the first row is the most-used combination, not necessarily the nominal first
         line. Combinations that shared under a minute are left out. CF% is the share of shot attempts the team took while they were on
-        the ice.
-      </p>
+        the ice.</Info></h2>
       {sides.map((team) => (
         <div key={team} className="game-lines">
           <h3>{team}</h3>

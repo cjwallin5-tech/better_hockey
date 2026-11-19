@@ -13,10 +13,17 @@ const PATHS = {
       <circle cx="12" cy="12" r="3" />
     </>
   ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <path d="M12 7.6v.01" />
+    </>
+  ),
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />,
 }
 
-/** name: 'star' | 'eye' | 'sun' | 'moon'. filled draws a solid shape instead of an outline. */
+/** name: 'star' | 'eye' | 'sun' | 'moon' | 'info'. filled draws a solid shape instead of an outline. */
 export default function Icon({ name, filled = false, size = '1.1em' }) {
   return (
     <svg className="icon" viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false"

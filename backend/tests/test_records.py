@@ -38,6 +38,22 @@ class Seasons(unittest.TestCase):
         self.assertEqual(records.season_figures([season(1, 20202021, 82, 50, 50)])[1]["seasons_100p"], 1)
 
 
+class LedTheLeague(unittest.TestCase):
+    def test_counts_the_seasons_finished_first_with_ties_sharing(self):
+        rows = [season(1, 20192020, 70, 40, 30), season(2, 20192020, 70, 40, 10),   # 2019-20: both lead goals; player 1 leads points and assists
+                season(1, 20202021, 50, 10, 20), season(2, 20202021, 50, 30, 5)]    # 2020-21: player 2 leads goals and points; player 1 assists
+        out = records.season_figures(rows)
+        self.assertEqual((out[1]["led_points"], out[1]["led_goals"], out[1]["led_assists"]), (1, 1, 2))
+        self.assertEqual((out[2]["led_points"], out[2]["led_goals"], out[2]["led_assists"]), (1, 2, 0))
+
+    def test_the_season_in_progress_does_not_count(self):
+        out = records.season_figures([season(1, 20262027, 20, 10, 10)], current_season=20262027)
+        self.assertEqual((out[1]["led_points"], out[1]["led_goals"], out[1]["led_assists"]), (0, 0, 0))
+
+    def test_a_zero_does_not_lead(self):
+        self.assertEqual(records.season_figures([season(1, 20202021, 5, 0, 0)])[1]["led_goals"], 0)
+
+
 class Rookies(unittest.TestCase):
     def test_first_season_over_the_games_limit_is_the_rookie_season(self):
         rows = [season(1, 20182019, 10, 1, 1), season(1, 20192020, 70, 20, 30), season(1, 20202021, 70, 40, 40)]

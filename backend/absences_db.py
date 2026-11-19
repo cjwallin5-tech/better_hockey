@@ -28,12 +28,18 @@ def current(conn, season):
     games, order, dates = _load(conn, season)
     names = {r["player_id"]: r for r in conn.execute(
         "SELECT player_id, name, team, position FROM skater_season WHERE season_id = %s", (season,))}
+    # The ice-time table can lag the main game table by a game or two, so a player who has already come back can still look out here.
+    latest = {r["player_id"]: r["d"] for r in conn.execute(
+        "SELECT player_id, max(game_date) AS d FROM skater_game WHERE season_id = %s GROUP BY player_id", (season,))}
     out = []
     for team, gm in games.items():
         for ab in absences.current_absences(gm, order[team]):
             x = ab["player"]
             info = names.get(x)
             if not info or (info["team"] or "").split(",")[-1] != team:     # traded or gone: not "out" for this team
+                continue
+            last_played = dates[order[team][len(order[team]) - 1 - ab["games_out"]]]
+            if latest.get(x) and latest[x] > last_played:     # played since: back in the lineup
                 continue
             base = absences.baseline(gm, ab["base_games"], x)
             if not base:
@@ -57,7 +63,7 @@ def current(conn, season):
             key = lambda m: (m["seen"]["total"] if m["seen"]["games"] >= SEEN_MIN_GAMES else m["expected"]["total"], m["name"])
             mates.sort(key=lambda m: (-key(m)[0], m["name"]))
             out.append({"player_id": x, "name": info["name"], "team": team, "position": info["position"], "games_out": ab["games_out"],
-                        "last_played": dates[order[team][len(order[team]) - 1 - ab["games_out"]]], "role": role,
+                        "last_played": last_played, "role": role,
                         "base": {k: base[k] for k in ("ev", "pp", "sh", "total")}, "teammates": mates[:SHOWN]})
     out.sort(key=lambda a: (-a["base"]["total"] - 600 * (a["role"] == "PP1") - 300 * (a["role"] == "PP2"), a["name"]))
     return out

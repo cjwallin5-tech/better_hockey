@@ -4,6 +4,7 @@ import TrophyImage from '../components/TrophyImage.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import PageSkeleton from '../components/Skeleton.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 /** Every NHL trophy by kind, each linking to its list of winners by season. */
 export default function TrophyIndex({ embedded = false }) {
@@ -26,8 +27,7 @@ export default function TrophyIndex({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Trophy winners</h1>}
-        <p>Every NHL trophy with its winners by season. Open one to see the full list. For the Art Ross and Rocket Richard, the winner's season totals are shown too.</p>
+        <PageIntro title="Trophy winners" embedded={embedded}>Every NHL trophy with its winners by season. Open one to see the full list. For the Art Ross and Rocket Richard, the winner's season totals are shown too.</PageIntro>
       </header>
       {state.data.groups.map((group) => (
         <section key={group.title}>

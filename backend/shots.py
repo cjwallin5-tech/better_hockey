@@ -80,6 +80,44 @@ def extract_shots(pbp):
     return out
 
 
+def extract_goal_assists(pbp):
+    """[(event_id, scorer_id, assist1_id, assist2_id)] for every goal scored in play, in game order. An unassisted goal has None for both
+    assisters. Shootout goals are left out: they have no assists."""
+    out = []
+    for p in sorted(pbp["plays"], key=lambda p: p.get("sortOrder", 0)):
+        if p["typeDescKey"] != "goal" or p["periodDescriptor"]["periodType"] == "SO":
+            continue
+        d = p.get("details", {})
+        out.append((p.get("eventId"), d.get("scoringPlayerId"), d.get("assist1PlayerId"), d.get("assist2PlayerId")))
+    return out
+
+
+SHOT_EVENTS = ("goal", "shot-on-goal", "missed-shot")
+
+
+def extract_special_shots(pbp):
+    """Shootout attempts and penalty shots, in game order: [{kind, event_id, period, team_id, shooter_id, goalie_id, scored, on_goal}]
+    with kind 'shootout' or 'penalty_shot' (a goalie only faces the ones on goal). A penalty shot is the shot event that follows a penalty of type PS at the same moment on the clock."""
+    plays = sorted(pbp["plays"], key=lambda p: p.get("sortOrder", 0))
+
+    def attempt(play, kind):
+        d = play.get("details") or {}
+        return {"kind": kind, "event_id": play.get("eventId"), "period": play["periodDescriptor"]["number"], "team_id": d.get("eventOwnerTeamId"),
+                "shooter_id": d.get("scoringPlayerId") or d.get("shootingPlayerId"), "goalie_id": d.get("goalieInNetId"),
+                "scored": play["typeDescKey"] == "goal", "on_goal": play["typeDescKey"] != "missed-shot"}
+
+    out = []
+    for i, p in enumerate(plays):
+        if p["periodDescriptor"]["periodType"] == "SO" and p["typeDescKey"] in SHOT_EVENTS:
+            out.append(attempt(p, "shootout"))
+        elif p["typeDescKey"] == "penalty" and (p.get("details") or {}).get("typeCode") == "PS":
+            taken = next((q for q in plays[i + 1:i + 4] if q["typeDescKey"] in SHOT_EVENTS and q["periodDescriptor"] == p["periodDescriptor"]
+                          and q["timeInPeriod"] == p["timeInPeriod"]), None)
+            if taken:
+                out.append(attempt(taken, "penalty_shot"))
+    return out
+
+
 # --- Expected goals -------------------------------------------------------------------------------
 import json
 import pathlib

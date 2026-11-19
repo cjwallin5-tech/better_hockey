@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
+import { dayName } from '../format.js'
 
-const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const pct = (p) => (p == null ? '–' : `${Math.round(p * 100)}%`)
 
 /**
@@ -29,12 +30,9 @@ export default function GoalieStarts({ players }) {
 
   return (
     <section>
-      <h2>Goalie starts this week</h2>
-      <p className="sub">
-        Each percentage is the chance that goalie starts that game, a guess from his team's recent starts and
+      <h2>Goalie starts this week<Info label="Goalie starts this week">Each percentage is the chance that goalie starts that game, a guess from his team's recent starts and
         back-to-backs (B2B). Later days build on earlier guesses, so they are less certain. A check mark means the NHL has
-        confirmed the starter. Injuries and rest days we can't see are not accounted for.
-      </p>
+        confirmed the starter. Injuries and rest days we can't see are not accounted for.</Info></h2>
       <div className="table-wrap">
         <table>
           <thead>

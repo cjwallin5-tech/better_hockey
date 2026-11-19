@@ -42,6 +42,8 @@ export const GROUPS = [
     title: 'Scoring and ice time',
     terms: [
       { id: 'points', name: 'Points', abbr: 'P', what: 'Goals plus assists. P/GP is points per game played.' },
+      { id: 'primary-assists', name: 'Primary and secondary assists', abbr: 'A1, A2', what: 'A1 is the last pass before a goal; A2 is the pass before that. Up to two players are credited on a goal.', read: 'Primary assists repeat from year to year more than secondary ones, which depend more on who else is on the ice.' },
+      { id: 'primary-points', name: 'Primary points', abbr: 'P1', what: 'Goals plus primary assists: the points where the player made the last play or the one before it.', read: 'A fairer read on who drives scoring than total points, because it leaves out secondary assists.' },
       { id: 'pace', name: 'Point pace', abbr: 'Pace', what: 'Points per game so far, projected over a full season. The site uses an 84-game season. L10 pace uses only the last 10 games.', read: 'Early-season pace is noisy: a hot week can look like a 150-point season.' },
       { id: 'plus-minus', name: 'Plus/minus', abbr: '+/-', what: 'Even-strength goals for minus goals against while the player is on the ice.', read: 'It depends heavily on teammates and goaltending, so treat it as a rough guide.' },
       { id: 'special-teams', name: 'Power play and penalty kill', abbr: 'PPG, PPP, SHG, SHP', what: 'PPG and PPP are power-play goals and points (the team has an extra skater). SHG and SHP are short-handed goals and points (the team is a skater down).' },
@@ -57,6 +59,7 @@ export const GROUPS = [
       { id: 'sv-pct', name: 'Save percentage', abbr: 'SV%', what: 'Saves divided by shots against. An NHL starter is usually around .900 to .920.' },
       { id: 'gaa', name: 'Goals against average', abbr: 'GAA', what: 'Goals allowed per 60 minutes. Lower is better.', read: 'It depends on the team in front of the goalie, so save percentage is usually a cleaner measure.' },
       { id: 'gsaa', name: 'Goals saved above average', abbr: 'GSAA', what: 'The goals a league-average goalie would have allowed on the same shots, minus the goals actually allowed.', read: 'Positive means better than average.' },
+      { id: 'really-bad-start', name: 'Really bad start', abbr: 'RBS', what: 'A start with a save percentage below .850.', read: 'The opposite of a quality start: a game the goalie badly hurt his team. Fewer is better.' },
       { id: 'quality-start', name: 'Quality start', abbr: 'QS, QS%', what: 'A start with a save percentage above the league average, or three goals against or fewer with a save percentage over .885.' },
       { id: 'danger', name: 'Shot danger zones', abbr: 'High, Mid, Long', what: 'Where shots come from: high is the slot and crease, mid is the circles and faceoff dots, long is the perimeter. A goalie’s save percentage is shown for each.' },
     ],
@@ -100,6 +103,7 @@ export const GROUPS = [
     title: 'History and records',
     terms: [
       { id: 'hat-trick', name: 'Hat trick and big games', abbr: 'Hat tricks', what: 'A hat trick is three or more goals in one game. The big-game columns count games with at least that many goals, assists or points, so every 4-goal game is also a hat trick.' },
+      { id: 'led-the-league', name: 'Led the NHL', abbr: 'Led in points, Led in goals, Led in assists', what: 'How many regular seasons a player finished first among all NHL skaters in points, goals or assists. A tie counts for each player, and the season in progress is not counted.' },
       { id: 'milestone-seasons', name: 'Milestone seasons', abbr: '100-pt seasons, 50-goal seasons', what: 'How many regular seasons a player reached the mark (for example 100 or more points), whatever the schedule length of the time.' },
       { id: 'rookie-season', name: 'Rookie season', abbr: 'Rookie P, Rookie GP', what: 'The first season with more than 25 NHL games, for a player under 26 when it started (the Calder Trophy’s rules). The NHL’s second test is not applied, so a few players can differ from the official list.' },
       { id: 'era-adjusted', name: 'Era-adjusted scoring', abbr: 'Adj G, Adj A, Adj P', what: 'Each season’s goals and assists rescaled to today’s scoring level, separately for forwards and defensemen, because the league averaged about 4 goals per team game in the early 1980s and under 3 in the mid-2000s.', read: 'A fairer comparison across eras, not a ruling: it does not correct for ice time, power-play share, expansion or schedule length.' },

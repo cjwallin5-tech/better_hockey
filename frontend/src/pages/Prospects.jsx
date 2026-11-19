@@ -7,6 +7,8 @@ import { useUrlSync } from '../urlState.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 import NhleFactors from '../components/NhleFactors.jsx'
 import { nhleText, nhleTitle } from '../nhle.js'
+import Note from '../components/Note.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -99,12 +101,12 @@ function TeamProspects() {
           </table>
         </div>
       )}
-      <p className="sub">
+      <Note label="What counts as a prospect">
         {data ? `${data.total} prospects. ` : ''}Prospects are the players on NHL teams' prospect lists, so someone who has made the NHL
         drops off. Leagues are not comparable: a point a game in the OHL is a different thing from a point a game in the AHL or
         the SHL, so compare players inside a league, and read a small sample lightly. Stats update with the nightly refresh. NHLe in grey
         comes from last season (the latest one of 20 or more games), because this season is still too short.
-      </p>
+      </Note>
       <NhleFactors />
     </>
   )
@@ -168,12 +170,12 @@ function DraftClass() {
           </table>
         </div>
       )}
-      <p className="sub">
+      <Note label="About the rankings">
         {data ? `${data.draft_year} NHL Draft, ` : ''}NHL Central Scouting's rankings, separate for North American and international
         players. They list each player's last amateur club and league but no player ids, so we match names against the draft's own pick list
         and the NHL's player records; a name links to a prospect page once the player has been drafted and matched. Players who weren't
         drafted have no page, since the NHL has no record of them yet.
-      </p>
+      </Note>
     </>
   )
 }
@@ -184,8 +186,7 @@ export default function Prospects({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Prospects</h1>}
-        <p>Players who haven't made the NHL yet: the prospects each team holds, with their junior, college, European and minor-league stats, and the upcoming draft class.</p>
+        <PageIntro title="Prospects" embedded={embedded}>Players who haven't made the NHL yet: the prospects each team holds, with their junior, college, European and minor-league stats, and the upcoming draft class.</PageIntro>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'prospects'} className={tab === 'prospects' ? 'on' : ''} onClick={() => setTab('prospects')}>Team prospects</button>

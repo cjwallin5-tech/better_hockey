@@ -612,6 +612,9 @@ ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_60p INTEGER;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_80p INTEGER;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_90p INTEGER;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS seasons_100p INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS led_points INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS led_goals INTEGER;
+ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS led_assists INTEGER;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_season INTEGER;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_gp INTEGER;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_goals INTEGER;
@@ -620,3 +623,53 @@ ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_points INTEGER;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS rookie_points_per_game REAL;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS goals_per_game REAL;
 ALTER TABLE career_skater ADD COLUMN IF NOT EXISTS assists_per_game REAL;
+
+-- Who assisted each goal, from play-by-play (the NHL's season totals have only the number of assists): primary and secondary assists.
+-- Shootouts are left out. goal_assist_game lists the games already read, so the nightly run only fetches new ones.
+CREATE TABLE IF NOT EXISTS goal_assist (
+    game_id    BIGINT NOT NULL,
+    event_id   INTEGER NOT NULL,
+    season_id  INTEGER NOT NULL,
+    scorer_id  INTEGER,
+    assist1_id INTEGER,
+    assist2_id INTEGER,
+    PRIMARY KEY (game_id, event_id)
+);
+CREATE INDEX IF NOT EXISTS goal_assist_season ON goal_assist (season_id);
+-- version: what was read from the game (see ingest.PBP_VERSION).
+CREATE TABLE IF NOT EXISTS goal_assist_game (game_id BIGINT PRIMARY KEY);
+ALTER TABLE goal_assist_game ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+
+-- Shootout attempts and penalty shots, from play-by-play (see shots.extract_special_shots).
+CREATE TABLE IF NOT EXISTS special_shot (
+    game_id    BIGINT NOT NULL,
+    event_id   INTEGER NOT NULL,
+    season_id  INTEGER NOT NULL,
+    kind       TEXT NOT NULL,        -- shootout / penalty_shot
+    period     INTEGER NOT NULL,
+    team       TEXT,                 -- the shooting team
+    shooter_id INTEGER,
+    goalie_id  INTEGER,
+    scored     BOOLEAN NOT NULL,
+    on_goal    BOOLEAN NOT NULL DEFAULT TRUE,   -- false for a miss, which the goalie does not face
+    PRIMARY KEY (game_id, event_id)
+);
+ALTER TABLE special_shot ADD COLUMN IF NOT EXISTS on_goal BOOLEAN NOT NULL DEFAULT TRUE;
+CREATE INDEX IF NOT EXISTS special_shot_season ON special_shot (season_id, kind);
+
+-- Sweater numbers by season and team, from the NHL team rosters; player_number_done marks the (season, team) rosters already read.
+CREATE TABLE IF NOT EXISTS player_number (
+    player_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
+    team      TEXT NOT NULL,
+    number    INTEGER NOT NULL,
+    name      TEXT NOT NULL,
+    position  TEXT,
+    PRIMARY KEY (player_id, season_id, team, number)
+);
+CREATE INDEX IF NOT EXISTS player_number_number ON player_number (number);
+CREATE TABLE IF NOT EXISTS player_number_done (
+    season_id INTEGER NOT NULL,
+    team      TEXT NOT NULL,
+    PRIMARY KEY (season_id, team)
+);

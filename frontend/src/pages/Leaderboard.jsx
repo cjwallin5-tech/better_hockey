@@ -13,7 +13,11 @@ import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
 import { seasonLabel } from '../career.js'
 import PageSkeleton from '../components/Skeleton.jsx'
+import PageShell from '../components/PageShell.jsx'
 import { getJson } from '../lists.js'
+import { fmt2 } from '../format.js'
+import { absenceMap, coverText, useAbsences } from '../absences.js'
+import Info from '../components/Info.jsx'
 
 // Pace from fewer games than this is mostly noise, so it's dimmed and flagged.
 const STABLE_GP = 20
@@ -34,6 +38,12 @@ const VIEWS = [
     note: 'Ice time per game by situation (EV = even strength, PP = power play, SH = short-handed).',
   },
   {
+    id: 'shootout',
+    label: 'Shootouts & penalty shots',
+    defaultSort: 'so_goals',
+    note: 'Shootout attempts and penalty shots taken this season, from play-by-play. Only players with at least one are listed.',
+  },
+  {
     id: 'outlook',
     label: 'Projection & luck',
     defaultSort: 'proj_points',
@@ -47,9 +57,12 @@ const VIEWS = [
   },
 ]
 
+// Views built from data only the current season has.
+const CURRENT_VIEWS = ['outlook', 'shootout']
+
 // How the views are grouped in the dropdown.
 const VIEW_GROUPS = [
-  { title: 'Results', ids: ['scoring', 'special', 'outlook'] },
+  { title: 'Results', ids: ['scoring', 'special', 'shootout', 'outlook'] },
   { title: 'How they play', ids: ['defense', 'possession', 'speed'] },
 ]
 
@@ -58,6 +71,7 @@ const QUICK_RANK = {
   scoring: [['points', 'Points'], ['goals', 'Goals'], ['assists', 'Assists'], ['point_pace', 'Pace'], ['plus_minus', '+/-'], ['shots', 'Shots'], ['toi_per_game_sec', 'Ice time']],
   defense: [['hits', 'Hits'], ['blocked_shots', 'Blocks'], ['takeaways', 'Takeaways'], ['sh_toi_per_game', 'PK time'], ['hits_per60', 'Hits/60'], ['blocks_per60', 'Blocks/60'], ['takeaways_per60', 'Takeaways/60']],
   possession: [['sat_pct', 'CF%'], ['xgf_pct', 'xGF%'], ['sat_rel', 'CF% Rel'], ['ixg', 'ixG'], ['goals_minus_ixg', 'G − ixG'], ['pdo_5v5', 'PDO']],
+  shootout: [['so_goals', 'SO goals'], ['so_attempts', 'SO attempts'], ['so_pct', 'SO%'], ['ps_goals', 'Penalty-shot goals']],
   outlook: [['proj_points', 'Projected points'], ['proj_goals', 'Projected goals'], ['luck_points_diff', 'P − xP (hot)'], ['luck_points_z', 'Luck z']],
   speed: [['top_speed_mph', 'Top speed'], ['top_shot_mph', 'Hardest shot'], ['bursts_22_plus', '22+ mph bursts'], ['avg_shot_mph', 'Avg shot'], ['distance_per_game', 'Distance/GP']],
   special: [['pp_toi_per_game', 'PP time'], ['sh_toi_per_game', 'PK time'], ['pp_points', 'PP points'], ['toi_per_game_sec', 'Total ice time'], ['fo_win_pct', 'Faceoff %']],
@@ -80,9 +94,11 @@ const CURRENT_ONLY = new Set([
 // Columns dropped on phones so the ones that matter (GP, G, A, P ...) fit without sideways scrolling.
 const PHONE_HIDDEN = new Set(['position', 'age'])
 
-export default function Leaderboard() {
+export default function Leaderboard({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search) // the URL carries the saved view
   const [meta, setMeta] = useState(null)
+  const absences = useAbsences()
+  const absentById = useMemo(() => absenceMap(absences), [absences])
   const [season, setSeason] = useState(() => (initial.get('season') ? Number(initial.get('season')) : null)) // null = current
   const [rows, setRows] = useState(null)
   const [error, setError] = useState(null)
@@ -134,7 +150,7 @@ export default function Leaderboard() {
     return () => { ignore = true }
   }, [viewId, isPast, outlook])
   useEffect(() => {
-    if (isPast && viewId === 'outlook') { setViewId('scoring'); setSort({ key: 'points', dir: 'desc' }) }
+    if (isPast && CURRENT_VIEWS.includes(viewId)) { setViewId('scoring'); setSort({ key: 'points', dir: 'desc' }) }
   }, [isPast, viewId])
   const allRows = useMemo(() => {
     if (!rows || !outlook) return rows
@@ -181,7 +197,9 @@ export default function Leaderboard() {
       scoring: [
         { key: 'goals', label: 'G' },
         { key: 'assists', label: 'A' },
+        ...(isPast ? [] : [{ key: 'primary_assists', label: 'A1' }, { key: 'secondary_assists', label: 'A2' }]),   // who assisted is only stored for this season
         { key: 'points', label: 'P' },
+        ...(isPast ? [] : [{ key: 'primary_points', label: 'P1' }]),
         { key: 'point_pace', label: `Pace (${games})`, fmt: fmt1, accent: true, lowIf: (r) => r.games_played < STABLE_GP },
         { key: 'recent_points', label: `L${window} P` },
         { key: 'recent_pace', label: `L${window} Pace`, fmt: fmt1, accent: true, lowIf: (r) => r.recent_games < Math.min(window, STABLE_GP) },
@@ -221,6 +239,8 @@ export default function Leaderboard() {
         { key: 'ev_goals_for', label: 'EV GF' },
         { key: 'ev_goals_against', label: 'EV GA' },
         { key: 'ev_goals_for_pct', label: 'EV GF%', fmt: fmtPct },
+        { key: 'ev_gf_per60', label: 'EV GF/60', fmt: fmt2 },
+        { key: 'ev_ga_per60', label: 'EV GA/60', fmt: fmt2 },
         { key: 'pdo_5v5', label: 'PDO', fmt: fmtPct },
         { key: 'ixg', label: 'ixG', fmt: fmt1 },
         { key: 'goals_minus_ixg', signed: true, label: 'G − ixG', fmt: fmtSigned1 },
@@ -228,6 +248,13 @@ export default function Leaderboard() {
         { key: 'recent_cf_pct', label: `L${window} CF%`, fmt: fmtPct, accent: true, lowIf: onIceLow },
         { key: 'recent_ff_pct', label: `L${window} FF%`, fmt: fmtPct, lowIf: onIceLow },
         { key: 'cf_pct_trend', signed: true, label: `L${window} CF% vs season`, fmt: fmtSignedPct, lowIf: onIceLow },
+      ],
+      shootout: [
+        { key: 'so_attempts', label: 'SO Att' },
+        { key: 'so_goals', label: 'SO G', accent: true },
+        { key: 'so_pct', label: 'SO%', fmt: fmtPct },
+        { key: 'ps_attempts', label: 'PS Att' },
+        { key: 'ps_goals', label: 'PS G' },
       ],
       outlook: [
         { key: 'points', label: 'P' },
@@ -300,6 +327,7 @@ export default function Leaderboard() {
         (ageMin === '' || (r.age != null && r.age >= Number(ageMin))) &&
         (ageMax === '' || (r.age != null && r.age <= Number(ageMax))) &&
         (!rookiesOnly || r.rookie) &&
+        (viewId !== 'shootout' || r.so_attempts > 0 || r.ps_attempts > 0) &&
         (!q || r.name.toLowerCase().includes(q) || (r.team ?? '').toLowerCase().includes(q)),
     )
     const { key, dir } = sort
@@ -312,7 +340,7 @@ export default function Leaderboard() {
       if (y == null) return -1
       return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sign
     })
-  }, [allRows, search, position, minGp, sort, team, country, ageMin, ageMax, rookiesOnly])
+  }, [allRows, search, position, minGp, sort, team, country, ageMin, ageMax, rookiesOnly, viewId])
 
   const places = useMemo(() => placesFor(visible, sort.key), [visible, sort.key])
 
@@ -323,21 +351,18 @@ export default function Leaderboard() {
         : { key: col.key, dir: col.text ? 'asc' : 'desc' },
     )
 
-  if (error) return <main><p className="status">Couldn't load stats: {error}</p></main>
-  if (!rows) return <main><PageSkeleton /></main>
+  if (error) return <PageShell embedded={embedded}><p className="status">Couldn't load stats: {error}</p></PageShell>
+  if (!rows) return <PageShell embedded={embedded}><PageSkeleton /></PageShell>
 
   const seasonName = seasonLabel(season ?? meta?.season_id ?? '')
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <SeasonSwitch kind="skater" value={season} onChange={onSeason} />
       <header>
-        <h1>Skater Stats <span>{meta || season ? seasonName : ''}</span></h1>
-        <p>
-          {isPast
+        <h1>Skater Stats <span>{meta || season ? seasonName : ''}</span><Info label="About skater stats">{isPast
             ? `Final regular-season totals for ${seasonName}. Pace, last-games form and expected goals are only kept for the current season.`
-            : `Pace projects points over ${meta?.games_per_season ?? 84} games. L${meta?.recent_window ?? 10} Pace uses only each player's last ${meta?.recent_window ?? 10} games.`}
-        </p>
+            : `Pace projects points over ${meta?.games_per_season ?? 84} games. L${meta?.recent_window ?? 10} Pace uses only each player's last ${meta?.recent_window ?? 10} games.`}</Info></h1>
       </header>
       {maxGp < STABLE_GP && (
         <p className="notice">
@@ -351,7 +376,7 @@ export default function Leaderboard() {
         <ViewMenu
           groups={VIEW_GROUPS.map((g) => ({
             label: g.title,
-            views: VIEWS.filter((v) => g.ids.includes(v.id) && !(isPast && v.id === 'outlook')),
+            views: VIEWS.filter((v) => g.ids.includes(v.id) && !(isPast && CURRENT_VIEWS.includes(v.id))),
           }))}
           activeId={viewId}
           onSelect={onView}
@@ -442,11 +467,11 @@ export default function Leaderboard() {
                     {c.key === 'name' ? (
                       <span className="player-cell">
                         <RankBadge n={places[rankIndex].rank} tied={places[rankIndex].tied} />
-                        <Avatar playerId={r.player_id} team={r.team} name={r.name} size={34} />
+                        <Avatar playerId={r.player_id} team={r.team} season={season ?? undefined} name={r.name} size={34} />
                         <Link to={`/player/${r.player_id}`}>{r.name}</Link>
                         {r.traded && <span className="badge" title="Played for more than one team this season">↔ traded</span>}
                         {r.games_out >= 2 && (
-                          <span className="badge warn" title={`Not in the lineup for the team's last ${r.games_out} games (the NHL feed doesn't say why)`}>
+                          <span className="badge warn" title={`Not in the lineup for the team's last ${r.games_out} games (the NHL feed doesn't say why)${coverText(absentById.get(r.player_id)) ? `. ${coverText(absentById.get(r.player_id))}` : ''}`}>
                             out {r.games_out}
                           </span>
                         )}
@@ -472,6 +497,6 @@ export default function Leaderboard() {
           </tbody>
         </table>
       </div>
-    </main>
+    </PageShell>
   )
 }

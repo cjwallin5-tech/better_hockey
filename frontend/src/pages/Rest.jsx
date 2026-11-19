@@ -3,6 +3,8 @@ import PageShell from '../components/PageShell.jsx'
 import { Link } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import PageSkeleton from '../components/Skeleton.jsx'
+import Note from '../components/Note.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 const signed = (v, d = 2) => (v == null ? '–' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`)
 const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`)
@@ -60,12 +62,9 @@ export default function Rest({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Rest and back-to-backs</h1>}
-        <p>
-          A team on the second night of a back-to-back against a rested opponent does worse. This measures how much, using every
+        <PageIntro title="Rest and back-to-backs" embedded={embedded}>A team on the second night of a back-to-back against a rested opponent does worse. This measures how much, using every
           game we store (this season and the previous four), and lists the coming games where one side has the rest edge.
-          The <Link to="/schedule">schedule grid</Link> shows how many back-to-backs each team has.
-        </p>
+          The <Link to="/schedule">schedule grid</Link> shows how many back-to-backs each team has.</PageIntro>
       </header>
 
       <section className="tiles">
@@ -73,14 +72,14 @@ export default function Rest({ embedded = false }) {
         <Effect title="Rested team (opponent on a back-to-back)" e={edge} note="The other side of the same games." />
         <Effect title="Both teams played yesterday" e={both} note="Cancels out." />
       </section>
-      <p className="sub">
+      <Note label="How these figures are worked out">
         Each figure is the average over the league's teams of the gap between how a team did in those games and how the same
         team did when both sides were rested, so strong teams aren't mistaken for rested ones. We could not detect an effect for
         goalies who started both nights (too few of them, and the gap in save percentage was well within noise). Distance and
         time zones are shown for context, measured from where each team's previous game was played, but they had no detectable
         effect once rest and home ice were accounted for (every estimate was small and inside its margin of error). A team is assumed to travel straight from one
         arena to the next, so a long road trip's flights home are not counted.
-      </p>
+      </Note>
 
       <h2>Lopsided games, next 7 days</h2>
       {lopsided.length === 0 ? <p className="status">No game in the next week has a rest mismatch.</p> : (

@@ -22,7 +22,7 @@ export default function SeasonSwitch({ kind, active = 'season', value = null, on
     return () => { ignore = true }
   }, [kind])
 
-  const board = kind === 'goalie' ? '/goalies' : '/skaters'
+  const board = kind === 'goalie' ? '/players?kind=goalie' : '/players'
   const current = seasons?.current
   const selected = active === 'alltime' ? ALL_TIME : (value ?? current ?? '')
 
@@ -33,7 +33,7 @@ export default function SeasonSwitch({ kind, active = 'season', value = null, on
     }
     const id = Number(e.target.value)
     if (active === 'season') onChange?.(id === current ? null : id)
-    else navigate(id === current ? board : `${board}?season=${id}`)
+    else navigate(id === current ? board : `${board}${board.includes('?') ? '&' : '?'}season=${id}`)
   }
 
   const ids = seasons?.ids ?? []

@@ -3,7 +3,7 @@ import BackLink from '../components/BackLink.jsx'
 import { Link, useParams } from 'react-router-dom'
 import ShotMap from '../components/ShotMap.jsx'
 import { CorsiFlow, ShiftChart, WinProbability, XgFlow } from '../components/GameCharts.jsx'
-import { fmtPct, fmtToi } from '../format.js'
+import { fmtPct, fmtToi, fmtSv as sv } from '../format.js'
 import { describe } from '../glossary.js'
 import GameLines from '../components/GameLines.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
@@ -18,7 +18,6 @@ const goalClock = (sec) => {
   const into = ((sec - 1) % 1200) + 1
   return `${period === 4 ? 'OT' : `P${period}`} ${mmss(into)}`
 }
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
 export default function Game() {
   const { id } = useParams()

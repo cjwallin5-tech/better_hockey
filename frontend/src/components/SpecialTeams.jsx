@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { mmss } from './Roles.jsx'
 import { Skeleton } from './Skeleton.jsx'
+import Note from './Note.jsx'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const pct = (v) => (v == null ? '–' : `${(v * 100).toFixed(1)}%`)
@@ -97,13 +98,13 @@ export default function SpecialTeams({ abbrev }) {
           <Units units={data.power_play} kind="pp" />
           <h3>Penalty-kill units</h3>
           <Units units={data.penalty_kill} kind="pk" />
-          <p className="sub">
+          <Note label="How units are worked out">
             The NHL doesn't publish units, so these are inferred from each skater's share of the team's special-teams ice time over
             these {t.games} games: PP1 is {Math.round(data.thresholds.pp1 * 100)}% or more (five at most), PP2 {Math.round(data.thresholds.pp2 * 100)}% or more.
             The penalty kill ranks forwards and defensemen separately, two of each per unit. xG per 60 counts the quality of the shots
             in that situation, so it settles faster than goals. Early in the season a few games decide a lot. League view:{' '}
             <Link to="/standings?stat=pp_xgf60">all teams' special teams →</Link>
-          </p>
+          </Note>
         </>
       )}
     </section>

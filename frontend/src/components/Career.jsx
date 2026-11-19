@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { nhlSeasons, seasonLabel } from '../career.js'
 import { rankNote, useRankings } from './Rankings.jsx'
 import { describe } from '../glossary.js'
+import { fmtSv as sv } from '../format.js'
 
 const dash = (v) => (v == null ? '–' : v)
 const pct = (v) => (v == null || v === 0 ? '–' : `${(v * 100).toFixed(1)}`)
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const dec = (v, d = 2) => (v == null ? '–' : v.toFixed(d))
 
 export default function Career({ playerId }) {

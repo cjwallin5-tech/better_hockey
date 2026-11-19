@@ -1,5 +1,6 @@
 import { fmtToi } from '../format.js'
 import { pkDetail, pkRole } from '../penaltyKill.js'
+import Info from './Info.jsx'
 
 const Stat = ({ label, value, note }) => (
   <div className="tile">
@@ -15,12 +16,9 @@ export default function PenaltyKill({ p }) {
   const pct = p.sh_toi_pct == null ? '–' : `${Math.round(p.sh_toi_pct * 100)}%`
   return (
     <section className="pk-panel">
-      <h2>Penalty kill {role && <span className="role-tag pk" title={pkDetail(role)}>{role.unit}</span>}</h2>
-      <p className="sub">
-        {role
+      <h2>Penalty kill {role && <span className="role-tag pk" title={pkDetail(role)}>{role.unit}</span>}<Info label="Penalty kill">{role
           ? `${pkDetail(role)}. These are the toughest minutes to defend, against the other team's best players, so read the 5v5 numbers on the Defense tab with that in mind.`
-          : 'Not a regular penalty killer (under 1:00 a game short-handed, or on the ice for less than a third of the team\'s penalty kill).'}
-      </p>
+          : 'Not a regular penalty killer (under 1:00 a game short-handed, or on the ice for less than a third of the team\'s penalty kill).'}</Info></h2>
       <section className="tiles usage">
         <Stat label="PK unit" value={role ? role.unit : '–'} note={role ? (role.unit === 'PK1' ? 'top unit' : 'second unit') : undefined} />
         <Stat label="SH TOI" value={fmtToi(p.sh_toi_per_game)} note="short-handed, per game" />

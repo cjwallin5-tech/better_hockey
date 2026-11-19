@@ -2,6 +2,7 @@
 import { getJson } from './lists.js'
 
 export const pages = {
+  Players: () => import('./pages/Players.jsx'),
   Leaderboard: () => import('./pages/Leaderboard.jsx'),
   AllTime: () => import('./pages/AllTime.jsx'),
   Compare: () => import('./pages/CompareHub.jsx'),
@@ -13,6 +14,7 @@ export const pages = {
   ResetPassword: () => import('./pages/ResetPassword.jsx'),
   Schedule: () => import('./pages/Schedule.jsx'),
   Awards: () => import('./pages/Awards.jsx'),
+  History: () => import('./pages/History.jsx'),
   Roles: () => import('./pages/Roles.jsx'),
   Trophy: () => import('./pages/Trophy.jsx'),
   Account: () => import('./pages/Account.jsx'),
@@ -29,14 +31,16 @@ export const pages = {
 }
 
 const PATHS = {
-  '/skaters': 'Leaderboard',
-  '/goalies': 'Goalies',
+  '/players': 'Players',
+  '/skaters': 'Players',
+  '/goalies': 'Players',
   '/glossary': 'Glossary',
   '/alltime/skaters': 'AllTime',
   '/alltime/goalies': 'AllTime',
   '/reset-password': 'ResetPassword',
   '/schedule': 'Schedule',
   '/awards': 'Awards',
+  '/history': 'History',
   '/roles': 'Roles',
   '/account': 'Account',
   '/fantasy': 'Fantasy',
@@ -53,7 +57,7 @@ const PATHS = {
 const SKATERS = '/api/skaters'
 const GOALIES = '/api/goalies'
 const DATA = {
-  '/skaters': [SKATERS], '/goalies': [GOALIES], '/fantasy': [SKATERS, GOALIES], '/compare': [SKATERS, GOALIES],
+  '/players': [SKATERS], '/skaters': [SKATERS], '/goalies': [GOALIES], '/fantasy': [SKATERS, GOALIES], '/compare': [SKATERS, GOALIES],
   '/schedule': [SKATERS, GOALIES],
 }
 const warmed = new Set()

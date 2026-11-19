@@ -10,6 +10,8 @@ import { useUrlSync } from '../urlState.js'
 import { notableTips } from '../matchupTip.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 import { useLiveScores } from '../components/ScoreStrip.jsx'
+import Note from '../components/Note.jsx'
+import Info from '../components/Info.jsx'
 
 const startTime = (iso) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : 'time TBD')
 const FINISHED = ['FINAL', 'OFF']
@@ -204,12 +206,9 @@ export default function Tonight() {
   return (
     <main>
       <header>
-        <h1>Games</h1>
-        <p>
-          Every game by day, with your team's game first, then watchlist teams' games, then the rest, each by start time, with scores for the ones played. Each upcoming game lists what
+        <h1>Games<Info label="About this page">Every game by day, with your team's game first, then watchlist teams' games, then the rest, each by start time, with scores for the ones played. Each upcoming game lists what
           makes it worth a look: how even the teams are, how many goals to expect, the playoff race, star scorers, and your own roster and
-          watchlist players. {watch.signedIn || list.players.length ? '' : 'Add players to your fantasy team or watchlist to see your own players here.'}
-        </p>
+          watchlist players. {watch.signedIn || list.players.length ? '' : 'Add players to your fantasy team or watchlist to see your own players here.'}</Info></h1>
       </header>
       <DayNav current={current} today={today} onPick={(d) => setDate(d === today ? '' : d)} />
       {error && <p className="status">{error}</p>}
@@ -221,14 +220,14 @@ export default function Tonight() {
         </ul>
       )}
       {games.some((g) => g.shot_fit) && (
-        <p className="sub">
+        <Note label="About goalie zones">
           Goalie zones compares where a team's shots come from (its nine ice zones, this season and last) with where the likely goalie
           has been beaten more or less than an average goalie over the last several seasons, shrunk toward average because a goalie's
           zone record is thin. The number is the goals per game that the mismatch is worth to the shooting team, on top of the goalie's
           overall level. In a test on four seasons, using only earlier seasons, this carried real but small signal: a typical mismatch is
           about 0.1 goals, and only those of 0.1 or more are shown. It also depends on who starts, and part of a goalie's weak zones
           may be his team's defensive habits rather than him.
-        </p>
+        </Note>
       )}
     </main>
   )

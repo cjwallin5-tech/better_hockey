@@ -9,6 +9,7 @@ import PageSkeleton from '../components/Skeleton.jsx'
 import { teamColor } from '../teamColors.js'
 import { useUrlSync } from '../urlState.js'
 import { TEAM_STATS, leagueRanks, sortByStat, statById, statValue } from '../teamStats.js'
+import Info from '../components/Info.jsx'
 
 const VIEWS = [
   { id: 'division', label: 'Division', rank: 'division_rank', group: (t) => t.division, order: ['Atlantic', 'Metropolitan', 'Central', 'Pacific'] },
@@ -107,11 +108,8 @@ export default function Standings() {
   return (
     <main>
       <header>
-        <h1>Standings</h1>
-        <p>
-          Pace projects each team's points over {games} games (max {games * 2}). A dot marks a team in a playoff position:
-          the top three in its division, plus two wild cards in each conference.
-        </p>
+        <h1>Standings<Info label="About the standings">Pace projects each team's points over {games} games (max {games * 2}). A dot marks a team in a playoff position:
+          the top three in its division, plus two wild cards in each conference.</Info></h1>
       </header>
       {early && viewId !== 'odds' && (
         <p className="notice">
@@ -167,7 +165,7 @@ export default function Standings() {
               <colgroup>
                 <col className="col-team" />
                 {stat && <col className="col-watched" />}
-                {Array.from({ length: more ? 14 : 9 }, (_, i) => <col key={i} />)}
+                {Array.from({ length: more ? 16 : 9 }, (_, i) => <col key={i} />)}
               </colgroup>
               <thead>
                 <tr>
@@ -178,6 +176,7 @@ export default function Standings() {
                   <th title={`Points pace over ${games} games`}>Pace</th>
                   {more && <><th title={describe('GF')}>GF</th><th title={describe('GA')}>GA</th></>}
                   <th title={describe('Diff')}>Diff</th>
+                  {more && <><th title={describe('SRS')}>SRS</th><th title={describe('SOS')}>SOS</th></>}
                   {more && <><th title={describe('PP%')}>PP%</th><th title={describe('PK%')}>PK%</th></>}
                   <th title={describe('L10')}>L10</th><th title={describe('Strk')}>Strk</th>
                 </tr>
@@ -211,6 +210,7 @@ export default function Standings() {
                       </td>
                       {more && <><td>{t.goals_for}</td><td>{t.goals_against}</td></>}
                       <td className={t.goal_diff > 0 ? 'pos' : t.goal_diff < 0 ? 'neg' : ''}>{t.goal_diff > 0 ? `+${t.goal_diff}` : t.goal_diff}</td>
+                      {more && <><td className={t.srs > 0 ? 'pos' : t.srs < 0 ? 'neg' : ''}>{t.srs == null ? '–' : t.srs > 0 ? `+${t.srs.toFixed(2)}` : t.srs.toFixed(2)}</td><td>{t.sos == null ? '–' : t.sos > 0 ? `+${t.sos.toFixed(2)}` : t.sos.toFixed(2)}</td></>}
                       {more && <><td>{fmtPct(t.pp_pct)}</td><td>{fmtPct(t.pk_pct)}</td></>}
                       <td>{t.l10_wins}-{t.l10_losses}-{t.l10_ot_losses}</td>
                       <td className={`streak-${t.streak_code}`}>{t.streak_code}{t.streak_count}</td>

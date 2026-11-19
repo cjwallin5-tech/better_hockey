@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { findTrades } from '../tradefinder.js'
 import NeedRoster from './NeedRoster.jsx'
+import Info from './Info.jsx'
 
 const signed = (v, d = 1) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`
 
@@ -47,13 +48,10 @@ export default function TradePartners({ league, roster, values, info, slots, isC
 
   return (
     <section>
-      <h2>Trade partners in {league.name}</h2>
-      <p className="sub">
-        Trades that look good to you and to the other team, judged by lineup value: only the players who start count, so a team with a spare
+      <h2>Trade partners in {league.name}<Info label="Trade partners">Trades that look good to you and to the other team, judged by lineup value: only the players who start count, so a team with a spare
         center gains from a winger and the other way round. Each suggestion lists what changes for both lineups. This is the model's view of
         fair: it can't see injuries, keepers, who a manager likes or why someone is on their bench, and early-season values are noisy, so treat
-        these as conversation starters. Values are over the rest of the season in {isCats ? 'category z-scores' : 'fantasy points'}.
-      </p>
+        these as conversation starters. Values are over the rest of the season in {isCats ? 'category z-scores' : 'fantasy points'}.</Info></h2>
       <div className="h2h-picks">
         <label className="h2h-pick">Partner
           <select value={team} onChange={(e) => setTeam(e.target.value)}>

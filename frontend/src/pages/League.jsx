@@ -8,6 +8,7 @@ import { GROUPS, cleanLeague } from '../value.js'
 import { matchNames } from '../h2h.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 import { getJson } from '../lists.js'
+import Info from '../components/Info.jsx'
 
 const linkFor = (p) => `/${p.kind === 'goalie' ? 'goalie' : 'player'}/${p.id}`
 
@@ -189,8 +190,7 @@ export default function League() {
 
       {owner && data.teams.length < data.teams_allowed && (
         <section>
-          <h2>Add a team by hand</h2>
-          <p className="muted">For someone in your league who doesn't use the site. Enter their team name, then add their players from the roster editor.</p>
+          <h2>Add a team by hand<Info label="Add a team by hand">For someone in your league who doesn't use the site. Enter their team name, then add their players from the roster editor.</Info></h2>
           <form className="h2h-picks" onSubmit={(e) => { e.preventDefault(); act(() => call('POST', `/api/leagues/${id}/teams`, { name: newTeam, players: [] })).then(() => setNewTeam('')) }}>
             <label className="h2h-pick">Team name
               <input type="text" value={newTeam} maxLength={60} onChange={(e) => setNewTeam(e.target.value)} required />

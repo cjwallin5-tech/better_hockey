@@ -5,6 +5,9 @@ import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
 import { SORTS, chance, ordinal, shade, visibleTeams } from '../lotteryView.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import Info from '../components/Info.jsx'
+import Note from '../components/Note.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 const SORT_LABELS = [
   ['first_overall', 'Chance of the first pick'], ['worst_record', 'Chance of the worst record'], ['top_two', 'Chance of a top-two pick'],
@@ -36,12 +39,9 @@ export default function Lottery({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Draft lottery</h1>}
-        <p>
-          Every team's chance of missing the playoffs, of finishing with the worst record, and of each pick in the first round, from
+        <PageIntro title="Draft lottery" embedded={embedded}>Every team's chance of missing the playoffs, of finishing with the worst record, and of each pick in the first round, from
           playing out the rest of the season thousands of times and then running the NHL's lottery on each ending. Mostly a spring
-          page: this early the table is wide open.
-        </p>
+          page: this early the table is wide open.</PageIntro>
       </header>
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
@@ -88,11 +88,8 @@ export default function Lottery({ embedded = false }) {
             </table>
           </div>
 
-          <h2>Chance of each pick</h2>
-          <p className="sub">
-            Each row is a team's chance of picking at each spot in the first round (blank under 0.5%). The picks in a row add up to the
-            team's chance of being in the lottery; a playoff team's pick is not decided by the lottery and isn't shown here.
-          </p>
+          <h2>Chance of each pick<Info label="Chance of each pick">Each row is a team's chance of picking at each spot in the first round (blank under 0.5%). The picks in a row add up to the
+            team's chance of being in the lottery; a playoff team's pick is not decided by the lottery and isn't shown here.</Info></h2>
           <div className="table-wrap">
             <table className="heat">
               <thead>
@@ -113,13 +110,10 @@ export default function Lottery({ embedded = false }) {
             </table>
           </div>
 
-          <h2>How the lottery works</h2>
-          <p className="sub">
-            The 16 teams that miss the playoffs are seeded by points, fewest first, and two drawings are held: the first for the first overall
+          <h2>How the lottery works<Info label="How the lottery works">The 16 teams that miss the playoffs are seeded by points, fewest first, and two drawings are held: the first for the first overall
             pick, the second for the second. A team can move up at most 10 spots, so only the 11 worst records can win first overall; a team
             from 12th to 16th that wins a drawing moves up as far as the cap allows and the worst team keeps the first pick. Everyone else
-            keeps their order. These are the NHL's published odds.
-          </p>
+            keeps their order. These are the NHL's published odds.</Info></h2>
           <div className="table-wrap">
             <table>
               <thead>
@@ -141,11 +135,11 @@ export default function Lottery({ embedded = false }) {
               </tbody>
             </table>
           </div>
-          <p className="sub">
+          <Note label="What is not modelled">
             Not modelled: who owns each pick (a traded or conditional pick changes who drafts there), and the NHL's limit on a team moving up in the
             lottery more than twice in five years. The rules are the NHL's 2026 ones; check its guide for any change before next spring. Who is in the
             class is on the <Link to="/prospects?view=draft">Prospects</Link> page.
-          </p>
+          </Note>
         </>
       )}
     </PageShell>

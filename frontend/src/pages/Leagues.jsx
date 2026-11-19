@@ -6,6 +6,7 @@ import { useLeague, useScoring } from '../fantasy.js'
 import { cleanLeague } from '../value.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 import SignInPrompt from '../components/SignInPrompt.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 /** Your leagues, with forms to start one or join one by invite code. */
 export default function Leagues({ embedded = false }) {
@@ -65,12 +66,9 @@ export default function Leagues({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Leagues</h1>}
-        <p>
-          A league shares each member's roster for it with the others in it, and you can hold a different roster in each league. With one set as your active league, the waiver wire shows
+        <PageIntro title="Leagues" embedded={embedded}>A league shares each member's roster for it with the others in it, and you can hold a different roster in each league. With one set as your active league, the waiver wire shows
           who is really available and the matchup projector can load a league-mate's team. Only league members can see rosters, and only
-          team names are shown, never emails. Your roster for a league is the one on the Fantasy page while that league is selected, kept current while you are signed in.
-        </p>
+          team names are shown, never emails. Your roster for a league is the one on the Fantasy page while that league is selected, kept current while you are signed in.</PageIntro>
       </header>
       {error && <p className="notice" role="alert">{error}</p>}
       {message && <p className="notice" role="alert">{message}</p>}

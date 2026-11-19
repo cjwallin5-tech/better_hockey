@@ -4,12 +4,13 @@ import { mmss } from './Roles.jsx'
 import { useScoring } from '../settings.js'
 import { goalieForm, missingScoring, rollingMean, rollingRatio, skaterForm, windowsFor } from '../rolling.js'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
+import { fmtSv as sv } from '../format.js'
 
 const TREND_WINDOWS = [3, 5, 10, 20]
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const n2 = (v) => (v == null ? '–' : v.toFixed(2))
 const signed = (v, d = 2) => (v == null ? '–' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`)
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
 /** The trend-window buttons: only windows that fit in the games played. */
 function WindowTabs({ options, value, onChange }) {
@@ -53,11 +54,8 @@ export function SkaterForm({ games }) {
 
   return (
     <section>
-      <h2>Recent form</h2>
-      <p className="sub">
-        The season next to the last {windowsFor(count).length ? windowsFor(count).join(', ') : 'few'} games. "vs season" is how far points per game are
-        above or below the season rate. A short window swings a lot, so look at the longer ones for the real trend.
-      </p>
+      <h2>Recent form<Info label="Recent form">The season next to the last {windowsFor(count).length ? windowsFor(count).join(', ') : 'few'} games. "vs season" is how far points per game are
+        above or below the season rate. A short window swings a lot, so look at the longer ones for the real trend.</Info></h2>
       <div className="table-wrap">
         <table>
           <thead>
@@ -124,11 +122,8 @@ export function GoalieForm({ games, leagueSvPct }) {
 
   return (
     <section>
-      <h2>Recent form</h2>
-      <p className="sub">
-        The season next to the last {windowsFor(count).length ? windowsFor(count).join(', ') : 'few'} appearances. GSAA is goals saved above a
-        league-average goalie facing the same shots. A few games swing save percentage a lot, so favor the longer windows.
-      </p>
+      <h2>Recent form<Info label="Recent form">The season next to the last {windowsFor(count).length ? windowsFor(count).join(', ') : 'few'} appearances. GSAA is goals saved above a
+        league-average goalie facing the same shots. A few games swing save percentage a lot, so favor the longer windows.</Info></h2>
       <div className="table-wrap">
         <table>
           <thead>

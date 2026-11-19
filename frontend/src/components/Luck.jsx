@@ -1,26 +1,15 @@
 import { useEffect, useState } from 'react'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
+import { useByIds } from '../fantasyData.js'
+import { fmtSv as sv } from '../format.js'
 
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
 /** Luck figures for a list of player ids (skaters and goalies), keyed by id. `null` until loaded. */
-export function useLuck(ids) {
-  const key = [...new Set(ids)].sort((a, b) => a - b).join(',')
-  const [state, setState] = useState({ key: null, data: null })
-  useEffect(() => {
-    if (!key) return undefined
-    let ignore = false
-    fetch(`/api/luck/players?ids=${key}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => !ignore && setState({ key, data }))
-      .catch(() => !ignore && setState({ key, data: null }))
-    return () => { ignore = true }
-  }, [key])
-  return state.key === key ? state.data : null
-}
+export const useLuck = (ids) => useByIds('/api/luck/players', ids)
 
 /**
  * The figures a badge or panel shows for one row. Skaters are measured against their own history of finishing when
@@ -93,12 +82,14 @@ function History({ playerId, goalie }) {
   const rows = [...data.seasons, { ...data.career, season_id: null }]
   return (
     <>
-      <h3>{goalie ? 'Goals saved above expected, by season' : 'Finishing, by season'}</h3>
-      <p className="sub">
-        {goalie
-          ? 'A goalie\'s luck rarely repeats, so a big number in one season says little about the next.'
-          : 'Goals against the xG of their shots, season by season. Consistently above zero is skill; a lone big year is luck.'}
-      </p>
+      <h3>
+        {goalie ? 'Goals saved above expected, by season' : 'Finishing, by season'}
+        <Info label={goalie ? 'Goals saved above expected' : 'Finishing'}>
+          {goalie
+            ? "A goalie's luck rarely repeats, so a big number in one season says little about the next."
+            : 'Goals against the xG of their shots, season by season. Consistently above zero is skill; a lone big year is luck.'}
+        </Info>
+      </h3>
       <div className="table-wrap">
         <table>
           <thead>
@@ -133,18 +124,20 @@ export default function LuckPanel({ playerId, goalie }) {
   const f = figures(row, goalie)
   return (
     <section>
-      <h2>Luck &amp; regression</h2>
-      <p className="sub">
-        {goalie
-          ? 'Goals allowed against the goals an average goalie would allow on the same shots (our expected-goals model).'
-          : 'Goals and points against what their shots predict, plus the shots of the teammates they skate with'}
-        {!goalie && (row.has_history
-          ? `, measured against their own finishing in ${row.prior_seasons} earlier season${row.prior_seasons === 1 ? '' : 's'} (${signed(row.skill * 100)}% vs an average shooter's goals from the same shots).`
-          : '. There is no earlier season on file for this player, so this compares them with an average shooter.')}
-        {' '}Early in a season a few games swing this a lot.
-      </p>
+      <h2>
+        Luck &amp; regression
+        <Info label="Luck & regression">
+          {goalie
+            ? 'Goals allowed against the goals an average goalie would allow on the same shots (our expected-goals model).'
+            : 'Goals and points against what their shots predict, plus the shots of the teammates they skate with'}
+          {!goalie && (row.has_history
+            ? `, measured against their own finishing in ${row.prior_seasons} earlier season${row.prior_seasons === 1 ? '' : 's'} (${signed(row.skill * 100)}% vs an average shooter's goals from the same shots).`
+            : '. There is no earlier season on file for this player, so this compares them with an average shooter.')}
+          {' '}Early in a season a few games swing this a lot.
+        </Info>
+      </h2>
       {!row.enough && (
-        <p className="status">Small sample so far ({goalie ? `${row.faced} shots faced` : `${row.attempts} shot attempts`}), so no hot or cold label yet.</p>
+        <p className="status">Small sample ({goalie ? `${row.faced} shots faced` : `${row.attempts} shot attempts`}): no hot or cold label yet.</p>
       )}
       <div className="tiles">
         {goalie ? (

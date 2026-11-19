@@ -4,6 +4,8 @@ import { mmss, signedMmss } from '../components/Roles.jsx'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import Note from '../components/Note.jsx'
+import Info from '../components/Info.jsx'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -35,11 +37,8 @@ export default function Roles() {
   return (
     <main>
       <header>
-        <h1>Role changes</h1>
-        <p>
-          Who has moved up or down the power-play units, and who is playing more or less, over their last few games compared with
-          earlier this season. Ice time is the earliest sign of a new role, and it shows up before the points do.
-        </p>
+        <h1>Role changes<Info label="About role changes">Who has moved up or down the power-play units, and who is playing more or less, over their last few games compared with
+          earlier this season. Ice time is the earliest sign of a new role, and it shows up before the points do.</Info></h1>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={dir === 'up'} className={dir === 'up' ? 'on' : ''} onClick={() => setDir('up')}>Moving up</button>
@@ -64,13 +63,13 @@ export default function Roles() {
           </select>
         </label>
       </div>
-      <p className="sub">
+      <Note label="How roles are set">
         Power-play unit comes from each player's share of their team's power-play time: {th ? pct(th.pp1) : '45%'} or more is PP1,{' '}
         {th ? pct(th.pp2) : '15%'} or more is PP2. A move counts when the unit changed and the share moved by a real amount, so
         someone hovering at a cut-off isn't reported every week. Even-strength time (overtime left out) is flagged at a
         {' '}{th ? mmss(th.ev_seconds) : '1:30'} change. It can't say why a role changed (an injury, a coach's choice), and early in the
         season the earlier games are few, so read the first weeks lightly.
-      </p>
+      </Note>
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}
       {data && data.rows.length === 0 && <p className="status">No skaters fit this yet. Try a shorter window or a different filter.</p>}

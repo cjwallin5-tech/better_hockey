@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Note from './Note.jsx'
 import ShotMap from './ShotMap.jsx'
 
 function useJson(url) {
@@ -37,7 +38,7 @@ export function SkaterShots({ playerId }) {
   return (
     <section>
       <h2>Shot map &amp; expected goals</h2>
-      <details className="howto"><summary>How expected goals work</summary><p>{NOTE}</p></details>
+      <Note label="How expected goals work">{NOTE}</Note>
       <div className="tiles tiles-sm">
         <Tile label="Individual xG" value={s.ixg.toFixed(1)} />
         <Tile label="Goals (non-empty-net)" value={s.model_goals} />
@@ -59,7 +60,7 @@ export function TeamShots({ abbrev }) {
   return (
     <section>
       <h2>Shot maps</h2>
-      <details className="howto"><summary>How expected goals work</summary><p>{NOTE}</p></details>
+      <Note label="How expected goals work">{NOTE}</Note>
       <div className="tiles tiles-sm">
         <Tile label="xG for" value={t.xgf?.toFixed(1)} />
         <Tile label="xG against" value={t.xga?.toFixed(1)} />
@@ -83,7 +84,7 @@ export function GoalieShots({ playerId }) {
   return (
     <section>
       <h2>Shots faced &amp; goals saved above expected</h2>
-      <details className="howto"><summary>How expected goals work</summary><p>{NOTE} Goals saved above expected (GSAx) is the xG of the shots faced minus the goals allowed on them, with xG scaled so the league's expected goals on shots on goal match its actual goals.</p></details>
+      <Note label="How expected goals work">{NOTE} Goals saved above expected (GSAx) is the xG of the shots faced minus the goals allowed on them, with xG scaled so the league's expected goals on shots on goal match its actual goals.</Note>
       <div className="tiles tiles-sm">
         <Tile label="Shots faced" value={s.faced} />
         <Tile label="xG faced" value={s.xga.toFixed(1)} />

@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { buildEntries } from '../lineup.js'
 import { matchNames, teamWeek, winChance } from '../h2h.js'
 import { Skeleton } from './Skeleton.jsx'
+import Info from './Info.jsx'
+import { dayName } from '../format.js'
 
 const KEY = 'nhl-stats.fantasy-opponent'
-const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const ok = (r) => (r.ok ? r.json() : null)
 
 function readOpponent() {
@@ -104,13 +105,10 @@ export default function MatchupProjector({ data, players, values, scoring, leagu
 
   return (
     <section>
-      <h2>Matchup projector</h2>
-      <p className="sub">
-        Your next 7 days against another team in your league. The site can't see other teams' rosters, so enter theirs below (search, or paste
+      <h2>Matchup projector<Info label="Matchup projector">Your next 7 days against another team in your league. The site can't see other teams' rosters, so enter theirs below (search, or paste
         their player names). Both teams get their best lineup under your slots and scoring (see the Lineup optimizer tab), and the gap between
         the two totals, against how much a week of scoring swings, gives a win chance. The swing is a rough estimate, not fitted to fantasy
-        results, and it ignores injuries on either side, so treat the percentage as a lean, not a promise.
-      </p>
+        results, and it ignores injuries on either side, so treat the percentage as a lean, not a promise.</Info></h2>
       {isCats && <p className="notice">Your league counts categories, and this projector only handles points leagues (it doesn't model winning each category). Switch to a points league in Scoring &amp; backup to use it.</p>}
 
       {!isCats && (

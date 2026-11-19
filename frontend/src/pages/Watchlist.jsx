@@ -7,6 +7,7 @@ import { Skeleton } from '../components/Skeleton.jsx'
 import { getJson } from '../lists.js'
 import SignInPrompt from '../components/SignInPrompt.jsx'
 import WatchSuggestions from '../components/WatchSuggestions.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 /** Players, prospects and teams followed in the daily email. Add from here, or with the Watch button on a player or team page. */
 export default function Watchlist({ embedded = false }) {
@@ -38,7 +39,7 @@ export default function Watchlist({ embedded = false }) {
   if (!signedIn) {
     return (
       <PageShell embedded={embedded}>
-        <header>{!embedded && <h1>Watchlist</h1>}<p>Follow players, prospects and teams outside your fantasy roster and get a section about them in the morning email.</p></header>
+        <header><PageIntro title="Watchlist" embedded={embedded}>Follow players, prospects and teams outside your fantasy roster and get a section about them in the morning email.</PageIntro></header>
         <SignInPrompt lead="Follow any player, prospect or team and get their games, hot and cold spells and milestones in your morning email.">
           <WatchSuggestions />
         </SignInPrompt>
@@ -64,12 +65,9 @@ export default function Watchlist({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Watchlist</h1>}
-        <p>
-          Follow players, prospects and teams outside your fantasy roster. The morning email gets a Watchlist section with their games
+        <PageIntro title="Watchlist" embedded={embedded}>Follow players, prospects and teams outside your fantasy roster. The morning email gets a Watchlist section with their games
           today, who is hot or cold, role changes and career milestones that are close or just reached. For a prospect it says how
-          their season is going and what changed lately, and tells you when one reaches the NHL.
-        </p>
+          their season is going and what changed lately, and tells you when one reaches the NHL.</PageIntro>
       </header>
       <div className="picker">
         <div className="search-box">

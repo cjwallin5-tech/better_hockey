@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Info from './Info.jsx'
 import HhofMark from './HhofMark.jsx'
 import { Link } from 'react-router-dom'
 import { CompareChart } from './Charts.jsx'
@@ -39,13 +40,14 @@ export default function Comparables({ playerId }) {
 
   return (
     <section>
-      <h2>Career comparables</h2>
-      <p className="sub">
-        Retired {player.position === 'D' ? 'defensemen' : 'forwards'} whose scoring at the same ages looked most like
-        {' '}{player.name}'s. Each season is points per game relative to the league's average for that year (1.0 is a
-        typical regular), so eras are comparable. Only seasons with {data.min_gp}+ games count, and this ignores
-        ice time, injuries and everything but points.
-      </p>
+      <h2>
+        Career comparables
+        <Info label="Career comparables">
+          Retired {player.position === 'D' ? 'defensemen' : 'forwards'} whose scoring at the same ages looked most like {player.name}&rsquo;s. Each season is points per game
+          relative to the league&rsquo;s average that year (1.0 is a typical regular), so eras are comparable. Only seasons with {data.min_gp}+ games count, and this
+          ignores ice time, injuries and everything but points.
+        </Info>
+      </h2>
       {matches.length === 0 ? (
         <p className="status">
           {data.seasons < 2 ? 'Needs at least two seasons with 20+ games to find comparables.' : 'No close matches found.'}
@@ -55,10 +57,11 @@ export default function Comparables({ playerId }) {
           {data.seasons < 4 && <p className="sub">Only {data.seasons} qualifying seasons so far, so these matches are loose.</p>}
           {projection && (
             <p className="sub">
-              <strong>What came next:</strong> the {projection.matches} closest matches scored a median of{' '}
-              {projection.median} more points after this age (middle half {projection.low}–{projection.high}), scaled
-              to today's scoring level. Players who retired soon after count as low totals, so this is a spread of
-              outcomes, not a prediction.
+              <strong>What came next:</strong> the {projection.matches} closest matches scored a median of {projection.median} more points after this age
+              (middle half {projection.low}–{projection.high}).
+              <Info label="What came next">
+                Scaled to today&rsquo;s scoring level. Players who retired soon after count as low totals, so this is a spread of outcomes, not a prediction.
+              </Info>
             </p>
           )}
           <CompareChart

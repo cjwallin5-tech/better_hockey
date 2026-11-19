@@ -11,9 +11,8 @@ import DefenseProfile from '../components/DefenseProfile.jsx'
 import Awards from '../components/Awards.jsx'
 import InternationalMedals from '../components/InternationalMedals.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
+import { fmtSv, fmt2 } from '../format.js'
 
-const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
-const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
 
 /** First to last NHL season, e.g. "1990–2018", how many seasons that was (a traded season counts once), and the team they played the most games for. */
 function careerSpan(seasons) {
@@ -94,7 +93,6 @@ export default function CareerPlayer({ id, goalie }) {
             label: 'Career',
             content: (
               <>
-                <p className="sub">No games in the current season, so this page shows career history.</p>
                 <Career playerId={id} />
                 <Awards playerId={id} />
                 <InternationalMedals playerId={id} />

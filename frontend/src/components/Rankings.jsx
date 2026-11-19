@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Info from './Info.jsx'
 import { placeLabel } from '../rank.js'
 
 // One rankings request per player, shared by the stat tiles and the table below them.
@@ -107,11 +108,13 @@ export default function Rankings({ playerId, kind, careerOnly = false }) {
   }
   return (
     <section>
-      <h2>More rankings</h2>
-      <p className="sub">
-        {careerOnly ? <>Among every {kind} in NHL history.</> : <>Among every {kind} with a game played this season, and among every {kind} in NHL history.</>}{' '}
-        Rate stats only count players with enough games. Ranks for the other stats are shown on the tiles above.
-      </p>
+      <h2>
+        More rankings
+        <Info label="More rankings">
+          {careerOnly ? <>Among every {kind} in NHL history.</> : <>Among every {kind} with a game played this season, and among every {kind} in NHL history.</>}{' '}
+          Rate stats only count players with enough games. Ranks for the other stats are on the tiles above.
+        </Info>
+      </h2>
       <div className="table-wrap">
         <table className="rank-table">
           <thead><tr><th className="left">Stat</th>{!careerOnly && <th className="left">This season</th>}<th className="left">All-time</th></tr></thead>

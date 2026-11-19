@@ -11,12 +11,14 @@ import PageTabs from '../components/PageTabs.jsx'
 import TeamBanner from '../components/TeamBanner.jsx'
 import NewsList from '../components/NewsList.jsx'
 import TeamCalendar from '../components/TeamCalendar.jsx'
-import { fmt1, fmtPct, fmtToi, STABLE_GP } from '../format.js'
+import { fmt1, fmtPct, fmtToi, STABLE_GP, fmtSv } from '../format.js'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
 import Avatar from '../components/Avatar.jsx'
+import Info from '../components/Info.jsx'
+import TeamHistory from '../components/TeamHistory.jsx'
+import TeamSpecialShots from '../components/TeamSpecialShots.jsx'
 
-const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const fmtSigned = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
 
 const ordinal = (n) => {
@@ -138,11 +140,8 @@ export default function Team({ abbrev: abbrevProp, mine = false, afterBanner = n
                 </table>
               </div>
 
-              <h2>Goalies</h2>
-              <p className="sub">
-                Sorted by starts. GSAA is goals saved above a league-average goalie; Recent SV% covers
-                each goalie's last 5 appearances.
-              </p>
+              <h2>Goalies<Info label="Goalies">Sorted by starts. GSAA is goals saved above a league-average goalie; Recent SV% covers
+                each goalie's last 5 appearances.</Info></h2>
               {goalies.length === 0 ? (
                 <p className="status">No goalie appearances yet.</p>
               ) : (
@@ -195,7 +194,8 @@ export default function Team({ abbrev: abbrevProp, mine = false, afterBanner = n
               </>
             ),
           },
-          { id: 'shots', label: 'Shots', content: <TeamShots abbrev={t.abbrev} /> },
+          { id: 'shots', label: 'Shots', content: <><TeamShots abbrev={t.abbrev} /><TeamSpecialShots abbrev={t.abbrev} /></> },
+          { id: 'history', label: 'History', content: <TeamHistory abbrev={t.abbrev} /> },
           { id: 'news', label: 'News', content: <NewsList team={t.abbrev} limit={30} note empty={`No recent stories about the ${t.name}.`} /> },
         ]}
       />

@@ -28,6 +28,7 @@ export default function PlayerBanner({ p, stats, kind = 'skater', retired = fals
         <div className="banner-text">
           <div className="banner-meta">
             {meta ?? <>{teams.map((abbr, i) => <span key={abbr}>{i > 0 && ', '}<Link to={`/team/${abbr}`}>{abbr}</Link></span>)} · {goalie ? `G${p.catches ? ` · catches ${p.catches}` : ''}` : p.position}</>}
+            {!retired && !goalie && p.rookie && <span className="badge rookie-tag" title="First NHL season">Rookie</span>}
           </div>
           <h1><Flag playerId={p.player_id} />{p.name}</h1>
           <PlayerBio playerId={p.player_id} />

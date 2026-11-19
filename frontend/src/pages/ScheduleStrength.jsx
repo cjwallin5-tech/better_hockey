@@ -5,6 +5,8 @@ import TeamLogo from '../components/TeamLogo.jsx'
 import { useUrlSync } from '../urlState.js'
 import { biggestSwing, difficultyRanks, extreme, fmtNet, fmtPts } from '../scheduleStrength.js'
 import { Skeleton } from '../components/Skeleton.jsx'
+import Note from '../components/Note.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 const SORTS = [
   ['left', 'Remaining schedule'], ['next', 'Next 10 games'], ['played', 'Schedule so far'], ['b2b', 'Back-to-backs left'],
@@ -38,11 +40,8 @@ export default function ScheduleStrength({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Schedule strength</h1>}
-        <p>
-          How hard each team's remaining games are: the opponents' strength, in expected points against an average schedule, next to the
-          schedule already played, the next ten games and how many back-to-backs are left.
-        </p>
+        <PageIntro title="Schedule strength" embedded={embedded}>How hard each team's remaining games are: the opponents' strength, in expected points against an average schedule, next to the
+          schedule already played, the next ten games and how many back-to-backs are left.</PageIntro>
       </header>
       <div className="h2h-picks">
         <label className="h2h-pick">Rank by
@@ -96,7 +95,7 @@ export default function ScheduleStrength({ embedded = false }) {
               </tbody>
             </table>
           </div>
-          <p className="sub">
+          <Note label="How games are priced">
             Each game is priced with the same on-paper model as the Games page (expected-goal ratings, with home ice); a team's
             schedule figure is its expected points over those games minus what it would expect against an average opponent at the same
             venues, so negative means harder. It uses today's ratings for every opponent, pulled toward average while the sample is
@@ -105,7 +104,7 @@ export default function ScheduleStrength({ embedded = false }) {
             {biggestSwing(data.teams, (r) => r.left.schedule_points).toFixed(1)} over {Math.round(data.teams.reduce((a, r) => a + r.left.games, 0) / data.teams.length)} games, and the next ten by at most{' '}
             {biggestSwing(data.teams, (r) => r.next.schedule_points).toFixed(1)}: early in a season almost every team has most of its schedule still ahead, so the spread is small and a few
             tenths of a point are noise. It becomes useful later, when one team's last 20 games are much harder than another's.
-          </p>
+          </Note>
         </>
       )}
     </PageShell>

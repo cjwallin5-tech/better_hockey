@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { GROUPS } from '../value.js'
 import { buildBoard, infoMap, needs, recommend, roundOf } from '../draft.js'
 import { NOISE, myPickReview, simulate, teamTotals } from '../mockDraft.js'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
 
 const KEY = 'nhl-stats.mock-draft'
 const LIMIT = 40
@@ -79,13 +81,10 @@ export default function MockDraft({ data, values, league }) {
   if (!run || !sim) {
     return (
       <section>
-        <h2>Mock draft</h2>
-        <p className="sub">
-          Draft against bots on the same player values as the draft helper ({league.teams} teams; {GROUPS.filter((g) => league.slots[g]).map((g) => `${league.slots[g]} ${g}`).join(', ')}).
+        <h2>Mock draft<Info label="Mock draft">Draft against bots on the same player values as the draft helper ({league.teams} teams; {GROUPS.filter((g) => league.slots[g]).map((g) => `${league.slots[g]} ${g}`).join(', ')}).
           The bots take the best player by value with some mistakes, favor a position they still need, and fill their starting slots; they know
           nothing about who your league mates like, so they are plausible managers, not a prediction of yours. At the end every team's best
-          starting lineup is compared.
-        </p>
+          starting lineup is compared.</Info></h2>
         <div className="h2h-picks">
           <label className="h2h-pick">Your draft slot
             <input type="number" min="1" max={league.teams} value={setup.slot} style={{ minWidth: 80, width: 80 }} onChange={(e) => setSetup({ ...setup, slot: e.target.value })} />
@@ -236,12 +235,9 @@ export default function MockDraft({ data, values, league }) {
 
       {totals && (
         <>
-          <h2>How the draft turned out</h2>
-          <p className="sub">
-            Each team's best starting lineup, valued over a free pickup (a player below that counts for nothing, and an empty slot counts as a
+          <h2>How the draft turned out<Info label="How the draft turned out">Each team's best starting lineup, valued over a free pickup (a player below that counts for nothing, and an empty slot counts as a
             free pickup). You finished {totals[slot - 1].rank}{['st', 'nd', 'rd'][totals[slot - 1].rank - 1] ?? 'th'} of {league.teams}.
-            Bots are not other managers: a high finish here means you drafted well against this value board, and no more.
-          </p>
+            Bots are not other managers: a high finish here means you drafted well against this value board, and no more.</Info></h2>
           <div className="table-wrap">
             <table>
               <thead>
@@ -276,7 +272,7 @@ export default function MockDraft({ data, values, league }) {
               </tbody>
             </table>
           </div>
-          <p className="muted">Taking the best available is not always right: a position you still need can be worth more than a bigger name, so a gap in the last column is not an error.</p>
+          <Note label="Draft strategy">Taking the best available is not always right: a position you still need can be worth more than a bigger name, so a gap in the last column is not an error.</Note>
         </>
       )}
     </section>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { GOALIE_CATEGORIES, SKATER_CATEGORIES } from '../categoryDefs.js'
 import { GROUPS } from '../value.js'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
 
 const rate = (v) => v.toFixed(2)
 const signed = (v, d = 1) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`
@@ -36,13 +37,10 @@ export default function PlayerValues({ data, values, rosterIds, onAdd, categorie
 
   return (
     <section>
-      <h2>Player values</h2>
-      <p className="sub">
-        {categories
+      <h2>Player values<Info label="Player values">{categories
           ? `Each player's worth over the rest of the season in your categories: how far above the rostered pool they are in each category you count, added up as z-scores, minus the best player at their position you could pick up for free. A player at replacement level is worth 0. The z-scores are measured against how much real outcomes vary, so a mostly-luck category (shutouts, save %) moves values little, and values start small early in the season and grow as the sample does.`
           : `Each player's worth over the rest of the season, in fantasy points above the best player at their position you could pick up for free, using your league scoring and size (Scoring & backup tab). A player at replacement level is worth 0. Early in the season a short sample is pulled toward the player's own record from the last two seasons (rookies toward the position average), so a hot week doesn't read as a new talent level.`}
-        {' '}Games left are scaled by how often the player has played. It can't see injuries or role changes still to come.
-      </p>
+        {' '}Games left are scaled by how often the player has played. It can't see injuries or role changes still to come.</Info></h2>
       {categories && categories.skater.length + categories.goalie.length === 0 && (
         <p className="notice">No categories are selected, so everyone is worth 0. Pick your categories in the Scoring &amp; backup tab.</p>
       )}

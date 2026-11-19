@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fmt1, fmtToi } from '../format.js'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
 
 export default function Similar({ playerId }) {
   const [result, setResult] = useState({ id: null, data: null, error: null })
@@ -22,12 +23,9 @@ export default function Similar({ playerId }) {
 
   return (
     <section>
-      <h2>Players like this</h2>
-      <p className="sub">
-        Closest playing styles this season among {data.peer_count} skaters in the same role with at
+      <h2>Players like this<Info label="Players like this">Closest playing styles this season among {data.peer_count} skaters in the same role with at
         least {data.min_gp} GP, judged on {data.features.join(', ')}. Early in the season these
-        matches are noisy.
-      </p>
+        matches are noisy.</Info></h2>
       {data.matches.length === 0 ? (
         <p className="status">Not enough data to find similar players yet.</p>
       ) : (

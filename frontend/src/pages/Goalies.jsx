@@ -5,33 +5,35 @@ import RankBadge from '../components/RankBadge.jsx'
 import { placesFor } from '../rank.js'
 import { Link } from 'react-router-dom'
 import { useUrlSync } from '../urlState.js'
-import { fmt1, STABLE_GP } from '../format.js'
+import { fmt1, STABLE_GP, fmtSv, fmt2 } from '../format.js'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
 import { seasonLabel } from '../career.js'
 import PageSkeleton from '../components/Skeleton.jsx'
+import PageShell from '../components/PageShell.jsx'
+import Info from '../components/Info.jsx'
 import { getJson } from '../lists.js'
 
-const fmtSv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
-const fmt2 = (v) => (v == null ? '–' : v.toFixed(2))
 const fmtSigned = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
 const fmtMinutes = (sec) => (sec == null ? '–' : `${Math.floor(sec / 60)}`)
 
 // The stats people rank goalies by most, per view.
 const QUICK_RANK = {
   overview: [['wins', 'Wins'], ['save_pct', 'SV%'], ['gaa', 'GAA'], ['gsaa', 'GSAA'], ['shutouts', 'Shutouts'], ['quality_start_pct', 'QS%'], ['games_played', 'Games']],
+  shootouts: [['so_saves', 'SO saves'], ['so_sv_pct', 'SO SV%'], ['so_faced', 'SO faced']],
   splits: [['save_pct', 'SV%'], ['ev_save_pct', 'EV SV%'], ['pp_save_pct', 'PK SV%'], ['sh_save_pct', 'PP SV%']],
 }
 
 const VIEWS = [
   { id: 'overview', label: 'Overview', defaultSort: 'gsaa', note: 'GSAA = goals saved above average: the goals a league-average goalie would have allowed on the same shots, minus the goals actually allowed. Positive is better than average.' },
   { id: 'splits', label: 'Strength splits', defaultSort: 'ev_save_pct', note: 'Save percentage at even strength (EV), on the penalty kill (PP shots against) and when the team is on the power play (SH shots against).' },
+  { id: 'shootouts', label: 'Shootouts & penalty shots', defaultSort: 'so_faced', note: 'Shootout and penalty shots faced this season, from play-by-play (a miss wide is not counted as faced). Only goalies who faced one are listed.' },
 ]
 
-// Columns built from this season's appearance-by-appearance data, which past seasons don't have.
-const CURRENT_ONLY = new Set(['recent_save_pct', 'recent_gaa', 'recent_gsaa'])
+// Columns past seasons don't have: those built from this season's appearance-by-appearance data, and the goalie scoring lines.
+const CURRENT_ONLY = new Set(['recent_save_pct', 'recent_gaa', 'recent_gsaa', 'really_bad_starts', 'goals', 'assists', 'pim'])
 
-export default function Goalies() {
+export default function Goalies({ embedded = false }) {
   const initial = new URLSearchParams(window.location.search)
   const [data, setData] = useState(null)
   const [season, setSeason] = useState(() => (initial.get('season') ? Number(initial.get('season')) : null)) // null = current
@@ -59,6 +61,9 @@ export default function Goalies() {
 
   // A past season has no appearance-by-appearance data stored, so the last-N columns are left out.
   const isPast = season != null
+  useEffect(() => {
+    if (isPast && viewId === 'shootouts') { setViewId('overview'); setSort({ key: 'gsaa', dir: 'desc' }) }   // shootouts are only stored for this season
+  }, [isPast, viewId])
   const onSeason = (id) => { setData(null); setSeason(id) }
 
   const rows = data?.goalies
@@ -82,12 +87,23 @@ export default function Goalies() {
         { key: 'shots_against_per60', label: 'SA/60', fmt: fmt1 },
         { key: 'quality_starts', label: 'QS' },
         { key: 'quality_start_pct', label: 'QS%', fmt: fmtSv },
+        { key: 'really_bad_starts', label: 'RBS' },
         { key: 'shutouts', label: 'SO' },
         { key: 'goal_support_avg', label: 'Goal supp.', fmt: fmt2 },
         { key: 'toi_sec', label: 'MIN', fmt: fmtMinutes },
+        { key: 'goals', label: 'G' },
+        { key: 'assists', label: 'A' },
+        { key: 'pim', label: 'PIM' },
         { key: 'recent_save_pct', label: `L${recentWindow} SV%`, fmt: fmtSv, lowIf: recentLow },
         { key: 'recent_gaa', label: `L${recentWindow} GAA`, fmt: fmt2, lowIf: recentLow, asc: true },
         { key: 'recent_gsaa', label: `L${recentWindow} GSAA`, fmt: fmtSigned, lowIf: recentLow },
+      ],
+      shootouts: [
+        { key: 'so_faced', label: 'SO SA' },
+        { key: 'so_saves', label: 'SO Sv', accent: true },
+        { key: 'so_sv_pct', label: 'SO SV%', fmt: fmtSv },
+        { key: 'ps_faced', label: 'PS SA' },
+        { key: 'ps_saves', label: 'PS Sv' },
       ],
       splits: [
         { key: 'save_pct', label: 'SV%', fmt: fmtSv },
@@ -113,6 +129,7 @@ export default function Goalies() {
     const filtered = rows.filter(
       (g) =>
         g.games_played >= minGp &&
+        (viewId !== 'shootouts' || g.so_faced > 0 || g.ps_faced > 0) &&
         (!q || g.name.toLowerCase().includes(q) || (g.team ?? '').toLowerCase().includes(q)),
     )
     const sign = sort.dir === 'asc' ? 1 : -1
@@ -124,7 +141,7 @@ export default function Goalies() {
       if (y == null) return -1
       return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sign
     })
-  }, [rows, search, minGp, sort])
+  }, [rows, search, minGp, sort, viewId])
 
   const places = useMemo(() => placesFor(visible, sort.key), [visible, sort.key])
 
@@ -140,17 +157,19 @@ export default function Goalies() {
     setSort({ key: VIEWS.find((v) => v.id === id).defaultSort, dir: 'desc' })
   }
 
-  if (error) return <main><p className="status">Couldn't load goalies: {error}</p></main>
-  if (!rows) return <main><PageSkeleton /></main>
+  if (error) return <PageShell embedded={embedded}><p className="status">Couldn't load goalies: {error}</p></PageShell>
+  if (!rows) return <PageShell embedded={embedded}><PageSkeleton /></PageShell>
 
   return (
-    <main>
+    <PageShell embedded={embedded}>
       <SeasonSwitch kind="goalie" value={season} onChange={onSeason} />
       <header>
         <h1>Goalie Stats <span>{seasonLabel(data.season_id)}</span></h1>
         <p>
-          League-average save percentage {isPast ? `in ${seasonLabel(data.season_id)}` : 'this season'}: {fmtSv(rows[0]?.league_sv_pct)}.{' '}
-          {isPast ? 'Last-appearances form is only kept for the current season.' : `L${recentWindow} columns use each goalie's last ${recentWindow} appearances.`}
+          League-average save percentage {isPast ? `in ${seasonLabel(data.season_id)}` : 'this season'}: {fmtSv(rows[0]?.league_sv_pct)}.
+          <Info label="Recent form">
+            {isPast ? 'Last-appearances form is only kept for the current season.' : `L${recentWindow} columns use each goalie's last ${recentWindow} appearances.`}
+          </Info>
         </p>
       </header>
       {maxGp < STABLE_GP && (
@@ -162,7 +181,7 @@ export default function Goalies() {
       )}
 
       <div className="tabs" role="tablist">
-        {VIEWS.map((v) => (
+        {VIEWS.filter((v) => !(isPast && v.id === 'shootouts')).map((v) => (
           <button key={v.id} role="tab" aria-selected={v.id === viewId}
             className={v.id === viewId ? 'on' : ''} onClick={() => onView(v.id)}>
             {v.label}
@@ -207,7 +226,7 @@ export default function Goalies() {
                   <td key={c.key}
                     className={(c.text ? 'left ' : '') + (c.accent ? 'accent ' : '') + (c.lowIf?.(g) ? 'low ' : '') + (sort.key === c.key ? 'sorted' : '')}>
                     {c.key === 'name' ? (
-                      <span className="player-cell"><RankBadge n={places[rankIndex].rank} tied={places[rankIndex].tied} /><Avatar playerId={g.player_id} team={g.team} name={g.name} /><Link to={`/goalie/${g.player_id}`}>{g.name}</Link></span>
+                      <span className="player-cell"><RankBadge n={places[rankIndex].rank} tied={places[rankIndex].tied} /><Avatar playerId={g.player_id} team={g.team} season={season ?? undefined} name={g.name} /><Link to={`/goalie/${g.player_id}`}>{g.name}</Link></span>
                     ) : c.key === 'team' && g.team ? (
                       g.team.split(',').map((abbr, i) => (
                         <span key={abbr}>{i > 0 && ','}<Link to={`/team/${abbr}`}>{abbr}</Link></span>
@@ -220,6 +239,6 @@ export default function Goalies() {
           </tbody>
         </table>
       </div>
-    </main>
+    </PageShell>
   )
 }

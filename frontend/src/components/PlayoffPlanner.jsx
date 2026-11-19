@@ -5,6 +5,7 @@ import { MatchupTag, ratioLabel } from './Matchups.jsx'
 import { buildEntries, buildWeeks, goaliesInRange, planWeeks, playerWeeks, rangeFromSaved, rosterWeek, teamWindows } from '../playoffweeks.js'
 import { Skeleton } from './Skeleton.jsx'
 import NeedRoster from './NeedRoster.jsx'
+import Info from './Info.jsx'
 
 const KEY = 'nhl-stats.fantasy-playoff-weeks'
 const GROUP_ORDER = ['C', 'L', 'R', 'D', 'G']
@@ -90,13 +91,10 @@ export default function PlayoffPlanner({ players, values, scoring, league }) {
 
   return (
     <section>
-      <h2>Playoff-week planner</h2>
-      <p className="sub">
-        The weeks that decide a fantasy season are usually the last few. Pick yours (they default to the last three weeks of the season) to see
+      <h2>Playoff-week planner<Info label="Playoff-week planner">The weeks that decide a fantasy season are usually the last few. Pick yours (they default to the last three weeks of the season) to see
         what your best daily lineup is expected to score in each, how many games each player has, and which teams have the most and softest
         games to target. Weeks run Monday to Sunday. Matchup ratings use today's team strength, so far-off weeks are rough, and nothing here
-        sees injuries or trades that have not happened yet.
-      </p>
+        sees injuries or trades that have not happened yet.</Info></h2>
       <div className="controls">
         <label>From week{' '}
           <select value={range.from} onChange={(e) => choose({ from: weeks[Number(e.target.value)].start })} aria-label="First playoff week">
@@ -173,12 +171,9 @@ export default function PlayoffPlanner({ players, values, scoring, league }) {
         </>
       )}
 
-      <h3>Teams to target</h3>
-      <p className="sub">
-        Ranked by how many soft games a team has in these weeks (the sum of each game's matchup ratio above or below average, so more games and
+      <h3>Teams to target<Info label="Teams to target">Ranked by how many soft games a team has in these weeks (the sum of each game's matchup ratio above or below average, so more games and
         softer opponents both count). Use it to pick up or trade for players on teams with a heavy, soft finish. A goalie's schedule is better read from
-        the average goalie matchup column.
-      </p>
+        the average goalie matchup column.</Info></h3>
       <div className="table-wrap">
         <table>
           <thead>

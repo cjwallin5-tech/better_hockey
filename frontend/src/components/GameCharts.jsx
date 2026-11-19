@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { clock, corsiModel, mmss, winProbModel, xgModel } from '../gameFlow.js'
+import Note from './Note.jsx'
+import { lastName } from '../format.js'
 
-const lastName = (full) => full.split(' ').slice(1).join(' ') || full
 
 // Draw at the container's real pixel width so text stays a constant size on any screen. The element is held in state (a callback
 // ref) because a chart may render nothing at first, until its data arrives, and the measuring starts only once there is an element.
@@ -205,9 +206,9 @@ export function ShiftChart({ game, goals, away, home }) {
           ))}
         </svg>
       </div>
-      <p className="axis-note">
+      <Note label="How to read the chart">
         Each bar is a shift; forwards on top, defensemen below, busiest first. Solid lines are {side} goals, dashed are goals against.
-      </p>
+      </Note>
     </figure>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { mmss } from './Roles.jsx'
 import { Skeleton } from './Skeleton.jsx'
+import Info from './Info.jsx'
 
 const WINDOW = 5
 const LIMIT = 10
@@ -27,11 +28,8 @@ export default function MovingUp() {
 
   return (
     <section className="card">
-      <h2>Moving up</h2>
-      <p className="muted small">
-        Power-play promotions and rising ice time over the last {WINDOW} games compared with earlier this season. Ice time is the
-        earliest sign of a new role, before the points show up.
-      </p>
+      <h2>Moving up<Info label="Moving up">Power-play promotions and rising ice time over the last {WINDOW} games compared with earlier this season. Ice time is the
+        earliest sign of a new role, before the points show up.</Info></h2>
       {rows === null && <Skeleton />}
       {rows && rows.length === 0 && <p className="status">Nobody has moved up enough yet.</p>}
       {rows && rows.length > 0 && (

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
 import AwardOdds from '../components/AwardOdds.jsx'
 import PageSkeleton from '../components/Skeleton.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 const STAT = { points: 'Points', goals: 'Goals', gsaa: 'GSAA' }
 const fmtValue = (stat, v) => (stat === 'gsaa' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : v)
@@ -25,11 +26,8 @@ export default function TrophyRaces({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Trophy races</h1>}
-        <p>
-          Who is in the running for each stat-driven award: the top {data.size} (ties included) in the stat that
-          decides it. Early in the season this changes fast. Win chances for the voted Hart, Norris, Calder, Selke and Vezina are further down.
-        </p>
+        <PageIntro title="Trophy races" embedded={embedded}>Who is in the running for each stat-driven award: the top {data.size} (ties included) in the stat that
+          decides it. Early in the season this changes fast. Win chances for the voted Hart, Norris, Calder, Selke and Vezina are further down.</PageIntro>
       </header>
       {data.races.map((race) => (
         <section key={race.trophy}>

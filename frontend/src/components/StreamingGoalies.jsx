@@ -4,8 +4,9 @@ import { MatchupTag } from './Matchups.jsx'
 import { streamingBoard } from '../streaming.js'
 import { describe } from '../glossary.js'
 import { Skeleton } from './Skeleton.jsx'
+import Info from './Info.jsx'
+import { dayName } from '../format.js'
 
-const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const pct = (p) => `${Math.round(p * 100)}%`
 const signed = (v, d = 1) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`
 
@@ -42,14 +43,11 @@ export default function StreamingGoalies({ scoring, categories, rosterIds, onAdd
 
   return (
     <section>
-      <h2>Streaming goalies</h2>
-      <p className="sub">
-        Goalies to pick up for the next few days, ranked by what their starts are expected to be worth{categories ? ' across the goalie categories your league counts' : ' in fantasy points under your scoring'}.
+      <h2>Streaming goalies<Info label="Streaming goalies">Goalies to pick up for the next few days, ranked by what their starts are expected to be worth{categories ? ' across the goalie categories your league counts' : ' in fantasy points under your scoring'}.
         A goalie only scores when he starts, so each game is weighted by his chance to start it (a guess from his team's recent starts and
         back-to-backs, confirmed by the NHL close to game time). What a start is worth comes from the two teams' ratings: the
         opponent's offense, your team's defense and how likely the team is to win. A goalie's own record barely predicts
-        his next season, so it counts for little here. It can't see who is available in your league, injuries, or home-ice advantage.
-      </p>
+        his next season, so it counts for little here. It can't see who is available in your league, injuries, or home-ice advantage.</Info></h2>
       <div className="h2h-picks">
         <label className="h2h-pick">Next
           <select value={days} onChange={(e) => setDays(Number(e.target.value))}>

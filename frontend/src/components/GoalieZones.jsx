@@ -4,6 +4,8 @@ import { LANE_LABEL, clampLabel, gloveSign, signed, zoneCentre, zonePolygon, zon
 import { describe } from '../glossary.js'
 import { seasonLabel } from '../career.js'
 import SeasonResults from './SeasonResults.jsx'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
 
 const pct = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
@@ -70,11 +72,11 @@ function ZoneMap({ data }) {
           })}
         </svg>
       </div>
-      <p className="def-foot">
+      <Note label="How to read the map">
         Seen from the shooter's end, with the net at the top. Glove side is on the {sign < 0 ? 'right' : 'left'} of the picture
         ({data.catches ? `he catches ${data.catches}` : 'catching hand unknown, assumed left'}). A thick outline marks a gap too big to be
         chance (about 2 standard deviations).
-      </p>
+      </Note>
     </figure>
   )
 }
@@ -123,14 +125,11 @@ export default function GoalieZones({ playerId }) {
   const many = data.seasons.length > 1
   return (
     <section>
-      <h2>Where he's beaten</h2>
-      <p className="sub">
-        Goals allowed against what an average goalie allows on similar shots from the same spot
+      <h2>Where he's beaten<Info label="Where he's beaten">Goals allowed against what an average goalie allows on similar shots from the same spot
         ({data.total.shots} shots on goal over {data.seasons.length === 1 ? seasonLabel(data.seasons[0]) : `${data.seasons.length} seasons (${seasonLabel(data.seasons[0])} to ${seasonLabel(data.seasons[data.seasons.length - 1])})`},
         empty-net shots left out). The NHL feed has no shot height or net location, so a zone is where the shot came
         from, not where it went in. Even a few seasons leave only a few hundred shots in a zone, so treat anything
-        unflagged as a lean at most{many && ', and look for a gap that shows up in most seasons in the table'}.
-      </p>
+        unflagged as a lean at most{many && ', and look for a gap that shows up in most seasons in the table'}.</Info></h2>
       <div className="controls">
         <label>Show{' '}
           <select value={span} onChange={(e) => setSpan(e.target.value)} aria-label="Seasons">
@@ -144,10 +143,10 @@ export default function GoalieZones({ playerId }) {
       <GroupTable title="Zone" rows={data.zones.filter((z) => z.shots)} seasons={many} />
       <GroupTable title="Shot type" rows={data.shot_types} />
       <GroupTable title="Situation" rows={data.situations} />
-      <p className="def-foot">
+      <Note label="How expected goals are scaled">
         Expected goals come from our xG model scaled so that the league sits at zero in each zone, shot type and situation,
         which means the totals here can differ slightly from the GSAx in the shots section above.
-      </p>
+      </Note>
     </section>
   )
 }

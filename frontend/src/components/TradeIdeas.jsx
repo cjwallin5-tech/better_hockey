@@ -4,15 +4,18 @@ import { luckSummary, useLuck } from './Luck.jsx'
 import { SWAP_TOLERANCE, tradeIdeas } from '../tradeIdeas.js'
 import { Skeleton } from './Skeleton.jsx'
 import NeedRoster from './NeedRoster.jsx'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
+import { getJson } from '../lists.js'
 
 const signedZ = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`
 
 /** Every hot and cold player in the league (skaters and goalies), as a Map id -> { z, flag, enough, goalie }. */
-function useLeagueLuck() {
+export function useLeagueLuck() {
   const [rows, setRows] = useState(null)
   useEffect(() => {
     let ignore = false
-    const get = (url, goalie) => fetch(url).then((r) => (r.ok ? r.json() : { rows: [] })).then((d) => d.rows.map((row) => [row, goalie]))
+    const get = (url, goalie) => getJson(url).catch(() => ({ rows: [] })).then((d) => d.rows.map((row) => [row, goalie]))
     Promise.all([
       get('/api/luck/skaters?dir=desc&limit=200', false), get('/api/luck/skaters?dir=asc&limit=200', false),
       get('/api/luck/goalies?dir=desc&limit=100', true), get('/api/luck/goalies?dir=asc&limit=100', true),
@@ -57,14 +60,11 @@ export default function TradeIdeas({ data, values, roster }) {
 
   return (
     <section>
-      <h2>Trade ideas</h2>
-      <p className="sub">
-        Hot players are scoring (or stopping) more than their shots and track record support, so they tend to cool off;
+      <h2>Trade ideas<Info label="Trade ideas">Hot players are scoring (or stopping) more than their shots and track record support, so they tend to cool off;
         cold players are due to bounce back. Value already pulls streaks toward each player's norm, so these are the
         cases where the streak is still likely to be inflating or hiding value. Targets are matched by position and must
         be worth at least {Math.round(SWAP_TOLERANCE * 100)}% of what you give. The site can't see other teams' rosters, so check a target is
-        actually on a team you can trade with.
-      </p>
+        actually on a team you can trade with.</Info></h2>
       {!ideas ? <Skeleton /> : (
         <>
           <h3>Sell high: your players running hot</h3>
@@ -111,7 +111,7 @@ export default function TradeIdeas({ data, values, roster }) {
               </table>
             </div>
           )}
-          <p className="sub">Luck is each player's goals and points against what their shots predict; the method is explained on a player's Luck panel.</p>
+          <Note label="About luck">Luck is each player's goals and points against what their shots predict; the method is explained on a player's Luck panel.</Note>
         </>
       )}
     </section>

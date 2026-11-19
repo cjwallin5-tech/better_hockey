@@ -13,17 +13,17 @@ import GlossaryTips from './components/GlossaryTips.jsx'
 import { installTabScroll } from './tabScroll.js'
 
 // Pages load on demand, so the first visit downloads the shell and the page you opened, not all of the site.
-const Leaderboard = lazy(pages.Leaderboard)
+const Players = lazy(pages.Players)
 const AllTime = lazy(pages.AllTime)
 const Compare = lazy(pages.Compare)
 const Game = lazy(pages.Game)
 const Goalie = lazy(pages.Goalie)
-const Goalies = lazy(pages.Goalies)
 const Glossary = lazy(pages.Glossary)
 const Player = lazy(pages.Player)
 const ResetPassword = lazy(pages.ResetPassword)
 const Schedule = lazy(pages.Schedule)
 const Awards = lazy(pages.Awards)
+const History = lazy(pages.History)
 const Roles = lazy(pages.Roles)
 const Trophy = lazy(pages.Trophy)
 const Account = lazy(pages.Account)
@@ -56,13 +56,15 @@ function BestSeasonsRedirect({ goalie }) {
   return <Navigate to={`/alltime/${goalie ? 'goalies' : 'skaters'}?${params}`} replace />
 }
 
-/** An old page's address, sent to its tab on the merged page, keeping any query (a link's filters or players) after the tab. */
-/** A moved page: send the old address to the new one with its query (a chosen date, say) intact. */
-function RedirectKeepQuery({ to }) {
-  const { search } = useLocation()
-  return <Navigate to={`${to}${search}`} replace />
+/** A moved page: send the old address to the new one with its query (a chosen date, say) intact, plus any `set` parameters. */
+function RedirectKeepQuery({ to, set }) {
+  const params = new URLSearchParams(useLocation().search)
+  for (const [key, value] of Object.entries(set ?? {})) params.set(key, value)
+  const query = params.toString()
+  return <Navigate to={`${to}${query ? `?${query}` : ''}`} replace />
 }
 
+/** An old page's address, sent to its tab on the merged page, keeping any query (a link's filters or players) after the tab. */
 function RedirectToTab({ to, tab, param = 'tab' }) {
   const { search } = useLocation()
   const rest = search.replace(/^\?/, '')
@@ -78,9 +80,10 @@ function Pages() {
       <Suspense fallback={<main><PageSkeleton /></main>}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/skaters" element={<Leaderboard />} />
+          <Route path="/players" element={<Players />} />
+          <Route path="/skaters" element={<RedirectKeepQuery to="/players" />} />
           <Route path="/player/:id" element={<Player />} />
-          <Route path="/goalies" element={<Goalies />} />
+          <Route path="/goalies" element={<RedirectKeepQuery to="/players" set={{ kind: 'goalie' }} />} />
           <Route path="/goalie/:id" element={<Goalie />} />
           <Route path="/milestones" element={<RedirectToTab to="/awards" tab="milestones" />} />
           <Route path="/glossary" element={<Glossary />} />
@@ -97,12 +100,13 @@ function Pages() {
           <Route path="/advanced-stats" element={<Navigate to="/standings" replace />} />
           <Route path="/special-teams" element={<Navigate to="/standings?stat=pp_xgf60" replace />} />
           <Route path="/score-effects" element={<Navigate to="/standings?stat=xg_pct_adj" replace />} />
-          <Route path="/tracking" element={<Navigate to="/skaters?view=speed" replace />} />
+          <Route path="/tracking" element={<Navigate to="/players?view=speed" replace />} />
           <Route path="/head-to-head" element={<RedirectToTab to="/compare" tab="head-to-head" />} />
-          <Route path="/luck" element={<Navigate to="/skaters" replace />} />
+          <Route path="/luck" element={<Navigate to="/players" replace />} />
           <Route path="/roles" element={<Roles />} />
           <Route path="/matchups" element={<Matchups />} />
           <Route path="/awards" element={<Awards />} />
+          <Route path="/history" element={<History />} />
           <Route path="/trophy" element={<RedirectToTab to="/awards" tab="winners" />} />
           <Route path="/trophies" element={<Navigate to="/awards" replace />} />
           <Route path="/trophy/:id" element={<Trophy />} />
@@ -111,12 +115,12 @@ function Pages() {
           <Route path="/lottery" element={<RedirectToTab to="/prospects" tab="lottery" />} />
           <Route path="/prospects" element={<Prospects />} />
           <Route path="/prospect/:id" element={<Prospect />} />
-          <Route path="/projections" element={<Navigate to="/skaters" replace />} />
+          <Route path="/projections" element={<Navigate to="/players" replace />} />
           <Route path="/games" element={<Tonight />} />
           <Route path="/tonight" element={<RedirectKeepQuery to="/games" />} />
           <Route path="/my-team" element={<MyTeam />} />
           <Route path="/leagues" element={<RedirectToTab to="/fantasy" param="section" tab="leagues" />} />
-          <Route path="/absences" element={<Navigate to="/skaters" replace />} />
+          <Route path="/absences" element={<Navigate to="/players" replace />} />
           <Route path="/league/:id" element={<League />} />
           <Route path="/watchlist" element={<RedirectToTab to="/fantasy" param="section" tab="watchlist" />} />
           <Route path="/compare" element={<Compare />} />
@@ -142,10 +146,10 @@ function warmLink(e) {
   if (a) warm(new URL(a.href).pathname)
 }
 
-const MAIN_LINKS = [['/skaters', 'Skaters'], ['/goalies', 'Goalies'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/games', 'Games'], ['/news', 'News'], ['/my-team', 'My team']]
+const MAIN_LINKS = [['/players', 'Players'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/games', 'Games'], ['/news', 'News'], ['/my-team', 'My team']]
 // The less-used pages, in two even columns.
 const moreGroups = (user) => [
-  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones']] },
+  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones'], ['/history', 'NHL history']] },
   { title: 'League & stats', items: [['/schedule', 'Schedule'], ['/matchups', 'Matchups'], ['/glossary', 'Glossary']] },
 ]
 

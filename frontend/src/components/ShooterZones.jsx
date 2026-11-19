@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { H, PAD, Rink, S, W, px, py } from './ShotMap.jsx'
 import { clampLabel, signed, zoneCentre, zonePolygon, zoneStrength } from '../goalieZones.js'
 import { seasonLabel } from '../career.js'
-import SeasonResults from './SeasonResults.jsx'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
 
 const LANE_NAME = { left: 'left side', middle: 'middle', right: 'right side' }
 const RANGE_NAME = { close: 'Close', mid: 'Mid-range', long: 'Long-range' }
@@ -69,15 +70,15 @@ function ZoneMap({ data }) {
           })}
         </svg>
       </div>
-      <p className="def-foot">
+      <Note label="How to read the map">
         Seen from the shooter's end, with the net at the top. The big number is goals minus expected goals in the zone; the small one is the
         share of his attempts taken there. A thick outline marks a gap too big to be chance (about 2 standard deviations).
-      </p>
+      </Note>
     </figure>
   )
 }
 
-function GroupTable({ title, rows, zones = false, seasons = false }) {
+function GroupTable({ title, rows, zones = false }) {
   if (!rows.length) return null
   return (
     <div className="table-wrap fit">
@@ -89,7 +90,6 @@ function GroupTable({ title, rows, zones = false, seasons = false }) {
             {zones && <><th title="Share of his attempts taken from this zone">His share</th><th title="Share of all players' attempts taken from this zone">League</th></>}
             <th>Goals</th><th title="Expected goals from the quality of the shots">xG</th>
             <th title="Goals minus expected goals compared with an average shooter from the same spot; positive is good">Goals vs xG</th>
-            {seasons && <th className="left">By season</th>}
           </tr>
         </thead>
         <tbody>
@@ -99,7 +99,6 @@ function GroupTable({ title, rows, zones = false, seasons = false }) {
               <td>{r.attempts}</td>
               {zones && <><td>{pct0(r.share)}</td><td>{pct0(r.league_share)}</td></>}
               <td>{r.goals}</td><td>{r.xg.toFixed(1)}</td><td className="accent">{signed(r.gsax)}</td>
-              {seasons && <td className="left by-season"><SeasonResults bySeason={r.by_season} /></td>}
             </tr>
           ))}
         </tbody>
@@ -126,18 +125,18 @@ export default function ShooterZones({ playerId }) {
   const data = useZones(playerId, span, strength)
   if (!data || (data.total.attempts === 0 && span === 'all' && strength === 'all')) return null
   const flagged = data.zones.filter((z) => z.flag)
-  const many = data.seasons.length > 1
   const span_ = data.seasons.length === 0 ? '' : data.seasons.length === 1
     ? seasonLabel(data.seasons[0]) : `${data.seasons.length} seasons (${seasonLabel(data.seasons[0])} to ${seasonLabel(data.seasons[data.seasons.length - 1])})`
   return (
     <section>
-      <h2>Where he shoots from</h2>
-      <p className="sub">
-        His shot attempts by zone ({data.total.attempts} unblocked attempts{span_ && ` over ${span_}`}, empty-net shots left out) and the goals
-        he scores against what an average shooter scores from similar shots in the same spot. Goals above expected here also reflect
-        his shot, not only luck, since the model knows nothing about the shooter, but a few dozen attempts in a zone is still a small
-        sample: treat anything unflagged as a lean{many && ', and look for a zone that is positive in most seasons'}.
-      </p>
+      <h2>
+        Where he shoots from
+        <Info label="Where he shoots from">
+          His shot attempts by zone ({data.total.attempts} unblocked attempts{span_ && ` over ${span_}`}, empty-net shots left out) and the goals he scores against
+          what an average shooter scores from similar shots in the same spot. Goals above expected here also reflect his shot, not only luck, since the model knows
+          nothing about the shooter, but a few dozen attempts in a zone is still a small sample: treat anything unflagged as a lean.
+        </Info>
+      </h2>
       <div className="controls">
         <label>Show{' '}
           <select value={span} onChange={(e) => setSpan(e.target.value)} aria-label="Seasons">
@@ -157,13 +156,13 @@ export default function ShooterZones({ playerId }) {
         <>
           {data.headline && <p><strong>{sentence(data.headline)}.</strong>{flagged.length === 0 && ' No zone is far enough from average to rule out chance.'}</p>}
           <ZoneMap data={data} />
-          <GroupTable title="Zone" rows={data.zones.filter((z) => z.attempts)} zones seasons={many} />
+          <GroupTable title="Zone" rows={data.zones.filter((z) => z.attempts)} zones />
           <GroupTable title="Shot type" rows={data.shot_types} />
           <GroupTable title="Situation" rows={data.situations} />
-          <p className="def-foot">
+          <Note label="How expected goals are scaled">
             Expected goals come from our xG model, scaled so each season matches its real goals and then so the league sits at zero in
             each zone, shot type and situation. A player who finishes well everywhere shows a positive number in every zone.
-          </p>
+          </Note>
         </>
       )}
     </section>

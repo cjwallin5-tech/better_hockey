@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
+import { fmtSv as sv } from '../format.js'
 
 const ordinal = (n) => {
   const v = n % 100
@@ -9,7 +11,6 @@ const ordinal = (n) => {
 }
 const n1 = (v) => (v == null ? '–' : v.toFixed(1))
 const pct1 = (v) => (v == null ? '–' : `${(v * 100).toFixed(1)}%`)
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const dateText = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null)
 const pctile = (p) => (p == null ? null : `${ordinal(Math.min(99, Math.max(1, Math.round(p * 100))))} percentile`)
 
@@ -47,12 +48,9 @@ export default function TrackingProfile({ playerId }) {
   if (data.kind === 'goalie') {
     return (
       <section>
-        <h2>Save % by shot range</h2>
-        <p className="sub">
-          From the NHL's puck and player tracking ({seasonLabel(latest.season_id)}). High-danger shots come from the slot and
+        <h2>Save % by shot range<Info label="Save % by shot range">From the NHL's puck and player tracking ({seasonLabel(latest.season_id)}). High-danger shots come from the slot and
           crease, mid-range from the circles and faceoff dots, long-range from the perimeter. Percentiles compare with other
-          goalies.
-        </p>
+          goalies.</Info></h2>
         <section className="tiles">
           <Card label="High-danger SV%" value={sv(latest.sv_high)} percentile={latest.sv_high_pctile} note={`${latest.saves_high}–${latest.ga_high} (saves–goals)`} />
           <Card label="Mid-range SV%" value={sv(latest.sv_mid)} percentile={latest.sv_mid_pctile} note={`${latest.saves_mid}–${latest.ga_mid}`} />
@@ -81,11 +79,8 @@ export default function TrackingProfile({ playerId }) {
   const perGame = (s) => (s.games_played ? s.distance_miles / s.games_played : null)
   return (
     <section>
-      <h2>Speed &amp; tracking</h2>
-      <p className="sub">
-        From the NHL's puck and player tracking, {seasonLabel(latest.season_id)}. Percentiles compare with other tracked
-        skaters. Tracking starts in 2021-22.
-      </p>
+      <h2>Speed &amp; tracking<Info label="Speed & tracking">From the NHL's puck and player tracking, {seasonLabel(latest.season_id)}. Percentiles compare with other tracked
+        skaters. Tracking starts in 2021-22.</Info></h2>
       <section className="tiles">
         <Card label="Top skating speed" value={n1(latest.top_speed_mph)} unit="mph" percentile={latest.top_speed_pctile}
           note={latest.top_speed_date ? `set ${dateText(latest.top_speed_date)}` : null} />

@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { describe } from '../glossary.js'
-
-const day = (iso) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+import { shortDate as day } from '../format.js'
 
 /**
  * Trade, offseason-move and lineup context, inferred from game rows (the NHL feeds don't publish
@@ -34,17 +32,9 @@ export default function Context({ playerId, goalie = false }) {
       body: `${path} — first game with ${last.team} was ${day(last.first_date)}.`,
     })
   }
-  if (d.moved_from) {
-    items.push({
-      key: 'offseason',
-      title: 'New team this season',
-      body: `Finished last season with the ${d.moved_from}.`,
-    })
-  }
-  if (d.rookie) items.push({ key: 'rookie', title: 'Rookie', body: 'First NHL season.' })
-
   if (a) {
-    if (a.out_streak >= 1) {
+    // Skaters get this in the Out block of the What changed card (with who is covering); goalies have no such block.
+    if (a.out_streak >= 1 && goalie) {
       items.push({
         key: 'out',
         title: `Not in the lineup for the team's last ${a.out_streak} game${a.out_streak > 1 ? 's' : ''}`,
@@ -52,21 +42,13 @@ export default function Context({ playerId, goalie = false }) {
         warn: true,
       })
     }
-    if (a.missed_games > 0) {
+    // A skater who is out now has their current stretch in the Out block; only misses from before it are listed here.
+    const outNow = !goalie && a.out_streak >= 1
+    const earlier = a.missed_games - (outNow ? a.out_streak : 0)
+    if (earlier > 0) {
       items.push({
         key: 'missed',
-        title: `Missed ${a.missed_games} team game${a.missed_games > 1 ? 's' : ''} since their season debut`,
-        body: a.missed
-          .map((m) => `${day(m.game_date)} vs ${m.opponent}`)
-          .join(', ')
-          .concat(a.missed_games > a.missed.length ? ', …' : ''),
-      })
-    }
-    if (a.debut_after_team_games > 0) {
-      items.push({
-        key: 'debut',
-        title: 'Season debut after the team had played',
-        body: `${a.debut_after_team_games} game${a.debut_after_team_games > 1 ? 's' : ''} (not in the lineup, or in the minors).`,
+        title: `Missed ${earlier} team game${earlier > 1 ? 's' : ''} ${outNow ? 'earlier this season' : 'since their season debut'}`,
       })
     }
   }
@@ -78,16 +60,10 @@ export default function Context({ playerId, goalie = false }) {
       <ul>
         {items.map((i) => (
           <li key={i.key} className={i.warn ? 'warn' : ''}>
-            <strong>{i.title}.</strong> <span>{i.body}</span>
+            <strong>{i.title}.</strong>{i.body && <> <span>{i.body}</span></>}
           </li>
         ))}
       </ul>
-      {a && (a.missed_games > 0 || a.out_streak > 0) && (
-        <p className="context-note">
-          Lineup gaps are inferred from games the player's team played without them; the NHL
-          doesn't publish the reason.
-        </p>
-      )}
       {d.traded && (
         <div className="table-wrap">
           <table>

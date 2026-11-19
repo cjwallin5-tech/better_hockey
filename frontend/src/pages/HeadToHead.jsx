@@ -3,6 +3,8 @@ import PageShell from '../components/PageShell.jsx'
 import { Link, useSearchParams } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
+import Note from '../components/Note.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 const RESULT = { W: 'W', OTW: 'W (OT/SO)', OTL: 'L (OT/SO)', L: 'L' }
@@ -154,11 +156,11 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam, goalie = fals
             <div className="tile"><span>Goals against / game</span><strong>{fixed(vs.goals_against_per_game)}</strong></div>
             <div className="tile"><span>SV% vs. everyone else</span><strong>{svp(rest.save_pct)}</strong></div>
           </section>
-          <p className="sub">
+          <Note label="How this is counted">
             Over {data.stored_games} stored games, {data.player.name} stopped {svp(vs.save_pct)} of shots against {data.team.abbrev} and{' '}
             {svp(rest.save_pct)} against everyone else. {vs.shots_against < 400 ? `Only ${vs.shots_against} shots were faced, so a gap here is more likely noise than a matchup effect.` : ''}{' '}
             Seasons since 2022-23 are rebuilt from stored shots, so a game with no usable shot data is missing; earlier seasons come from the NHL's game logs.
-          </p>
+          </Note>
           <h2>By season</h2>
           <div className="table-wrap">
             <table>
@@ -192,10 +194,10 @@ function PlayerVsTeam({ teams, playerId, team, setPlayer, setTeam, goalie = fals
             <div className="tile"><span>Points / game</span><strong>{fixed(vs.points_per_game)}</strong></div>
             <div className="tile"><span>vs. everyone else</span><strong>{fixed(rest.points_per_game)}</strong></div>
           </section>
-          <p className="sub">
+          <Note label="How this is counted">
             Over {data.stored_games} stored games, {data.player.name} scored {fixed(vs.points_per_game)} points per game against {data.team.abbrev} and{' '}
             {fixed(rest.points_per_game)} against everyone else. {vs.games < 15 ? `A sample of ${vs.games} games is small, so a gap here is more likely noise than a matchup effect.` : ''}
-          </p>
+          </Note>
           <h2>By season</h2>
           <div className="table-wrap">
             <table>
@@ -244,12 +246,9 @@ export default function HeadToHead({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Head-to-head</h1>}
-        <p>
-          How teams, skaters and goalies have done against each other, going back to 2005-06 (the first shootout season). The
+        <PageIntro title="Head-to-head" embedded={embedded}>How teams, skaters and goalies have done against each other, going back to 2005-06 (the first shootout season). The
           Coyotes' games count toward Utah and the Thrashers' toward Winnipeg. A player's seasons before 2022-23 are fetched
-          from the NHL the first time you look them up, so that first look can take a few seconds.
-        </p>
+          from the NHL the first time you look them up, so that first look can take a few seconds.</PageIntro>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={mode === 'team'} className={mode === 'team' ? 'on' : ''} onClick={() => update({ mode: '', p: '' })}>Team vs. team</button>

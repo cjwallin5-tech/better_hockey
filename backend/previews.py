@@ -48,6 +48,7 @@ POSITIONS = {"C": "Center", "L": "Left wing", "R": "Right wing", "D": "Defensema
 # Pages with their own words (everything else falls back to the generic preview).
 PAGES = {
     "/": (SITE, GENERIC),
+    "/players": ("Player stats", "Every NHL skater and goalie this season, sortable by points, goals, shots, save percentage and more, with era-adjusted and advanced views."),
     "/skaters": ("Skater stats", "Every NHL skater this season, sortable by points, goals, shots, hits and more, with era-adjusted and advanced views."),
     "/goalies": ("Goalie stats", "Every NHL goalie this season: save percentage, goals against, goals saved above average and recent form."),
     "/standings": ("NHL standings", "Standings by division, conference and wild card, with playoff odds."),
@@ -62,6 +63,7 @@ PAGES = {
     "/news": ("NHL news", "Headlines from across the league, tagged by team and player, with the big stories first."),
     "/tonight": ("Tonight's games", "Today's NHL games with win chances, probable goalies and who is hot."),
     "/awards": ("NHL award races", "Hart, Vezina, Norris and more: the race and the odds."),
+    "/history": ("NHL history", "Who debuted and who played their last season in any year since 1917-18, and who has worn each sweater number."),
     "/lottery": ("NHL draft lottery odds", "Lottery odds and lottery-position simulations for every non-playoff team."),
     "/schedule": ("NHL schedule", "The schedule with strength of schedule and back-to-back fatigue."),
     "/advanced-stats": ("Advanced stats", "Expected goals, special teams, score effects and tracking data."),
@@ -338,7 +340,7 @@ def build_meta(conn, kind, key, query):
         if key == "/standings":
             rows = conn.execute("SELECT abbrev, points FROM team_season WHERE season_id = %s ORDER BY league_rank LIMIT 3", (season,)).fetchall()
             return leaders_meta(key, title, desc + " League leaders:", [(r["abbrev"], f"{r['points']} pts") for r in rows])
-        if key == "/skaters":
+        if key in ("/skaters", "/players"):
             rows = conn.execute("SELECT name, points FROM skater_season WHERE season_id = %s ORDER BY points DESC, games_played LIMIT 3", (season,)).fetchall()
             return leaders_meta(key, title, desc + " Points leaders:", [(r["name"], f"{r['points']} P") for r in rows])
         if key == "/goalies":

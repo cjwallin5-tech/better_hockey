@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Avatar from './Avatar.jsx'
 import RankBadge from './RankBadge.jsx'
 import { seasonLabel } from '../career.js'
+import Note from './Note.jsx'
 
 const PAGE_SIZE = 50
 const STAT_LABEL = { goals: 'goals', assists: 'assists', points: 'points' }
@@ -85,10 +86,10 @@ export default function GameRecords({ stat, gameType, q, position, page, setPage
           </tbody>
         </table>
       </div>
-      <p className="sub">
+      <Note label="How ties are ranked">
         Ties share a place: every 5-goal game ranks equally, with the earliest first. Goals and assists are credited to the player's
         team at the time. Switch to Playoffs above for postseason games.
-      </p>
+      </Note>
       <div className="pager">
         <button disabled={page === 0 || loading} onClick={() => setPage(0)}>« First</button>
         <button disabled={page === 0 || loading} onClick={() => setPage((p) => p - 1)}>‹ Prev</button>

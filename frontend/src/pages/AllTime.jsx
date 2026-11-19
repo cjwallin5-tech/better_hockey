@@ -1,16 +1,19 @@
 import Avatar from '../components/Avatar.jsx'
 import { useEffect, useState } from 'react'
 import HhofMark from '../components/HhofMark.jsx'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { seasonLabel } from '../career.js'
 import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
 import SeasonSwitch from '../components/SeasonSwitch.jsx'
+import KindSwitch from '../components/KindSwitch.jsx'
 import RankBadge from '../components/RankBadge.jsx'
 import RankBy from '../components/RankBy.jsx'
 import GameRecords from '../components/GameRecords.jsx'
 import ViewMenu from '../components/ViewMenu.jsx'
 import FilterPanel from '../components/FilterPanel.jsx'
+import Note from '../components/Note.jsx'
+import { fmtSv as sv } from '../format.js'
 
 const PAGE_SIZE = 50
 
@@ -18,7 +21,6 @@ const int = (v) => (v == null ? '–' : v.toLocaleString())
 const round = (v) => (v == null ? '–' : Math.round(v).toLocaleString())
 const dec = (v, d = 2) => (v == null ? '–' : v.toFixed(d))
 const pct = (v) => (v == null || v === 0 ? '–' : (v * 100).toFixed(1))
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 
 const COLUMNS = {
   skater: [
@@ -61,6 +63,9 @@ const COLUMNS = {
     { key: 'four_point_games', label: '4-point games', fmt: int },
     { key: 'five_point_games', label: '5-point games', fmt: int },
     { key: 'seasons_played', label: 'Seasons', fmt: int },
+    { key: 'led_points', label: 'Led in points', fmt: int, accent: true },
+    { key: 'led_goals', label: 'Led in goals', fmt: int },
+    { key: 'led_assists', label: 'Led in assists', fmt: int },
     { key: 'seasons_100p', label: '100-pt seasons', fmt: int, accent: true },
     { key: 'seasons_90p', label: '90-pt', fmt: int },
     { key: 'seasons_80p', label: '80-pt', fmt: int },
@@ -81,6 +86,10 @@ const COLUMNS = {
     { key: 'rookie_assists', label: 'Rookie A', fmt: int },
     { key: 'rookie_points', label: 'Rookie P', fmt: int, accent: true },
     { key: 'rookie_points_per_game', label: 'Rookie P/GP', fmt: dec },
+    { key: 'so_att', label: 'SO Att', fmt: int },
+    { key: 'so_goals', label: 'SO G', fmt: int, accent: true },
+    { key: 'so_pct', label: 'SO%', fmt: pct, rate: true, byAtt: true },
+    { key: 'so_gwg', label: 'SO GWG', fmt: int },
   ],
   goalie: [
     { key: 'season_id', label: 'Season', fmt: seasonLabel, asc: true },
@@ -99,6 +108,11 @@ const COLUMNS = {
     { key: 'shots_against', label: 'SA', fmt: int },
     { key: 'goals_against', label: 'GA', fmt: int },
     { key: 'toi_sec', label: 'Minutes', fmt: (v) => (v == null ? '–' : Math.round(v / 60).toLocaleString()) },
+    { key: 'so_att', label: 'SO SA', fmt: int },
+    { key: 'so_saves', label: 'SO Sv', fmt: int },
+    { key: 'so_sv_pct', label: 'SO SV%', fmt: sv, rate: true, byAtt: true, accent: true },
+    { key: 'so_wins', label: 'SO W', fmt: int, accent: true },
+    { key: 'so_losses', label: 'SO L', fmt: int },
   ],
 }
 // Every view of the page, grouped in the dropdown: each lists its columns and the stat it sorts by when picked.
@@ -115,12 +129,16 @@ const VIEWS = {
       keys: ['first_season', 'games_played', 'goals', 'points', 'adj_goals', 'adj_assists', 'adj_points', 'adj_points_per_game'] },
     { id: 'bigGames', group: RECORDS, label: 'Hat tricks & big games', sort: 'hat_tricks', has: 'sort',
       keys: ['first_season', 'games_played', 'hat_tricks', 'four_goal_games', 'five_goal_games', 'three_assist_games', 'four_point_games', 'five_point_games'] },
+    { id: 'ledLeague', group: RECORDS, label: 'Led the NHL', sort: 'led_points', has: 'sort', regularOnly: true,
+      keys: ['first_season', 'seasons_played', 'led_points', 'led_goals', 'led_assists'] },
     { id: 'pointSeasons', group: RECORDS, label: 'Point & assist seasons', sort: 'seasons_100p', has: 'sort', regularOnly: true,
       keys: ['first_season', 'seasons_played', 'seasons_100p', 'seasons_90p', 'seasons_80p', 'seasons_60p', 'seasons_60a', 'seasons_50a', 'seasons_40a', 'best_points', 'best_assists'] },
     { id: 'goalSeasons', group: RECORDS, label: 'Goal seasons', sort: 'seasons_50g', has: 'sort', regularOnly: true,
       keys: ['first_season', 'seasons_played', 'seasons_50g', 'seasons_40g', 'seasons_30g', 'seasons_20g', 'best_goals'] },
     { id: 'rookies', group: RECORDS, label: 'Rookies', sort: 'rookie_points', has: 'rookie_gp', regularOnly: true,
       keys: ['rookie_season', 'rookie_gp', 'rookie_goals', 'rookie_assists', 'rookie_points', 'rookie_points_per_game'] },
+    { id: 'shootouts', group: RECORDS, label: 'Shootouts', sort: 'so_goals', has: 'so_att', regularOnly: true,
+      keys: ['first_season', 'so_att', 'so_goals', 'so_pct', 'so_gwg'] },
     { id: 'singleGame', group: RECORDS, label: 'Single game', sort: 'goals', games: true, keys: [] },
     { id: 'bestScoring', group: BEST, label: 'Best seasons: Scoring', sort: 'points', season: true, regularOnly: true,
       keys: ['season_id', 'team', 'games_played', 'goals', 'assists', 'points', 'points_per_game'] },
@@ -132,6 +150,8 @@ const VIEWS = {
   goalie: [
     { id: 'record', group: CAREER, label: 'Record', sort: 'wins', keys: ['first_season', 'games_played', 'games_started', 'wins', 'losses', 'ties', 'ot_losses', 'shutouts'] },
     { id: 'saves', group: CAREER, label: 'Saves', sort: 'save_pct', keys: ['games_played', 'save_pct', 'gaa', 'saves', 'shots_against', 'goals_against', 'toi_sec'] },
+    { id: 'shootouts', group: RECORDS, label: 'Shootouts', sort: 'so_wins', has: 'so_att', regularOnly: true,
+      keys: ['first_season', 'so_att', 'so_saves', 'so_sv_pct', 'so_wins', 'so_losses'] },
     { id: 'bestRecord', group: BEST, label: 'Best seasons: Record', sort: 'wins', season: true, regularOnly: true,
       keys: ['season_id', 'team', 'games_played', 'games_started', 'wins', 'losses', 'ot_losses', 'shutouts'] },
     { id: 'bestSaves', group: BEST, label: 'Best seasons: Saves', sort: 'save_pct', season: true, regularOnly: true,
@@ -144,10 +164,13 @@ const QUICK_RANK = {
     ['assists_per_game', 'A/GP'], ['plus_minus', '+/-']],
   bigGames: [['hat_tricks', 'Hat tricks'], ['four_goal_games', '4-goal games'], ['five_goal_games', '5-goal games'],
     ['three_assist_games', '3-assist games'], ['four_point_games', '4-point games'], ['five_point_games', '5-point games']],
+  ledLeague: [['led_points', 'Points'], ['led_goals', 'Goals'], ['led_assists', 'Assists'], ['seasons_played', 'Seasons']],
   pointSeasons: [['seasons_100p', '100-point seasons'], ['seasons_90p', '90-point'], ['seasons_80p', '80-point'], ['seasons_60p', '60-point'],
     ['seasons_60a', '60-assist'], ['seasons_50a', '50-assist'], ['seasons_40a', '40-assist'], ['best_points', 'Best season'], ['seasons_played', 'Seasons']],
   goalSeasons: [['seasons_50g', '50-goal seasons'], ['seasons_40g', '40-goal'], ['seasons_30g', '30-goal'], ['seasons_20g', '20-goal'],
     ['best_goals', 'Best season'], ['seasons_played', 'Seasons']],
+  shootouts: [['so_goals', 'SO goals'], ['so_pct', 'SO%'], ['so_att', 'Attempts'], ['so_gwg', 'SO GWG'],
+    ['so_wins', 'SO wins'], ['so_sv_pct', 'SO SV%'], ['so_saves', 'SO saves']],
   rookies: [['rookie_points', 'Points'], ['rookie_goals', 'Goals'], ['rookie_assists', 'Assists'], ['rookie_points_per_game', 'P/GP']],
   singleGame: [['goals', 'Goals'], ['assists', 'Assists'], ['points', 'Points']],
   special: [['pp_points', 'PP points'], ['pp_goals', 'PP goals'], ['game_winning_goals', 'GWG'], ['sh_goals', 'SH goals']],
@@ -164,9 +187,11 @@ const QUICK_RANK = {
 }
 // Rate stats are meaningless over a handful of games, so sorting by them applies a minimum.
 const AUTO_MIN_GP = { skater: 300, goalie: 150 }
+const MIN_SO_ATT = 20 // shootout shots (or shots faced) before SO% / SO SV% is ranked
 
 /** All-time leaders for one kind of player ('skater' or 'goalie'), each on its own page. */
 export default function AllTime({ kind }) {
+  const navigate = useNavigate()
   const initial = new URLSearchParams(window.location.search)
   const [gameType, setGameType] = useState(initial.get('gt') === '3' ? 3 : 2)
   const [search, setSearch] = useState(() => initial.get('q') ?? '')
@@ -209,7 +234,8 @@ export default function AllTime({ kind }) {
   const columns = view.keys.map((k) => allColumns.find((c) => c.key === k))
   const sortCol = allColumns.find((c) => c.key === sort.key)
   const autoMin = sortCol?.rate && !view.season ? AUTO_MIN_GP[kind] : 0 // best seasons apply their own cutoff on the server
-  const minGp = minGpInput === '' ? autoMin : Number(minGpInput)
+  const byAtt = !!sortCol?.byAtt // shootout rates need a minimum number of attempts, not games
+  const minGp = minGpInput === '' ? (byAtt ? 0 : autoMin) : Number(minGpInput)
   const hasParam = view.has === 'sort' ? sort.key : (view.has ?? '') // a stat that must be above zero: counts and rookie lines leave out players with none
 
   // Best single seasons come from their own endpoint (one row per player per season) and take season filters instead of debut ones.
@@ -223,6 +249,7 @@ export default function AllTime({ kind }) {
   if (activeOnly) p.set('active', 'true')
   if (hofOnly) p.set('hof', 'true')
   if (minGp > 0) p.set('min_gp', minGp)
+  if (byAtt) p.set('min_att', MIN_SO_ATT)
   if (debutFrom) p.set(seasonBoard ? 'season_from' : 'debut_from', debutFrom)
   if (debutTo) p.set(seasonBoard ? 'season_to' : 'debut_to', debutTo)
   if (hasParam) p.set('has', hasParam)
@@ -278,6 +305,7 @@ export default function AllTime({ kind }) {
 
   return (
     <main>
+      <KindSwitch kind={kind} onPick={(id) => navigate(id === 'goalie' ? '/alltime/goalies' : '/alltime/skaters')} />
       <SeasonSwitch kind={kind} active="alltime" />
       <header>
         <h1>{kind === 'skater' ? 'Skater' : 'Goalie'} Stats <span>All-time</span></h1>
@@ -396,25 +424,32 @@ export default function AllTime({ kind }) {
       )}
 
       {kind === 'skater' && (view.id === 'adjusted' || view.id === 'bestAdjusted') && (
-        <p className="sub">
+        <Note label="About adjusted totals">
           Adjusted totals rescale each season's goals and assists to today's scoring level (the last five completed
           seasons), separately for forwards and defensemen, because the league averaged about 4 goals per team game in
           the early 1980s and under 3 in the mid-2000s. Games played are unchanged. It does not correct for ice time,
           power-play share, expansion or schedule length, so treat it as a fairer comparison, not a ruling.
           {view.id === 'adjusted' && ` Rate sorting (Adj P/GP) shows players with at least ${AUTO_MIN_GP.skater} games.`}
-        </p>
+        </Note>
+      )}
+
+      {view.id === 'shootouts' && (
+        <Note label="About shootout stats">
+          Shootouts began in 2005-06, so this covers regular seasons since then. Ranking by {kind === 'skater' ? 'SO%' : 'SO SV%'} shows
+          players with at least {MIN_SO_ATT} {kind === 'skater' ? 'attempts' : 'shots faced'}.
+        </Note>
       )}
 
       {kind === 'skater' && view.id === 'bestDefense' && (
-        <p className="sub">Hits, blocks, takeaways and giveaways have only been recorded since 2005-06, so earlier seasons don't appear here.</p>
+        <Note label="About these stats">Hits, blocks, takeaways and giveaways have only been recorded since 2005-06, so earlier seasons don't appear here.</Note>
       )}
 
       {kind === 'skater' && ['defense', 'shooting'].includes(view.id) && (
-        <p className="sub">
+        <Note label="About these stats">
           Hits, blocks, takeaways, giveaways, missed shots and shot attempts have only been recorded since
           2005-06. Players who finished before then show – , and careers that straddle it only count the
           tracked seasons.
-        </p>
+        </Note>
       )}
 
       {seasonBoard && (
@@ -426,24 +461,30 @@ export default function AllTime({ kind }) {
       )}
 
       {kind === 'skater' && view.id === 'bigGames' && (
-        <p className="sub">
+        <Note label="What counts here">
           A hat trick is three or more goals in one game; the other columns count games with at least that many goals, assists or
           points, so every 4-goal game is also a hat trick. Game-by-game records go back to 1917-18. Switch to Playoffs to count
           postseason games instead.
-        </p>
+        </Note>
       )}
       {kind === 'skater' && ['pointSeasons', 'goalSeasons'].includes(view.id) && (
-        <p className="sub">
+        <Note label="How milestones count">
           Counts the regular seasons in which a player reached the mark (a 100-point season is 100 or more points, whatever the
           schedule length of the time). Best season is the most in any one regular season. Playoff totals don't have seasons to count.
-        </p>
+        </Note>
+      )}
+      {kind === 'skater' && view.id === 'ledLeague' && (
+        <Note label="How leading the league is counted">
+          The number of regular seasons a player finished first among all NHL skaters in the stat. A tie counts for each player, and the
+          current season is left out until it ends.
+        </Note>
       )}
       {kind === 'skater' && view.id === 'rookies' && (
-        <p className="sub">
+        <Note label="What counts as a rookie season">
           A player's rookie season is his first season with more than 25 NHL games, provided he was under 26 when it started
           (the Calder Trophy's rules). The NHL's second test, fewer than six games in each of two earlier seasons, isn't applied,
           so a few players can differ from the official list. Sort by P/GP to rank rookies by pace instead of total.
-        </p>
+        </Note>
       )}
 
       {!view.games && <div className="pager">

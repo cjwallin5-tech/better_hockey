@@ -3,13 +3,14 @@ import PageShell from '../components/PageShell.jsx'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CompareChart } from '../components/Charts.jsx'
 import { ageInSeason, nhlSeasons, seasonGaa, seasonLabel, seasonSvPct } from '../career.js'
-import { fmt1, fmtPct, fmtToi } from '../format.js'
+import { fmt1, fmtPct, fmtToi, fmtSv as sv, lastName } from '../format.js'
 import { DefenseCompare } from '../components/DefenseProfile.jsx'
 import { ScoutingCompare } from '../components/ScoutingCard.jsx'
 import ShareButtons from '../components/ShareButtons.jsx'
 import { GOALIE_CATS, SKATER_CATS, fantasyPoints } from '../fantasy.js'
 import { useScoring } from '../settings.js'
 import { getJson } from '../lists.js'
+import Note from '../components/Note.jsx'
 
 const MAX_PLAYERS = 3
 
@@ -32,9 +33,7 @@ const years = (m) => {
   const a = String(m.first_season ?? '').slice(0, 4)
   return a ? `${m.active_season ? 'active, ' : ''}debut ${a}` : ''
 }
-const lastName = (full) => full.split(' ').slice(1).join(' ') || full
 const num = (v, d = 0) => (v == null ? '–' : Number(v).toFixed(d))
-const sv = (v) => (v == null ? '–' : v.toFixed(3).replace(/^0/, ''))
 const signed = (v) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
 
 // Axis for a rate metric: padded around the data, ticks on round steps.
@@ -341,11 +340,11 @@ export default function Compare({ embedded = false }) {
             yFmt={metric.fmt}
           />
           {metric.era && (
-            <p className="sub">
+            <Note label="About era adjustment">
               Era-adjusted: each season's goals and assists are scaled to today's scoring level for the player's role
               (forward or defenseman), so a 1980s season and a 2020s one are on the same footing. Games, ice time and
               power-play share are not adjusted. <Link to="/alltime/skaters?v=adjusted">See the all-time era-adjusted leaders →</Link>
-            </p>
+            </Note>
           )}
         </>
       )}

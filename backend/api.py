@@ -18,6 +18,11 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 import absences_db
+import finishes
+import franchise
+import seasonlists
+import special_shots
+import srs
 import awards
 import bestseasons
 import records
@@ -138,6 +143,20 @@ ixg AS (
            count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL) AS model_goals
     FROM shot WHERE season_id = %(season)s AND shooter_id IS NOT NULL GROUP BY shooter_id
 ),
+assist_split AS (
+    -- primary (first) and secondary (second) assists, from who assisted each goal (see ingest_play_by_play)
+    SELECT player_id, count(*) FILTER (WHERE rank = 1) AS primary_assists, count(*) FILTER (WHERE rank = 2) AS secondary_assists
+    FROM (SELECT assist1_id AS player_id, 1 AS rank FROM goal_assist WHERE season_id = %(season)s
+          UNION ALL SELECT assist2_id, 2 FROM goal_assist WHERE season_id = %(season)s) a
+    WHERE player_id IS NOT NULL GROUP BY player_id
+),
+special_skater AS (
+    -- shootout attempts and penalty shots taken (see ingest_play_by_play)
+    SELECT shooter_id AS player_id,
+           count(*) FILTER (WHERE kind = 'shootout') AS so_attempts, count(*) FILTER (WHERE kind = 'shootout' AND scored) AS so_goals,
+           count(*) FILTER (WHERE kind = 'penalty_shot') AS ps_attempts, count(*) FILTER (WHERE kind = 'penalty_shot' AND scored) AS ps_goals
+    FROM special_shot WHERE season_id = %(season)s AND shooter_id IS NOT NULL GROUP BY shooter_id
+),
 onice_xg AS (
     SELECT player_id, sum(xgf) AS xgf, sum(xga) AS xga
     FROM skater_game_onice WHERE season_id = %(season)s GROUP BY player_id
@@ -149,11 +168,11 @@ last_game AS (
 ),
 lineup_gap AS (
     -- team games played since the player's most recent appearance
-    SELECT lg.player_id, count(DISTINCT tg.game_id) AS games_out
+    SELECT lg.player_id, count(DISTINCT tg.game_id) AS games_out, lg.game_date AS last_game_date
     FROM last_game lg
     JOIN skater_game tg ON tg.team = lg.team AND tg.season_id = %(season)s
      AND (tg.game_date, tg.game_id) > (lg.game_date, lg.game_id)
-    GROUP BY lg.player_id
+    GROUP BY lg.player_id, lg.game_date
 ),
 recent AS (
     SELECT player_id, count(*) AS games, sum(points) AS points,
@@ -168,6 +187,7 @@ SELECT s.*,
        date_part('year', age(LEAST(current_date, make_date(s.season_id %% 10000, 4, 1)), s.birth_date))::int AS age,
        (s.first_nhl_season = s.season_id) AS rookie,
        COALESCE(lgap.games_out, 0) AS games_out,
+       lgap.last_game_date,
        (position(',' in s.team) > 0) AS traded,
        round(s.points::numeric / s.games_played * %(games)s, 1)::float AS point_pace,
        r.games AS recent_games, r.points AS recent_points,
@@ -176,6 +196,17 @@ SELECT s.*,
        round(r.blocks::numeric / NULLIF(r.def_toi_sec, 0) * 3600, 1)::float AS recent_blocks_per60,
        round(r.takeaways::numeric / NULLIF(r.def_toi_sec, 0) * 3600, 1)::float AS recent_takeaways_per60,
        round(r.giveaways::numeric / NULLIF(r.def_toi_sec, 0) * 3600, 1)::float AS recent_giveaways_per60,
+       -- NULL, not 0, for a season whose goals were never read for assisters (every season but this one)
+       CASE WHEN has_assists.n THEN COALESCE(asp.primary_assists, 0) END AS primary_assists,
+       CASE WHEN has_assists.n THEN COALESCE(asp.secondary_assists, 0) END AS secondary_assists,
+       CASE WHEN has_assists.n THEN s.goals + COALESCE(asp.primary_assists, 0) END AS primary_points,
+       -- even-strength goals for and against per 60 minutes on the ice
+       round((s.ev_goals_for * 3600.0 / NULLIF(s.ev_toi_per_game * s.games_played, 0))::numeric, 2)::float AS ev_gf_per60,
+       round((s.ev_goals_against * 3600.0 / NULLIF(s.ev_toi_per_game * s.games_played, 0))::numeric, 2)::float AS ev_ga_per60,
+       -- NULL, not 0, for a season whose play-by-play was never read for these (every season but this one)
+       CASE WHEN has_special.n THEN COALESCE(sp.so_attempts, 0) END AS so_attempts, CASE WHEN has_special.n THEN COALESCE(sp.so_goals, 0) END AS so_goals,
+       round(sp.so_goals::numeric / NULLIF(sp.so_attempts, 0), 3)::float AS so_pct,
+       CASE WHEN has_special.n THEN COALESCE(sp.ps_attempts, 0) END AS ps_attempts, CASE WHEN has_special.n THEN COALESCE(sp.ps_goals, 0) END AS ps_goals,
        round(ix.ixg::numeric, 2)::float AS ixg,
        round((ix.model_goals - ix.ixg)::numeric, 2)::float AS goals_minus_ixg,
        round(ox.xgf::numeric, 2)::float AS xgf, round(ox.xga::numeric, 2)::float AS xga,
@@ -197,6 +228,10 @@ LEFT JOIN recent r USING (player_id)
 LEFT JOIN onice_recent oi USING (player_id)
 LEFT JOIN lineup_gap lgap USING (player_id)
 LEFT JOIN ixg ix USING (player_id)
+LEFT JOIN assist_split asp USING (player_id)
+LEFT JOIN special_skater sp USING (player_id)
+CROSS JOIN (SELECT EXISTS (SELECT 1 FROM special_shot WHERE season_id = %(season)s) AS n) has_special
+CROSS JOIN (SELECT EXISTS (SELECT 1 FROM goal_assist WHERE season_id = %(season)s) AS n) has_assists
 LEFT JOIN onice_xg ox USING (player_id)
 LEFT JOIN edge_skater_season ed ON ed.player_id = s.player_id AND ed.season_id = s.season_id AND ed.has_data
 WHERE s.season_id = %(season)s AND s.games_played > 0
@@ -340,9 +375,15 @@ ORDER BY t.league_rank
 
 @app.get("/api/teams")
 def teams():
+    """Every team's season line, with its Simple Rating System rating and strength of schedule so far (see srs.py)."""
     params = {"season": config.SEASON_ID, "games": config.GAMES_PER_SEASON}
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
-        return conn.execute(TEAMS_SQL, params).fetchall()
+        rows = conn.execute(TEAMS_SQL, params).fetchall()
+        games = conn.execute("SELECT home, away, home_score, away_score FROM game WHERE season_id = %s AND state IN ('OFF', 'FINAL')",
+                             (config.SEASON_ID,)).fetchall()
+    rated = srs.ratings([(g["home"], g["away"], g["home_score"], g["away_score"]) for g in games])
+    return [{**r, "srs": round(rated[r["abbrev"]]["srs"], 2) if r["abbrev"] in rated else None,
+             "sos": round(rated[r["abbrev"]]["sos"], 2) if r["abbrev"] in rated else None} for r in rows]
 
 
 @app.get("/api/teams/{abbrev}")
@@ -387,8 +428,25 @@ recent AS (
     SELECT player_id, count(*) AS games, sum(saves) AS saves, sum(shots_against) AS shots,
            sum(goals_against) AS goals, sum(toi_sec) AS toi
     FROM ranked WHERE rn <= %(window)s GROUP BY player_id
+),
+special_goalie AS (
+    -- shootout and penalty-shot shots faced (a miss wide is not faced) and saved
+    SELECT goalie_id AS player_id,
+           count(*) FILTER (WHERE kind = 'shootout' AND on_goal) AS so_faced, count(*) FILTER (WHERE kind = 'shootout' AND on_goal AND NOT scored) AS so_saves,
+           count(*) FILTER (WHERE kind = 'penalty_shot' AND on_goal) AS ps_faced, count(*) FILTER (WHERE kind = 'penalty_shot' AND on_goal AND NOT scored) AS ps_saves
+    FROM special_shot WHERE season_id = %(season)s AND goalie_id IS NOT NULL GROUP BY goalie_id
+),
+bad_starts AS (
+    -- a start with a save percentage under .850 (the NHL publishes quality starts but not these)
+    SELECT player_id, count(*) AS n FROM goalie_game
+    WHERE season_id = %(season)s AND started AND shots_against > 0 AND saves::float / shots_against < 0.85 GROUP BY player_id
 )
 SELECT s.*,
+       -- NULL, not 0, for a season without game-by-game rows (every season but this one)
+       CASE WHEN has_games.n THEN COALESCE(b.n, 0) END AS really_bad_starts,
+       CASE WHEN has_special.n THEN COALESCE(sg.so_faced, 0) END AS so_faced, CASE WHEN has_special.n THEN COALESCE(sg.so_saves, 0) END AS so_saves,
+       round(sg.so_saves::numeric / NULLIF(sg.so_faced, 0), 3)::float AS so_sv_pct,
+       CASE WHEN has_special.n THEN COALESCE(sg.ps_faced, 0) END AS ps_faced, CASE WHEN has_special.n THEN COALESCE(sg.ps_saves, 0) END AS ps_saves,
        -- goals saved above average: goals a league-average goalie would have allowed minus actual
        round((s.shots_against * (1 - l.sv_pct) - s.goals_against)::numeric, 2)::float AS gsaa,
        round(((s.shots_against * (1 - l.sv_pct) - s.goals_against) / NULLIF(s.toi_sec, 0) * 3600)::numeric, 2)::float AS gsaa_per60,
@@ -399,7 +457,11 @@ SELECT s.*,
        round(l.sv_pct::numeric, 4)::float AS league_sv_pct
 FROM goalie_season s
 CROSS JOIN league l
+CROSS JOIN (SELECT EXISTS (SELECT 1 FROM goalie_game WHERE season_id = %(season)s) AS n) has_games
 LEFT JOIN recent r USING (player_id)
+LEFT JOIN bad_starts b USING (player_id)
+LEFT JOIN special_goalie sg USING (player_id)
+CROSS JOIN (SELECT EXISTS (SELECT 1 FROM special_shot WHERE season_id = %(season)s) AS n) has_special
 WHERE s.season_id = %(season)s AND s.games_played > 0
 ORDER BY s.wins DESC, s.games_played ASC
 """
@@ -542,14 +604,37 @@ def career(player_id: int):
         raw = _career_payload(conn, player_id)
         tracked = conn.execute(
             "SELECT season_id, hits, blocked_shots, takeaways, giveaways FROM defense_season WHERE player_id = %s", (player_id,)).fetchall()
+        # The NHL lists a nationality separate from the birthplace (Cutter Gauthier was born in Sweden and is American). Our stored
+        # bio tables have it; the flag shows it, and the birthplace stays in the bio line.
+        nat = conn.execute(
+            """SELECT birth_country FROM career_skater WHERE player_id = %(p)s AND game_type = 2
+               UNION ALL SELECT birth_country FROM career_goalie WHERE player_id = %(p)s AND game_type = 2 LIMIT 1""", {"p": player_id}).fetchone()
     if raw is None:
         raise HTTPException(503, "The NHL API is busy right now; try again in a minute.")
     view = _career_view(raw)
+    view["bio"]["nationality"] = (nat and nat["birth_country"]) or view["bio"]["birth_country"]
     # Hits, blocks, takeaways and giveaways per regular season (the NHL's player record has none), keyed by season id. A season's counts are
     # for the whole season, so a player traded mid-season has the same figures against each of that season's team rows.
     view["tracked"] = {str(r["season_id"]): {"hits": r["hits"], "blocks": r["blocked_shots"], "takeaways": r["takeaways"],
                                             "giveaways": r["giveaways"]} for r in tracked}
     return view
+
+
+@app.get("/api/players/{player_id}/finishes")
+def player_finishes(player_id: int):
+    """Where a player ranked among all NHL skaters in goals, assists and points in each finished season: the seasons they led the league and how
+    often they were in the top 5 and top 10 (see finishes.py)."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        rows = conn.execute(
+            """SELECT m.season_id, m.goals, m.assists, m.points, r.goals_rank, r.assists_rank, r.points_rank
+               FROM career_season m
+               CROSS JOIN LATERAL (
+                   SELECT 1 + count(*) FILTER (WHERE c.goals > m.goals) AS goals_rank,
+                          1 + count(*) FILTER (WHERE c.assists > m.assists) AS assists_rank,
+                          1 + count(*) FILTER (WHERE c.points > m.points) AS points_rank
+                   FROM career_season c WHERE c.season_id = m.season_id) r
+               WHERE m.player_id = %s AND m.season_id <> %s""", (player_id, config.SEASON_ID)).fetchall()
+    return {"stats": finishes.summarize(rows)}
 
 
 # --- "Players like this": style similarity from this season's rates ---------------------------
@@ -1823,6 +1908,46 @@ def fantasy_week(ids: str = "", days: int = FANTASY_DAYS):
     return {"from": today, "to": end, "players": players}
 
 
+FORM_GAMES = 10
+
+
+@app.get("/api/fantasy/form")
+def fantasy_form(ids: str = ""):
+    """For a roster: each player's last FORM_GAMES games this season, oldest first, for the sparklines on the Fantasy page.
+    Skaters get points a game; goalies get the save percentage of each game they played (null when they faced no shots)."""
+    try:
+        wanted = [int(i) for i in ids.split(",") if i.strip()][:60]
+    except ValueError:
+        raise HTTPException(400, "ids must be comma-separated player ids")
+    if not wanted:
+        return {"players": {}}
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        skaters = conn.execute(
+            """SELECT player_id, game_date, opponent, goals, assists, points FROM (
+                   SELECT player_id, game_id, game_date, opponent, goals, assists, points,
+                          row_number() OVER (PARTITION BY player_id ORDER BY game_date DESC, game_id DESC) AS n
+                   FROM skater_game WHERE season_id = %s AND player_id = ANY(%s)) t
+               WHERE n <= %s ORDER BY player_id, game_date, game_id""",
+            (config.SEASON_ID, wanted, FORM_GAMES)).fetchall()
+        goalies = conn.execute(
+            """SELECT player_id, game_date, opponent, shots_against, saves, goals_against FROM (
+                   SELECT player_id, game_id, game_date, opponent, shots_against, saves, goals_against,
+                          row_number() OVER (PARTITION BY player_id ORDER BY game_date DESC, game_id DESC) AS n
+                   FROM goalie_game WHERE season_id = %s AND player_id = ANY(%s) AND COALESCE(toi_sec, 0) > 0) t
+               WHERE n <= %s ORDER BY player_id, game_date, game_id""",
+            (config.SEASON_ID, wanted, FORM_GAMES)).fetchall()
+    players = {}
+    for r in skaters:
+        players.setdefault(str(r["player_id"]), {"kind": "skater", "games": []})["games"].append({
+            "date": r["game_date"], "opponent": r["opponent"], "goals": r["goals"], "assists": r["assists"], "points": r["points"]})
+    for r in goalies:
+        sa = r["shots_against"]
+        players.setdefault(str(r["player_id"]), {"kind": "goalie", "games": []})["games"].append({
+            "date": r["game_date"], "opponent": r["opponent"], "shots_against": sa, "goals_against": r["goals_against"],
+            "save_pct": (r["saves"] / sa) if sa else None})
+    return {"players": players}
+
+
 # --- Trophy races ------------------------------------------------------------------------------
 # "In contention" is a stats-only proxy: a player is listed when they sit in the top CONTENTION_SIZE
 # (ties included) for the trophy's deciding stat. Voted awards (Hart, Selke, Lady Byng...) turn on
@@ -2092,9 +2217,11 @@ ALLTIME_SORTS = {
                "game_winning_goals", "ot_goals", "shots", "shooting_pct", "fo_win_pct", "hits", "blocked_shots",
                "takeaways", "giveaways", "missed_shots", "shot_attempts", "empty_net_goals", "first_goals",
                "adj_goals", "adj_assists", "adj_points", "adj_points_per_game", "goals_per_game", "assists_per_game",
+               "so_att", "so_goals", "so_pct", "so_gwg",
                *(c for c, _ in records.COLUMNS if c not in ("goals_per_game", "assists_per_game"))},
     "goalie": {"name", "first_season", "games_played", "games_started", "wins", "losses", "ot_losses",
-               "ties", "saves", "shots_against", "goals_against", "save_pct", "gaa", "shutouts", "toi_sec"},
+               "ties", "saves", "shots_against", "goals_against", "save_pct", "gaa", "shutouts", "toi_sec",
+               "so_att", "so_saves", "so_sv_pct", "so_wins", "so_losses"},
 }
 
 
@@ -2133,6 +2260,7 @@ def alltime(
     active: bool = False,
     hof: bool = False,
     min_gp: int = 0,
+    min_att: int = 0,
     debut_from: int | None = None,
     debut_to: int | None = None,
     has: str = "",
@@ -2173,6 +2301,9 @@ def alltime(
     if min_gp > 0:
         where.append("games_played >= %(min_gp)s")
         params["min_gp"] = min_gp
+    if min_att > 0:
+        where.append("so_att >= %(min_att)s")
+        params["min_att"] = min_att
     if has:
         if has not in ALLTIME_SORTS[kind] or has == "name":
             raise HTTPException(400, f"Can't filter on {has}")
@@ -2713,6 +2844,9 @@ def home():
         "upcoming": upcoming,
         "hot": [slim(r, streak=streaks[r["player_id"]]["point_streak"]) for r in hot],
         "cold": [slim(r, streak=streaks[r["player_id"]]["pointless_streak"]) for r in cold],
+        # season leaders by the plain totals; a tie goes to the player with fewer games, then more of the other stat
+        "points_leaders": [slim(r) for r in sorted(skaters, key=lambda r: (-r["points"], r["games_played"], -r["goals"], r["name"]))[:5]],
+        "goals_leaders": [slim(r) for r in sorted(skaters, key=lambda r: (-r["goals"], r["games_played"], -r["points"], r["name"]))[:5]],
         "point_pace": [slim(r, pace=r["point_pace"]) for r in sorted(qualified, key=lambda r: -(r["point_pace"] or 0))[:5]],
         "goal_pace": [slim(r, pace=round(r["goals"] / r["games_played"] * config.GAMES_PER_SEASON, 1)) for r in goal_pace],
         "goalies": [
@@ -4040,6 +4174,27 @@ def skater_pace_history(player_id: int, stat: str = "points"):
     return {"stat": stat, "games_per_season": config.GAMES_PER_SEASON, "seasons": seasons}
 
 
+@app.get("/api/teams/{abbrev}/history")
+def team_history(abbrev: str):
+    """A franchise's all-time record, Cups, playoff appearances and a line per season, from the NHL records site (see franchise.py)."""
+    abbrev = abbrev.upper()
+    found = next((f for f in _records_rows(f"{RECORDS_API}/franchise") if f.get("teamAbbrev") == abbrev), None)
+    if found is None:
+        raise HTTPException(404, "Team not found")
+    mine = lambda rows: [r for r in rows if r["franchiseId"] == found["id"]]
+    totals = mine(_records_rows(f"{RECORDS_API}/franchise-totals"))
+    appearances = next(iter(mine(_records_rows(f"{RECORDS_API}/franchise-playoff-appearances"))), None)
+    seasons = _records_rows(f"{RECORDS_API}/franchise-season-results", cayenneExp=f"franchiseId={found['id']}", limit=-1)
+    return franchise.history(found, totals, appearances, seasons, config.SEASON_ID)
+
+
+@app.get("/api/teams/{abbrev}/special-shots")
+def team_special_shots(abbrev: str):
+    """A team's shootout record and shooters, its goalies' shootout saves, and its penalty shots for and against this season."""
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        return special_shots.team_view(conn, config.SEASON_ID, abbrev.upper())
+
+
 @app.get("/api/teams/{abbrev}/pace-history")
 def team_pace_history(abbrev: str):
     """Cumulative standings points by team game number: this season against past seasons."""
@@ -4085,3 +4240,25 @@ def records():
         out[stat] = {"record": best, "top_ten": [r for r in recs if r["stat"] == stat], "on_pace": paces}
     return {"records": out, "min_gp": min_gp, "games_per_season": config.GAMES_PER_SEASON}
 
+
+@app.get("/api/history/season/{season}")
+def history_season(season: int):
+    """Who made their NHL debut in a season and who played their last (see seasonlists.py)."""
+    if not (19171918 <= season <= config.SEASON_ID and season % 10000 - season // 10000 == 1):
+        raise HTTPException(404, "No such season")
+    with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
+        return {"season": season, "debuts": seasonlists.debuts(conn, season), "finals": seasonlists.finals(conn, season, config.SEASON_ID)}
+
+
+@app.get("/api/history/numbers")
+def history_numbers():
+    """How many players have worn each sweater number."""
+    with psycopg.connect(config.DATABASE_URL) as conn:
+        return seasonlists.numbers(conn)
+
+
+@app.get("/api/history/numbers/{number}")
+def history_number(number: int):
+    """Everyone who has worn a sweater number, with their teams and seasons."""
+    with psycopg.connect(config.DATABASE_URL) as conn:
+        return seasonlists.number_history(conn, number)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TeamLogo from './TeamLogo.jsx'
 import { describe } from '../glossary.js'
+import Note from './Note.jsx'
 
 const pct = (p) => (p >= 0.995 ? '>99%' : p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`)
 
@@ -23,14 +24,14 @@ export default function PlayoffOdds({ teams }) {
   const conferences = ['Eastern', 'Western']
   return (
     <>
-      <p className="sub">
+      <Note label="How the odds work">
         Odds come from playing out the {data.games_remaining.toLocaleString()} remaining games {data.sims.toLocaleString()} times.
         Each team is rated on goal differential per game, pulled toward average while few games are played, with a small home-ice
         edge. It's a model, not a prediction, and it's very uncertain early in the season. The top 3 in each division plus 2 wild
         cards per conference make it. The last four columns play the playoffs out from every simulated field: best-of-seven series with
         the better seed at home, each game decided by the same strength gap. Series are close to coin flips, so even the best team's
         Cup chance is modest, and early in the season the ratings lean on a small sample.
-      </p>
+      </Note>
       {conferences.map((conf) => {
         const rows = data.teams.filter((t) => t.conference === conf).sort((a, b) => b.make_playoffs - a.make_playoffs || b.points - a.points)
         return (

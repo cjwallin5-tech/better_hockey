@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { countryInfo } from '../countries.js'
 import { fetchBio } from '../playerBio.js'
 
-/** The flag of the country a player was born in (what the NHL lists as their nationality); nothing until known. */
+/** The flag of a player's nationality as the NHL lists it (which can differ from where they were born); nothing until known. */
 export default function Flag({ playerId }) {
   const [code, setCode] = useState(null)
   useEffect(() => {
     let ignore = false
-    fetchBio(playerId).then((b) => !ignore && setCode(b?.birth_country ?? null))
+    fetchBio(playerId).then((b) => !ignore && setCode(b?.nationality ?? null))
     return () => { ignore = true }
   }, [playerId])
   const info = code && countryInfo(code)

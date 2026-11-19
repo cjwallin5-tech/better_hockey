@@ -21,7 +21,9 @@ MILESTONES = [
     ("seasons_60p", "points", 60), ("seasons_80p", "points", 80), ("seasons_90p", "points", 90), ("seasons_100p", "points", 100),
 ]
 GAME_COLUMNS = ["hat_tricks", "four_goal_games", "five_goal_games", "three_assist_games", "four_point_games", "five_point_games"]
-SEASON_COLUMNS = ["seasons_played", "best_goals", "best_assists", "best_points"] + [m[0] for m in MILESTONES]
+# seasons a player finished first among all skaters in the stat (a tie counts for each); the season in progress is not counted
+LED = [("led_points", "points"), ("led_goals", "goals"), ("led_assists", "assists")]
+SEASON_COLUMNS = ["seasons_played", "best_goals", "best_assists", "best_points"] + [m[0] for m in MILESTONES] + [c for c, _ in LED]
 ROOKIE_COLUMNS = ["rookie_season", "rookie_gp", "rookie_goals", "rookie_assists", "rookie_points", "rookie_points_per_game"]
 RATE_COLUMNS = ["goals_per_game", "assists_per_game"]
 # Every column this module adds to career_skater, with its SQL type (schema.sql must declare the same ones; a test checks it).
@@ -43,9 +45,14 @@ def game_counts(games):
     return out
 
 
-def season_figures(seasons):
-    """{player_id: {column: value}}: seasons played, best single season and each milestone count, from regular-season rows
-    (dicts with player_id, goals, assists, points)."""
+def season_figures(seasons, current_season=None):
+    """{player_id: {column: value}}: seasons played, best single season, each milestone count and the seasons led the league, from
+    regular-season rows (dicts with player_id, season_id, goals, assists, points) for every skater. current_season is not counted
+    toward leading the league, since it is not over."""
+    top = {}   # (season, stat) -> the most any skater had, to see who led
+    for s in seasons:
+        for _, stat in LED:
+            top[(s["season_id"], stat)] = max(top.get((s["season_id"], stat), 0), s[stat])
     out = {}
     for s in seasons:
         o = out.setdefault(s["player_id"], dict.fromkeys(SEASON_COLUMNS, 0))
@@ -54,6 +61,9 @@ def season_figures(seasons):
             o[col] = max(o[col], s[stat])
         for col, stat, at in MILESTONES:
             o[col] += s[stat] >= at
+        if s["season_id"] != current_season:
+            for col, stat in LED:
+                o[col] += 0 < s[stat] == top[(s["season_id"], stat)]
     return out
 
 

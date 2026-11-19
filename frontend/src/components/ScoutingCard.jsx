@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { axisValue, ordinal, radarPoint, radarPolygon } from '../scouting.js'
 import ShareButtons from './ShareButtons.jsx'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
 
 const SIZE = 380
 const C = SIZE / 2
@@ -96,12 +98,9 @@ export default function ScoutingCard({ playerId }) {
   }
   return (
     <section>
-      <h2>Scouting card</h2>
-      <p className="sub">
-        How {data.name} ranks among {data.peer_count} {data.peer_group} this season, as percentiles (the outer ring is the
+      <h2>Scouting card<Info label="Scouting card">How {data.name} ranks among {data.peer_count} {data.peer_group} this season, as percentiles (the outer ring is the
         best in the league; Defense is scored so that fewer expected goals against is better).
-        {data.small_sample && <> Only {data.games_played} GP so far, fewer than the {data.min_gp} used as a peer cutoff, so treat this as early.</>}
-      </p>
+        {data.small_sample && <> Only {data.games_played} GP so far, fewer than the {data.min_gp} used as a peer cutoff, so treat this as early.</>}</Info></h2>
       <div className="scout">
         <figure className="chart scout-radar">
           <Radar series={[{ id: playerId, slot: 1, name: data.name, axes: data.axes }]} />
@@ -112,10 +111,10 @@ export default function ScoutingCard({ playerId }) {
             <strong>Weaknesses:</strong> {data.weaknesses.length ? list(data.weaknesses) : 'none stand out'}.
           </p>
           <AxisTable data={data} />
-          <p className="def-foot">
+          <Note label="About the scoring axis">
             * Scoring includes finishing luck and teammates' shooting; see the luck panel. Hits and shot blocking describe
             style, not quality, so they are left out of the strengths and weaknesses. Speed needs NHL EDGE data.
-          </p>
+          </Note>
           <ShareButtons card={card} filename={`${data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-scouting.png`} />
         </div>
       </div>

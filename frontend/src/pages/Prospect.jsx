@@ -9,6 +9,7 @@ import { Line, draftText, height, ppg, svp } from '../components/ProspectBits.js
 import PageSkeleton from '../components/Skeleton.jsx'
 import { nhleSentence, nhleText, nhleTitle } from '../nhle.js'
 import { reachedNhl } from '../prospectStatus.js'
+import Note from '../components/Note.jsx'
 
 export default function Prospect() {
   const { id } = useParams()
@@ -71,7 +72,7 @@ export default function Prospect() {
           </tbody>
         </table>
       </div>
-      <p className="sub">Every league the player has played in, from the NHL's player record. Leagues aren't comparable with one another, so judge the climb from league to league rather than the raw totals; the NHLe column translates each regular season into NHL points over a full season (see the Prospects page for how).</p>
+      <Note label="About league stats">Every league the player has played in, from the NHL's player record. Leagues aren't comparable with one another, so judge the climb from league to league rather than the raw totals; the NHLe column translates each regular season into NHL points over a full season (see the Prospects page for how).</Note>
     </main>
   )
 }

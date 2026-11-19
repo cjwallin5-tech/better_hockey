@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { buildEntries, optimize } from '../lineup.js'
 import { Skeleton } from './Skeleton.jsx'
 import NeedRoster from './NeedRoster.jsx'
+import Info from './Info.jsx'
+import { dayName } from '../format.js'
 
-const dayName = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
 const GROUP_ORDER = ['C', 'L', 'R', 'D', 'G']
 const ok = (r) => (r.ok ? r.json() : null)
 
@@ -53,14 +54,11 @@ export default function LineupOptimizer({ players, values, scoring, league }) {
 
   return (
     <section>
-      <h2>Lineup optimizer</h2>
-      <p className="sub">
-        The best lineup for the next 7 days under your {isCats ? 'categories' : 'scoring'} and slots
+      <h2>Lineup optimizer<Info label="Lineup optimizer">The best lineup for the next 7 days under your {isCats ? 'categories' : 'scoring'} and slots
         ({GROUP_ORDER.filter((g) => league.slots[g]).map((g) => `${league.slots[g]} ${g}`).join(', ')}; change them in Scoring &amp; backup).
         Each game is scored by the player's expected {isCats ? 'z-score' : 'fantasy points'} a game, nudged up or down by how soft the opponent is,
         and a goalie's by his chance to start times what a start there is worth. It can't see injuries (a badge marks players who have missed
-        recent games), so check your lineup against the news before locking it.
-      </p>
+        recent games), so check your lineup against the news before locking it.</Info></h2>
       <div className="tabs" role="group" aria-label="Lineup changes">
         <button className={mode === 'daily' ? 'on' : ''} onClick={() => setMode('daily')}>Change lineup daily</button>
         <button className={mode === 'weekly' ? 'on' : ''} onClick={() => setMode('weekly')}>Lock lineup for the week</button>

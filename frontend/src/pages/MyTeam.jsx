@@ -9,6 +9,7 @@ import { fmt1 } from '../format.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 import TeamMark from '../components/TeamMark.jsx'
 import { teamColor } from '../teamColors.js'
+import Info from '../components/Info.jsx'
 
 const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`)
 const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -129,11 +130,8 @@ function SeasonLog({ abbrev }) {
           </section>
 
           <section>
-            <h2>Game by game</h2>
-            <p className="sub">
-              Newest first. xG is our own expected-goals model; xG share is the team's part of both sides' chances (50% is even). PP xG is
-              what the power play created and PK xG what the other team's power play created against yours. A shootout win shows as a one-goal win.
-            </p>
+            <h2>Game by game<Info label="Game by game">Newest first. xG is our own expected-goals model; xG share is the team's part of both sides' chances (50% is even). PP xG is
+              what the power play created and PK xG what the other team's power play created against yours. A shootout win shows as a one-goal win.</Info></h2>
             <div className="table-wrap">
               <table>
                 <thead>

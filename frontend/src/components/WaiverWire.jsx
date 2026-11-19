@@ -5,6 +5,9 @@ import { SORTS, luckById, scheduleByTeam, waiverRows } from '../waiver.js'
 import { describe } from '../glossary.js'
 import { fmt1 } from '../format.js'
 import { Skeleton } from './Skeleton.jsx'
+import { gainingFrom, signedTime, useAbsences } from '../absences.js'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
 
 const POSITIONS = {
   skater: [['all', 'All skaters'], ['F', 'Forwards'], ['C', 'Centers'], ['L', 'Left wings'], ['R', 'Right wings'], ['D', 'Defensemen']],
@@ -39,6 +42,14 @@ function useSignals(kind) {
   return state.kind === kind ? state : null
 }
 
+/** "more minutes" badge for a free player who is picking up the ice time of a teammate who is out. */
+function MinutesBadge({ absences, id }) {
+  const top = gainingFrom(absences, id)[0]
+  if (!top) return null
+  const last = top.absence.name.split(' ').slice(1).join(' ') || top.absence.name
+  return <span className="badge good" title={`About ${signedTime(top.gain.total)} a game of ice time with ${top.absence.name} out (${top.absence.games_out} games)`}>more minutes: {last} out</span>
+}
+
 const gamesTitle = (r) => (r.games == null ? '' : `${r.games} games in the next 7 days${r.ratio != null ? `; average matchup rating ${r.ratio.toFixed(2)} (above 1 is soft)` : ''}`)
 
 /**
@@ -54,6 +65,7 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, take
   const [hideHurt, setHideHurt] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const signals = useSignals(kind)
+  const absences = useAbsences()
   const goalie = kind === 'goalie'
 
   const rows = useMemo(() => {
@@ -70,11 +82,8 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, take
 
   return (
     <section>
-      <h2>Waiver wire: {goalie ? 'goalies' : 'skaters'}</h2>
-      <p className="sub">
-        Players not on your roster. Value is over the rest of the season in your league settings (0 is a replacement-level player you could always find).
-        {' '}{activeSort.hint}.
-      </p>
+      <h2>Waiver wire: {goalie ? 'goalies' : 'skaters'}<Info label="Waiver wire">Players not on your roster. Value is over the rest of the season in your league settings (0 is a replacement-level player you could always find).
+        {' '}{activeSort.hint}.</Info></h2>
       <div className="tabs" role="tablist" aria-label="Sort the waiver wire">
         {sorts.map((s) => (
           <button key={s.id} role="tab" aria-selected={s.id === sort} className={s.id === sort ? 'on' : ''} title={s.hint} onClick={() => { setSort(s.id); setShowAll(false) }}>{s.label}</button>
@@ -105,16 +114,16 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, take
         </label>
       </div>
       {taken && (
-        <p className="sub small">
+        <Note label="How availability is known">
           Availability comes from the rosters in {leagueName || 'your league'}: {taken.size} players are on other teams. A team with no roster entered yet
           counts as having nobody, so players it holds may still show here.
-        </p>
+        </Note>
       )}
       {!taken && likelyAvailable && (
-        <p className="sub small">
+        <Note label="About likely available">
           Hides the best players at each position by value (as many as a league of {league.teams} teams starts), who are probably already rostered.
           We can't see who is actually owned in your league.
-        </p>
+        </Note>
       )}
 
       {!rows && <Skeleton />}
@@ -146,6 +155,7 @@ export default function WaiverWire({ data, kind, values, rosterIds, league, take
                   <td title={gamesTitle(r)}>{r.games ?? '–'}</td>
                   <td className="left">
                     {r.hurt && <span className="badge warn" title="Not in the team's last games">out {r.gamesOut}</span>}
+                    {!goalie && <MinutesBadge absences={absences} id={r.id} />}
                     {r.hot && <span className="badge" title="Recent point pace is well above the season pace">hot stretch</span>}
                     {r.luck?.flag === 'cold' && <span className="badge" title={goalie ? 'Saving fewer than the shots faced should allow: likely to improve' : 'Scoring below what the shots and chances support: likely to rebound'}>due</span>}
                     {r.luck?.flag === 'hot' && <span className="badge caution" title={goalie ? 'Saving more than the shots faced should allow: may cool off' : 'Scoring above what the shots and chances support: may cool off'}>running hot</span>}

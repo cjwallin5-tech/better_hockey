@@ -20,6 +20,7 @@ import prospects as prospectlib
 import nhle
 import records
 import shots as shotlib
+import sweaters
 
 FINAL_STATES = ('OFF', 'FINAL')
 
@@ -120,6 +121,9 @@ GOALIE_STATS = [
     ("gaa", "summary", "goalsAgainstAverage", "REAL"),
     ("shutouts", "summary", "shutouts", "INTEGER"),
     ("toi_sec", "summary", "timeOnIce", "INTEGER"),
+    ("goals", "summary", "goals", "INTEGER"),
+    ("assists", "summary", "assists", "INTEGER"),
+    ("pim", "summary", "penaltyMinutes", "INTEGER"),
     ("quality_starts", "advanced", "qualityStart", "INTEGER"),
     ("quality_start_pct", "advanced", "qualityStartsPct", "REAL"),
     ("complete_games", "advanced", "completeGames", "INTEGER"),
@@ -207,6 +211,11 @@ ALLTIME_SKATER = [
     ("shot_attempts", "realtime", "totalShotAttempts", "INTEGER"),
     ("empty_net_goals", "realtime", "emptyNetGoals", "INTEGER"),
     ("first_goals", "realtime", "firstGoals", "INTEGER"),
+    # Shootouts began in 2005-06; players who never took one have no row, so these stay NULL (regular season only).
+    ("so_att", "shootout", "shootoutShots", "INTEGER"),
+    ("so_goals", "shootout", "shootoutGoals", "INTEGER"),
+    ("so_pct", "shootout", "shootoutShootingPct", "REAL"),
+    ("so_gwg", "shootout", "shootoutGameDecidingGoals", "INTEGER"),
     ("birth_date", "bios", "birthDate", "DATE"),
     ("birth_country", "bios", "nationalityCode", "TEXT"),
     ("first_season", "bios", "firstSeasonForGameType", "INTEGER"),
@@ -231,6 +240,11 @@ ALLTIME_GOALIE = [
     ("goals", "summary", "goals", "INTEGER"),
     ("assists", "summary", "assists", "INTEGER"),
     ("pim", "summary", "penaltyMinutes", "INTEGER"),
+    ("so_att", "shootout", "shootoutShotsAgainst", "INTEGER"),
+    ("so_saves", "shootout", "shootoutSaves", "INTEGER"),
+    ("so_sv_pct", "shootout", "shootoutSavePct", "REAL"),
+    ("so_wins", "shootout", "shootoutWins", "INTEGER"),
+    ("so_losses", "shootout", "shootoutLosses", "INTEGER"),
     ("birth_date", "bios", "birthDate", "DATE"),
     ("birth_country", "bios", "nationalityCode", "TEXT"),
     ("first_season", "bios", "firstSeasonForGameType", "INTEGER"),
@@ -781,6 +795,44 @@ def ingest_onice(conn):
     print(f"on-ice: {len(todo) - missing} games stored, {missing} without usable shift data")
 
 
+PBP_VERSION = 3   # what a game's play-by-play read stores: 1 = who assisted each goal; 2 = also shootout attempts and penalty shots; 3 = whether each was on goal
+
+
+def ingest_play_by_play(conn):
+    """From each finished game's play-by-play, for games not read at this version yet (one request per game): who assisted each goal, and
+    the shootout attempts and penalty shots (the NHL's season totals have none of these)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT DISTINCT game_id FROM skater_game WHERE season_id = %s
+               AND game_id NOT IN (SELECT game_id FROM goal_assist_game WHERE version >= %s) ORDER BY game_id""", (config.SEASON_ID, PBP_VERSION))
+        todo = [r[0] for r in cur.fetchall()]
+    print(f"play-by-play: reading {len(todo)} games", flush=True)
+    failed = 0
+    with ThreadPoolExecutor(max_workers=2) as pool, conn.cursor() as cur:
+        futures = {gid: pool.submit(fetch_pbp, gid) for gid in todo}
+        for gid, fut in futures.items():
+            try:
+                _, pbp = fut.result()
+            except requests.RequestException as e:   # read again tomorrow
+                failed += 1
+                print(f"  game {gid}: {e}", flush=True)
+                continue
+            team = {pbp["homeTeam"]["id"]: pbp["homeTeam"]["abbrev"], pbp["awayTeam"]["id"]: pbp["awayTeam"]["abbrev"]}
+            cur.execute("DELETE FROM goal_assist WHERE game_id = %s", (gid,))
+            cur.executemany(
+                "INSERT INTO goal_assist (game_id, event_id, season_id, scorer_id, assist1_id, assist2_id) VALUES (%s,%s,%s,%s,%s,%s)",
+                [(gid, e, config.SEASON_ID, scorer, a1, a2) for e, scorer, a1, a2 in shotlib.extract_goal_assists(pbp) if e is not None])
+            cur.execute("DELETE FROM special_shot WHERE game_id = %s", (gid,))
+            cur.executemany(
+                "INSERT INTO special_shot (game_id, event_id, season_id, kind, period, team, shooter_id, goalie_id, scored, on_goal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                [(gid, r["event_id"], config.SEASON_ID, r["kind"], r["period"], team.get(r["team_id"]), r["shooter_id"], r["goalie_id"], r["scored"], r["on_goal"])
+                 for r in shotlib.extract_special_shots(pbp) if r["event_id"] is not None])
+            cur.execute("INSERT INTO goal_assist_game (game_id, version) VALUES (%s, %s) ON CONFLICT (game_id) DO UPDATE SET version = EXCLUDED.version",
+                        (gid, PBP_VERSION))
+            conn.commit()
+    print(f"play-by-play: {len(todo) - failed} games read, {failed} to retry", flush=True)
+
+
 def onice_rows(game_id, season_id, pbp, shift_rows, skater_ids):
     """One skater_game_onice row per skater for a game, computed without storing shots or lines:
     5v5 Corsi/Fenwick, goals, xG for/against, 5v5 time and the player's team."""
@@ -1182,7 +1234,7 @@ def ingest_records(conn):
         "SELECT player_id, season_id, games_played, goals, assists, points FROM career_season").fetchall()]
     births = dict(conn.execute("SELECT player_id, birth_date FROM career_skater WHERE game_type = 2").fetchall())
     counts = records.game_counts(games)
-    figures = records.season_figures(seasons)
+    figures = records.season_figures(seasons, config.SEASON_ID)
     rookies = records.rookie_lines(seasons, births)
     with conn.cursor() as cur:
         for game_type in (2, 3):
@@ -1814,6 +1866,44 @@ def backfill_international(conn, limit=None):
     print(f"international and awards: {total} tournament rows and {awards} awards stored, {failed} players failed this run (run again to retry)", flush=True)
 
 
+def ingest_sweaters(conn, current_only=False, limit=None):
+    """Sweater numbers from the team rosters. Past seasons never change, so each (season, team) roster is read once; the current
+    season is read again every run (numbers change with trades). `current_only` skips the history, which `backfill-sweaters` reads."""
+    if current_only:
+        teams = [r[0] for r in conn.execute("SELECT abbrev FROM team_season WHERE season_id = %s", (config.SEASON_ID,))]
+    else:
+        teams = [t["triCode"] for t in get_json(f"{config.STATS_API}/team")["data"]]
+    done = set(conn.execute("SELECT season_id, team FROM player_number_done").fetchall())
+    todo = []
+    for team in teams:
+        try:
+            seasons = [config.SEASON_ID] if current_only else get_json(f"{config.WEB_API}/roster-season/{team}")
+        except requests.HTTPError:
+            continue
+        todo += [(s, team) for s in seasons if s == config.SEASON_ID or (s, team) not in done]
+        time.sleep(0.3)
+    todo = todo[:limit]
+    started, stored = time.time(), 0
+    for n, (season, team) in enumerate(todo, 1):
+        try:
+            rows = sweaters.roster_rows(get_json(f"{config.WEB_API}/roster/{team}/{season}"), season, team)
+        except requests.HTTPError:      # no roster for that season (a lockout, say)
+            rows = []
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM player_number WHERE season_id = %s AND team = %s", (season, team))
+            cur.executemany("INSERT INTO player_number (player_id, season_id, team, number, name, position) VALUES (%s,%s,%s,%s,%s,%s) "
+                            "ON CONFLICT DO NOTHING", rows)
+            if season != config.SEASON_ID:
+                cur.execute("INSERT INTO player_number_done (season_id, team) VALUES (%s, %s) ON CONFLICT DO NOTHING", (season, team))
+        stored += len(rows)
+        if n % 50 == 0:
+            conn.commit()
+            print(f"  {n}/{len(todo)} rosters ({(len(todo) - n) / (n / (time.time() - started)) / 60:.0f} min left)", flush=True)
+        time.sleep(0.3)
+    conn.commit()
+    print(f"sweaters: {len(todo)} rosters read, {stored} numbers stored", flush=True)
+
+
 def main():
     with psycopg.connect(config.DATABASE_URL) as conn:
         conn.execute((Path(__file__).parent / "schema.sql").read_text())
@@ -1823,6 +1913,8 @@ def main():
         ingest_schedule(conn)
         ingest_goalie_season(conn)
         ingest_games(conn)
+        ingest_play_by_play(conn)
+        ingest_sweaters(conn, current_only=True)
         ingest_toi(conn)
         ingest_onice(conn)
         ingest_alltime(conn)
@@ -1910,6 +2002,13 @@ if __name__ == "__main__":
             conn.execute((Path(__file__).parent / "schema.sql").read_text())
             conn.commit()
             backfill_shots(conn, seasons, limit)
+    elif sys.argv[1:2] == ["backfill-sweaters"]:
+        # python ingest.py backfill-sweaters [--limit N]   (every team's roster back to 1917; resumable, about 1,700 requests)
+        rest = sys.argv[2:]
+        with psycopg.connect(config.DATABASE_URL) as conn:
+            conn.execute((Path(__file__).parent / "schema.sql").read_text())
+            conn.commit()
+            ingest_sweaters(conn, limit=int(rest[1]) if rest[:1] == ["--limit"] else None)
     elif sys.argv[1:2] == ["backfill-shot-locations"]:
         # python ingest.py backfill-shot-locations [20222023,20232024,...] [--limit N]
         seasons, limit = parse_backfill_args(sys.argv[2:], [config.SEASON_ID - 10001 * i for i in range(1, 5)])

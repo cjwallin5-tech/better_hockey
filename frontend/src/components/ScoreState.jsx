@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { STATE_LABEL, clutchVerdict, signed } from '../scoreState.js'
 import { seasonLabel } from '../career.js'
 import { describe } from '../glossary.js'
+import Info from './Info.jsx'
+import Note from './Note.jsx'
 
 function useScoreState(id, span) {
   const key = `${id}/${span}`
@@ -45,12 +47,9 @@ export default function ScoreState({ playerId }) {
   const seasons = data.seasons
   return (
     <section>
-      <h2>Close games and clutch</h2>
-      <p className="sub">
-        Finishing in close, late moments (third period, the score within one goal) against his own finishing in all his other
+      <h2>Close games and clutch<Info label="Close games and clutch">Finishing in close, late moments (third period, the score within one goal) against his own finishing in all his other
         shots{seasons.length ? `, ${seasons.length === 1 ? seasonLabel(seasons[0]) : `${seasons.length} seasons`}` : ''}. Goals are rare,
-        so a few of them either way move these figures a lot.
-      </p>
+        so a few of them either way move these figures a lot.</Info></h2>
       <div className="controls">
         <label>Show{' '}
           <select value={span} onChange={(e) => setSpan(e.target.value)} aria-label="Seasons">
@@ -83,7 +82,7 @@ export default function ScoreState({ playerId }) {
           </tbody>
         </table>
       </div>
-      <p className="def-foot">
+      <Note label="About these splits">
         By score state counts even-strength shots in regulation only. Trailing and leading include {STATE_LABEL.trail1.toLowerCase()} and
         {' '}{STATE_LABEL.trail2.toLowerCase()}, and the same for leads.
         {bt && bt.r_clutch != null && (
@@ -94,7 +93,7 @@ export default function ScoreState({ playerId }) {
             player-seasons were beyond two standard deviations, against about {(bt.expected_beyond_2 * 100).toFixed(0)}% by chance alone.
           </>
         )}
-      </p>
+      </Note>
     </section>
   )
 }

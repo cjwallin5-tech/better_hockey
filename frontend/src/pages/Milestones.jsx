@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import PageShell from '../components/PageShell.jsx'
 import { describe } from '../glossary.js'
 import PageSkeleton from '../components/Skeleton.jsx'
+import PageIntro from '../components/PageIntro.jsx'
 
 const day = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -54,12 +55,9 @@ export default function Milestones({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        {!embedded && <h1>Milestone watch</h1>}
-        <p>
-          Active players closing in on career milestones. "Games" are the player's own
+        <PageIntro title="Milestone watch" embedded={embedded}>Active players closing in on career milestones. "Games" are the player's own
           appearances at their current rate: this season's pace once they have 20 GP, otherwise
-          their career average.
-        </p>
+          their career average.</PageIntro>
       </header>
 
       <div className="controls">

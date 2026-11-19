@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { GROUPS } from '../value.js'
 import { buildBoard, infoMap, keeperRows, myPicks, needs, recommend, roundOf, slotAt, tierCliffs } from '../draft.js'
 import NeedRoster from './NeedRoster.jsx'
+import Info from './Info.jsx'
 
 const KEY = 'nhl-stats.fantasy-draft'
 const LIMIT = 50
@@ -88,14 +89,11 @@ export default function DraftHelper({ data, values, league, roster }) {
 
   return (
     <section>
-      <h2>Draft helper</h2>
-      <p className="sub">
-        Everyone ranked by value over the best free pickup in your league ({league.teams} teams; {GROUPS.filter((g) => league.slots[g]).map((g) => `${league.slots[g]} ${g}`).join(', ')}),
+      <h2>Draft helper<Info label="Draft helper">Everyone ranked by value over the best free pickup in your league ({league.teams} teams; {GROUPS.filter((g) => league.slots[g]).map((g) => `${league.slots[g]} ${g}`).join(', ')}),
         in {isCats ? 'category z-scores' : 'fantasy points'} over the rest of this season, so a center and a goalie share one scale.
         Tiers group players who are close in value: the drop after a tier is the reason to take one now. Track the draft by hand
         (Mine or Taken on each pick); the board and your needs update. It knows nothing about injuries or what other managers
-        will do, and players with no games played yet aren't listed.
-      </p>
+        will do, and players with no games played yet aren't listed.</Info></h2>
 
       <div className="h2h-picks">
         <label className="h2h-pick">Your draft slot
@@ -178,11 +176,8 @@ export default function DraftHelper({ data, values, league, roster }) {
         <button className="link-button" onClick={() => { if (window.confirm('Clear every pick?')) reset() }} disabled={state.picks.length === 0}>Reset draft</button>
       </p>
 
-      <h3>Keepers</h3>
-      <p className="muted">
-        For a keeper league: enter the round each of your players would cost to keep. The surplus is his value minus the value of the
-        player who typically goes at the middle of that round, and the best surpluses up to your keeper limit are marked keep.
-      </p>
+      <h3>Keepers<Info label="Keepers">For a keeper league: enter the round each of your players would cost to keep. The surplus is his value minus the value of the
+        player who typically goes at the middle of that round, and the best surpluses up to your keeper limit are marked keep.</Info></h3>
       <div className="h2h-picks">
         <label className="h2h-pick">Keepers allowed
           <input type="number" min="0" max="20" value={state.maxKeepers} style={{ minWidth: 80, width: 80 }}
