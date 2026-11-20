@@ -4,6 +4,8 @@ import smtplib
 import time
 from email.message import EmailMessage
 
+import requests
+
 import config
 
 log = logging.getLogger("uvicorn.error")
@@ -13,6 +15,8 @@ def send(to: str, subject: str, body: str) -> bool:
     """Send a plain-text email; True when the SMTP server accepted it."""
     if not config.SMTP_HOST:
         return False
+    if config.RESEND_API_KEY:
+        return _send_resend(to, subject, body)
     msg = EmailMessage()
     msg["From"], msg["To"], msg["Subject"] = config.SMTP_FROM, to, subject
     msg.set_content(body)
@@ -26,6 +30,23 @@ def send(to: str, subject: str, body: str) -> bool:
     except (OSError, smtplib.SMTPException):
         log.exception("Couldn't send an email to %s", to)
         return False
+
+
+def _send_resend(to: str, subject: str, body: str) -> bool:
+    """Send through Resend's HTTPS API (works where outbound SMTP is blocked)."""
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {config.RESEND_API_KEY}"},
+            json={"from": config.SMTP_FROM, "to": [to], "subject": subject, "text": body},
+            timeout=15,
+        )
+        if r.ok:
+            return True
+        log.error("Resend rejected the email to %s: %s %s", to, r.status_code, r.text[:300])
+    except requests.RequestException:
+        log.exception("Couldn't send an email to %s", to)
+    return False
 
 
 def send_with_retry(to: str, subject: str, body: str, attempts: int = 3, wait: float = 5, sleep=time.sleep) -> bool:
