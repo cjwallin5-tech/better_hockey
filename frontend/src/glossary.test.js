@@ -54,3 +54,15 @@ test('an abbreviation-style column header without a tooltip is flagged', () => {
   }
   assert.deepEqual(untitled, [])
 })
+
+test('an abbreviation-style header with only a native title is also in the glossary', () => {
+  const abbreviation = (t) => /[A-Z].*[A-Z]|[0-9%/+−]/.test(t)
+  const missing = []
+  for (const { file, src } of sources()) {
+    for (const [, text] of src.matchAll(/<th(?: [^>]*?)? title="[^"]*"[^>]*>([^<{]+)<\/th>/g)) {
+      const t = text.trim()
+      if (t && abbreviation(t) && !describe(t) && !['Stanley Cup', 'World Championship gold', 'Led the NHL'].includes(t)) missing.push(`${file}: ${t}`)
+    }
+  }
+  assert.deepEqual(missing, [])
+})

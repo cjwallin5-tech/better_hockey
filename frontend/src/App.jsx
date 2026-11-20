@@ -147,8 +147,8 @@ function warmLink(e) {
 const MAIN_LINKS = [['/players', 'Players'], ['/standings', 'Standings'], ['/fantasy', 'Fantasy'], ['/games', 'Games'], ['/news', 'News'], ['/my-team', 'My team']]
 // The less-used pages, in two even columns.
 const moreGroups = (user) => [
-  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones'], ['/history', 'NHL history']] },
-  { title: 'League & stats', items: [['/glossary', 'Glossary']] },
+  { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones']] },
+  { title: 'League & stats', items: [['/history', 'NHL history'], ['/glossary', 'Glossary']] },
 ]
 
 /** The top bar. Wide screens get the full link row; phones get the logo, search and a menu button that opens every page. */

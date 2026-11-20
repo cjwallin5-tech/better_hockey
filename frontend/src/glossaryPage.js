@@ -23,6 +23,7 @@ export const GROUPS = [
       { id: 'xg', name: 'Expected goals (xG)', abbr: 'xG, xGF, xGA', what: 'The number of goals the quality of the shots would normally produce. xGF is expected goals for, xGA is expected goals against.', read: 'If a team scored 3 goals from shots worth 2 expected goals, it finished above the chances.' },
       { id: 'ixg', name: 'Individual expected goals (ixG)', abbr: 'ixG', what: 'Expected goals from a player’s own shots only.' },
       { id: 'g-ixg', name: 'Goals minus expected goals', abbr: 'G − ixG, G − xG', what: 'Actual goals minus expected goals.', read: 'Positive means finishing above the chances (good shooting or good luck); negative means below. Big gaps tend to shrink over a season.' },
+      { id: 'team-xg', name: 'Team expected goals', abbr: 'xGF, xGA, xG share, PP xG, PK xG against', what: 'The same model applied to a whole team or game. xG share is the team’s part of both sides’ expected goals (50% is even); PP xG is what its power play created and PK xG against is what it allowed while short-handed.', read: 'A team can win a game it was outplayed in. xG share shows who made the better chances, not who got the bounces.' },
       { id: 'xgf-pct', name: 'Expected goals for percentage', abbr: 'xGF%', what: 'The team’s share of the five-on-five expected goals while the player is on the ice.', read: 'Like Corsi, but it values good shots more than any shot. 50% is even.' },
       { id: 'gsax', name: 'Goals saved above expected', abbr: 'GSAx', what: 'For goalies: expected goals against minus goals actually allowed.', read: 'Positive means the goalie stopped more than the shots he faced were expected to score.' },
     ],
@@ -95,6 +96,8 @@ export const GROUPS = [
     terms: [
       { id: 'standings-points', name: 'Standings points', abbr: 'PTS, P%', what: 'Two for a win, one for an overtime or shootout loss, none for a regulation loss. P% is the share of the available points a team has earned.' },
       { id: 'streaks', name: 'Streak and last 10', abbr: 'Strk, L10', what: 'The current run of wins (W), losses (L) or overtime losses (OT) in a row, and the record over the last 10 games.' },
+      { id: 'back-to-back', name: 'Back-to-back', abbr: 'B2B', what: 'The second game in two nights. Teams tend to play worse, and backup goalies start more often.' },
+      { id: 'draft-lottery', name: 'Draft lottery', abbr: 'In lottery, 1st pick, Top 2, Exp. pick, 1st draw, Worst pick', what: 'Teams that miss the playoffs enter a weighted drawing for the top picks. In lottery is the chance of missing the playoffs; 1st pick and Top 2 are the chances of the first, or first or second, overall pick; Exp. pick is the average pick across simulations. Odds come from simulating the rest of the season and the NHL’s lottery rules.' },
       { id: 'playoff-odds', name: 'Playoff odds', abbr: 'Make playoffs, Win Cup', what: 'Chances from a simulation that plays out the rest of the season many times using each team’s strength and schedule.', read: 'They are probabilities, not predictions: a 20% chance still happens one time in five.' },
     ],
   },
@@ -108,6 +111,14 @@ export const GROUPS = [
       { id: 'rookie-season', name: 'Rookie season', abbr: 'Rookie P, Rookie GP', what: 'The first season with more than 25 NHL games, for a player under 26 when it started (the Calder Trophy’s rules). The NHL’s second test is not applied, so a few players can differ from the official list.' },
       { id: 'era-adjusted', name: 'Era-adjusted scoring', abbr: 'Adj G, Adj A, Adj P', what: 'Each season’s goals and assists rescaled to today’s scoring level, separately for forwards and defensemen, because the league averaged about 4 goals per team game in the early 1980s and under 3 in the mid-2000s.', read: 'A fairer comparison across eras, not a ruling: it does not correct for ice time, power-play share, expansion or schedule length.' },
       { id: 'best-seasons', name: 'Best single seasons', abbr: 'Best seasons', what: 'One row per player per season, ranked by any stat, back to 1917-18 for skaters. Per-game and percentage stats count only players with at least half the games of the busiest player that season.' },
+    ],
+  },
+  {
+    id: 'prospects',
+    title: 'Prospects',
+    terms: [
+      { id: 'nhle', name: 'NHL equivalency (NHLe)', abbr: 'NHLe', what: 'A prospect’s points per game in his league times a factor, shown as points over a full NHL season. The factor comes from players who moved from that league to the NHL.', read: 'Compare players inside one league and read small samples lightly. It is a guide to scoring level, not a promise.' },
+      { id: 'midterm', name: 'Central Scouting midterm', abbr: 'Midterm', what: 'NHL Central Scouting’s midterm ranking of draft-eligible players.' },
     ],
   },
   {
