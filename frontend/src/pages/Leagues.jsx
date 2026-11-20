@@ -66,7 +66,7 @@ export default function Leagues({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Leagues" embedded={embedded}>A league shares each member's roster for it with the others in it, and you can hold a different roster in each league. With one set as your active league, the waiver wire shows
+        <PageIntro title="Leagues" subtitle="Share your fantasy roster with the friends in your league." embedded={embedded}>A league shares each member's roster for it with the others in it, and you can hold a different roster in each league. With one set as your active league, the waiver wire shows
           who is really available and the matchup projector can load a league-mate's team. Only league members can see rosters, and only
           team names are shown, never emails. Your roster for a league is the one on the Fantasy page while that league is selected, kept current while you are signed in.</PageIntro>
       </header>

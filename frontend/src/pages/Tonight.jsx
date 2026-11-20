@@ -11,7 +11,6 @@ import { notableTips } from '../matchupTip.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 import { useLiveScores } from '../components/ScoreStrip.jsx'
 import Note from '../components/Note.jsx'
-import Info from '../components/Info.jsx'
 
 const startTime = (iso) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : 'time TBD')
 const FINISHED = ['FINAL', 'OFF']
@@ -122,7 +121,7 @@ function GameCard({ g, mine, liveGame }) {  // mine: null, 'team' (the team you 
         <Side abbrev={g.home} name={name('home')} win={homeWin} />
       </div>
       {homeWin != null && (
-        <div className="tn-bar" title="Win chance on paper">
+        <div className="tn-bar" title={g.rest_win_shift ? `Win chance on paper, including ${g.rest_win_shift > 0 ? '+' : ''}${(g.rest_win_shift * 100).toFixed(1)} points for ${g.home}\'s rest` : 'Win chance on paper'}>
           <span style={{ width: `${(1 - homeWin) * 100}%`, background: 'var(--away)' }} />
           <span style={{ width: `${homeWin * 100}%`, background: 'var(--home)' }} />
         </div>
@@ -206,9 +205,11 @@ export default function Tonight() {
   return (
     <main>
       <header>
-        <h1>Games<Info label="About this page">Every game by day, with your team's game first, then watchlist teams' games, then the rest, each by start time, with scores for the ones played. Each upcoming game lists what
-          makes it worth a look: how even the teams are, how many goals to expect, the playoff race, star scorers, and your own roster and
-          watchlist players. {watch.signedIn || list.players.length ? '' : 'Add players to your fantasy team or watchlist to see your own players here.'}</Info></h1>
+        <h1>Games</h1>
+        <p>Every game by day, with your team's first and what makes each one worth a look.</p>
+        <Note label="More detail">Your team's game comes first, then watchlist teams' games, then the rest, each by start time, with scores for the ones played. Each upcoming game lists what
+          makes it worth a look: how even the teams are (the win chance includes home ice and the cost of a back-to-back), how many goals to expect, the playoff race, star scorers, and your own roster and
+          watchlist players. {watch.signedIn || list.players.length ? '' : 'Add players to your fantasy team or watchlist to see your own players here.'}</Note>
       </header>
       <DayNav current={current} today={today} onPick={(d) => setDate(d === today ? '' : d)} />
       {error && <p className="status">{error}</p>}

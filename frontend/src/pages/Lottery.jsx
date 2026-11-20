@@ -39,9 +39,7 @@ export default function Lottery({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Draft lottery" embedded={embedded}>Every team's chance of missing the playoffs, of finishing with the worst record, and of each pick in the first round, from
-          playing out the rest of the season thousands of times and then running the NHL's lottery on each ending. Mostly a spring
-          page: this early the table is wide open.</PageIntro>
+        <PageIntro title="Draft lottery" subtitle="Every team's chance of missing the playoffs, finishing last and landing each first-round pick." embedded={embedded}>From playing out the rest of the season thousands of times and then running the NHL's lottery on each ending. Mostly a spring page: this early the table is wide open.</PageIntro>
       </header>
       {error && <p className="status">{error}</p>}
       {!data && !error && <Skeleton />}

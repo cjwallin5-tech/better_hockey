@@ -1,11 +1,16 @@
-import Info from './Info.jsx'
 import Note from './Note.jsx'
 
 /**
- * A page's title with its introduction behind an Info icon. Pages that also appear inside another page (`embedded`) have no title of their
- * own, so the same text shows as a one-line note instead and is not lost.
+ * A page's title with one short line under it saying what the page is. Anything longer (where the numbers come from, how a figure is
+ * worked out) goes in `children` and shows as a small "More detail" note with an Info icon; leave it out when the subtitle says enough.
+ * Pages that also appear inside another page (`embedded`) have no title of their own, but keep the subtitle and the note.
  */
-export default function PageIntro({ title, embedded = false, children }) {
-  if (embedded) return children ? <Note label="About this page">{children}</Note> : null
-  return <h1>{title}{children && <Info label={title}>{children}</Info>}</h1>
+export default function PageIntro({ title, subtitle, embedded = false, children }) {
+  return (
+    <>
+      {!embedded && <h1>{title}</h1>}
+      {subtitle && <p>{subtitle}</p>}
+      {children && <Note label="More detail">{children}</Note>}
+    </>
+  )
 }

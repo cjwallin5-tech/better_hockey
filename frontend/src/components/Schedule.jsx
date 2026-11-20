@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import RestBadge from './RestBadge.jsx'
+import Info from './Info.jsx'
 
 const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`)
 const time = (iso) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '')
 
 /** A team's recent results and upcoming games, each linking to the box score. */
@@ -46,7 +49,11 @@ export default function Schedule({ abbrev }) {
           </div>
         </div>
         <div>
-          <h3 className="career-table-title">Upcoming</h3>
+          <h3 className="career-table-title">
+            Upcoming
+            <Info label="Upcoming games">The win chance is the same on-paper estimate as the Games page: both teams' ratings, home ice and rest. The badge marks a
+              back-to-back against a rested team (Tired) or a rested team against one on a back-to-back (Edge).</Info>
+          </h3>
           <div className="table-wrap">
             <table>
               <tbody>
@@ -57,6 +64,8 @@ export default function Schedule({ abbrev }) {
                       <td className="left">{day(g.game_date)}</td>
                       <td className="left">{pre} <Link to={`/team/${o}`}>{o}</Link></td>
                       <td>{g.state === 'LIVE' || g.state === 'CRIT' ? <Link to={`/game/${g.game_id}`}>Live</Link> : time(g.start_time)}</td>
+                      <td title="Win chance on paper">{pct(g.win)}</td>
+                      <td className="left">{['tired', 'edge'].includes(g.rest) && <RestBadge kind={g.rest} />}</td>
                     </tr>
                   )
                 })}

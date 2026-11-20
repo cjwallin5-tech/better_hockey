@@ -13,7 +13,6 @@ import io
 import logging
 import re
 import time
-from datetime import datetime
 from urllib.parse import parse_qs, quote, urlsplit
 from zoneinfo import ZoneInfo
 
@@ -65,7 +64,6 @@ PAGES = {
     "/awards": ("NHL award races", "Hart, Vezina, Norris and more: the race and the odds."),
     "/history": ("NHL history", "Who debuted and who played their last season in any year since 1917-18, and who has worn each sweater number."),
     "/lottery": ("NHL draft lottery odds", "Lottery odds and lottery-position simulations for every non-playoff team."),
-    "/schedule": ("NHL schedule", "The schedule with strength of schedule and back-to-back fatigue."),
     "/advanced-stats": ("Advanced stats", "Expected goals, special teams, score effects and tracking data."),
     "/accuracy": ("How accurate are our predictions?", "The site's win-chance and goalie-start predictions, scored against what happened."),
 }

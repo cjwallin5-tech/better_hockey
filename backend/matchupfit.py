@@ -12,7 +12,6 @@ the shooting team's side (positive = more goals for the shooting team):
                 the zones where he leaks more than his average, negative means they come from zones where he is stronger than usual.
 The fit is about 0.14 goals a game at one standard deviation, so it is a nudge, not a forecast.
 """
-import goaliemap as gm
 
 K = 300            # shrinkage, in pseudo-shots
 MIN_FACED = 200    # a goalie with fewer located shots than this gets no tip

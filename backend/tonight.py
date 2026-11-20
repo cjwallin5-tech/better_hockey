@@ -40,15 +40,32 @@ def _clip(x, lo=0.0, hi=1.0):
     return max(lo, min(hi, x))
 
 
-def matchup(home, away, league):
+WIN_RATE_PER_LOGIT = 0.25   # near an even game, one logit of win chance is a quarter of a win-rate point (the slope of the logistic at 0.5)
+
+
+def rest_logit(kind, win_gaps):
+    """Log-odds shift to the home team's win chance from its rest situation, or 0.
+
+    kind: the home team's situation (fatigue.kind: "tired" is a back-to-back against a rested team, "edge" is rested against a team on
+    one). win_gaps: {kind: win-rate gap} from fatigue.effects, the change in a team's win rate in those games against its normal games
+    (negative for tired, positive for edge). Only the home team's own kind is used: the figure already includes the opponent being
+    rested (or tired), so adding the visitor's side as well would count the same game twice. Both teams tired, or neither, shifts nothing."""
+    if kind not in ("tired", "edge"):
+        return 0.0
+    gap = (win_gaps or {}).get(kind)
+    return 0.0 if gap is None else gap / WIN_RATE_PER_LOGIT
+
+
+def matchup(home, away, league, home_rest=None, win_gaps=None):
     """(home win chance, expected total goals) for a game, from the two teams' ratings, or (None, None) without them.
-    home, away: dicts with off_ratio and def_ratio; league: {goals_pg, shots_pg}. The win chance includes home ice (HOME_LOGIT)."""
+    home, away: dicts with off_ratio and def_ratio; league: {goals_pg, shots_pg}. The win chance includes home ice (HOME_LOGIT) and, when
+    home_rest and win_gaps are given, the back-to-back effect (see rest_logit)."""
     if not home or not away or not league or not league.get("goals_pg") or not league.get("shots_pg"):
         return None, None
     line = streaming.expected_line(home, away, league["goals_pg"], league["shots_pg"])
     p = line["win"]
     p = min(1 - 1e-9, max(1e-9, p))
-    logit = math.log(p / (1 - p)) + HOME_LOGIT
+    logit = math.log(p / (1 - p)) + HOME_LOGIT + rest_logit(home_rest, win_gaps)
     return 1 / (1 + math.exp(-logit)), line["gf"] + line["ga"]
 
 

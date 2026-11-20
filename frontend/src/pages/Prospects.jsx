@@ -186,7 +186,7 @@ export default function Prospects({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Prospects" embedded={embedded}>Players who haven't made the NHL yet: the prospects each team holds, with their junior, college, European and minor-league stats, and the upcoming draft class.</PageIntro>
+        <PageIntro title="Prospects" subtitle="Players who haven't made the NHL yet, and the upcoming draft class." embedded={embedded}>Each team's prospects with their junior, college, European and minor-league stats.</PageIntro>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'prospects'} className={tab === 'prospects' ? 'on' : ''} onClick={() => setTab('prospects')}>Team prospects</button>

@@ -16,7 +16,6 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # run from backend/: python -I analysis/<script>.py
 import config
-import oldgames
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 CACHE = DATA / "award_backtest.json"

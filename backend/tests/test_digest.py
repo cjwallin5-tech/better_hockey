@@ -1,7 +1,6 @@
 import datetime as dt
 import unittest
 from unittest import mock
-from zoneinfo import ZoneInfo
 
 import config
 import digest

@@ -1,6 +1,5 @@
 import unittest
 
-import config
 import ingest
 
 DEFAULT = [20222023, 20232024]

@@ -9,10 +9,12 @@ coin flip, so the variance of the goal total is the sum of xG * (1 - xG) over th
 the square root of that variance is a z-score: about 1 is ordinary, 1.5 or more is worth a look, 2 or more is
 a real outlier for the sample so far.
 
-Points luck adds an estimate for assists. We don't store who assisted each shot, so assists can't be modeled
-shot by shot. Instead: a player collects assists on some share of the goals their teammates score while they
-are on the ice (assist_rate, per teammate goal at even strength, pulled toward the league rate for forwards or
-defensemen until the player has a real sample). Teammates scoring more than their shots predict while a player
+Points luck adds an estimate for assists. We know who assisted each goal (goal_assist, from play-by-play) but
+not who passed on each shot, so assists can't be modeled shot by shot. Instead: a player collects assists on some
+share of the goals their teammates score while they are on the ice (assist_rate, per teammate goal at even
+strength, pulled toward the league rate for forwards or defensemen until the player has a real sample). Primary
+and secondary assists are counted apart: a primary assist is the last pass and reflects skill more, a secondary
+one is closer to chance, so it is pulled harder toward the league rate (PRIOR_GOALS_A2). Teammates scoring more than their shots predict while a player
 is on the ice is then worth assist_rate assists of luck to that player. Points luck is own finishing luck plus
 that assist luck, and its variance adds the two parts (the on-ice part treated as Poisson, variance = xGF).
 
@@ -25,7 +27,7 @@ average shooter. With no history the two are the same.
 What it does not know:
 - The sample is small early in a season, so treat early flags as hints. Past seasons come from stored shots only
   (the last four plus this one), and skill can change with age, role and linemates.
-- Only goals are modeled. The assist figure above is a rough estimate, and power-play assists are left out of it
+- Only goals are modeled. The assist figure above is still an estimate (assists per teammate goal, not per pass), and power-play assists are left out of it
   (on-ice expected goals are 5v5 only).
 - Empty-net goals have no xG, so they are left out of the comparison on both sides.
 """
@@ -34,7 +36,8 @@ import math
 Z_FLAG = 1.5       # |z| at or above this is flagged hot or cold
 MIN_ATTEMPTS = 20  # unblocked shot attempts a skater needs to be listed by default
 MIN_FACED = 50     # shots on goal a goalie needs to face to be listed by default
-PRIOR_GOALS = 10   # teammate goals' worth of league-average assist rate blended into a player's own
+PRIOR_GOALS = 10   # teammate goals' worth of league-average primary-assist rate blended into a player's own
+PRIOR_GOALS_A2 = 20  # the same for secondary assists, which are noisier, so the league rate counts for more
 PRIOR_XG = 30      # expected goals of "no edge" blended into a player's finishing history (about one season of a top scorer)
 MIN_PERSIST_ATTEMPTS = 100  # shot attempts in both seasons for a skater to count in the year-over-year correlation
 MIN_PERSIST_FACED = 300     # shots faced in both seasons for a goalie to count
@@ -87,26 +90,26 @@ def pace(total, games_played, games):
     return None if not games_played else total / games_played * games
 
 
-def assist_rate(ev_assists, teammate_goals, baseline):
+def assist_rate(ev_assists, teammate_goals, baseline, prior=PRIOR_GOALS):
     """Assists per teammate goal at even strength, blended with the league baseline until the sample is real."""
-    return (ev_assists + PRIOR_GOALS * baseline) / (teammate_goals + PRIOR_GOALS)
+    return (ev_assists + prior * baseline) / (teammate_goals + prior)
 
 
 def points_luck(r, diff, assist_baseline):
     """Points actual vs expected, or all None when the inputs aren't there.
 
-    r needs points, season_goals, pp_goals, ev_points, ev_goals_for (the NHL's season figures), the player's own
-    even-strength ev_model_goals and ev_ixg from the shot table, and the on-ice gf and xgf (5v5).
+    assist_baseline is {"a1": ..., "a2": ...}, the league's primary and secondary assists per teammate goal.
+    r needs points, ev_goals_for (the NHL's season figure), the player's own even-strength ev_goals, ev_a1 and
+    ev_a2 (counted from play-by-play), ev_model_goals and ev_ixg from the shot table, and the on-ice gf and xgf (5v5).
     """
-    needed = ("points", "season_goals", "pp_goals", "ev_points", "ev_goals_for", "ev_model_goals", "ev_ixg", "gf", "xgf")
+    needed = ("points", "ev_goals_for", "ev_goals", "ev_a1", "ev_a2", "ev_model_goals", "ev_ixg", "gf", "xgf")
     empty = {"points": r.get("points"), "xpoints": None, "points_diff": None, "points_z": None, "points_flag": None,
-             "assist_luck": None, "assist_rate": None}
+             "assist_luck": None, "assist_rate": None, "assist_rate_primary": None}
     if assist_baseline is None or any(r.get(k) is None for k in needed):
         return empty
-    own_ev_goals = max(0, r["season_goals"] - r["pp_goals"])
-    ev_assists = max(0, r["ev_points"] - own_ev_goals)
-    teammate_goals = max(0, r["ev_goals_for"] - own_ev_goals)
-    k = assist_rate(ev_assists, teammate_goals, assist_baseline)
+    teammate_goals = max(0, r["ev_goals_for"] - r["ev_goals"])
+    k1 = assist_rate(r["ev_a1"], teammate_goals, assist_baseline["a1"])
+    k = k1 + assist_rate(r["ev_a2"], teammate_goals, assist_baseline["a2"], PRIOR_GOALS_A2)
     # Goals the player's own shots account for are already in the finishing luck, so only teammates' goals count here.
     teammate_gap = (r["gf"] - r["ev_model_goals"]) - (r["xgf"] - r["ev_ixg"])
     assist_luck = k * teammate_gap
@@ -114,7 +117,7 @@ def points_luck(r, diff, assist_baseline):
     variance = r["variance"] + k * k * max(r["xgf"] - r["ev_ixg"], 0)
     z = z_score(total, 0, variance)
     return {"points": r["points"], "xpoints": r["points"] - total, "points_diff": total, "points_z": z,
-            "points_flag": flag(z), "assist_luck": assist_luck, "assist_rate": k}
+            "points_flag": flag(z), "assist_luck": assist_luck, "assist_rate": k, "assist_rate_primary": k1}
 
 
 def skater_line(r, games, assist_baseline=None, prior=None):

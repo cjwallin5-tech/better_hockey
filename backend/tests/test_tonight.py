@@ -35,6 +35,35 @@ class Matchup(unittest.TestCase):
         self.assertEqual(tn.matchup(EVEN, EVEN, {}), (None, None))
 
 
+class RestEffect(unittest.TestCase):
+    GAPS = {"tired": -0.08, "edge": 0.10}
+
+    def test_a_tired_home_team_loses_win_chance(self):
+        base, _ = tn.matchup(EVEN, EVEN, LEAGUE)
+        tired, _ = tn.matchup(EVEN, EVEN, LEAGUE, "tired", self.GAPS)
+        self.assertLess(tired, base)
+        self.assertAlmostEqual(tired, 1 / (1 + 2.718281828 ** -(tn.HOME_LOGIT - 0.08 / tn.WIN_RATE_PER_LOGIT)), places=4)
+
+    def test_a_rested_home_team_against_a_back_to_back_gains(self):
+        base, _ = tn.matchup(EVEN, EVEN, LEAGUE)
+        edge, _ = tn.matchup(EVEN, EVEN, LEAGUE, "edge", self.GAPS)
+        self.assertGreater(edge, base)
+
+    def test_normal_both_or_unknown_rest_changes_nothing(self):
+        base, _ = tn.matchup(EVEN, EVEN, LEAGUE)
+        for kind in ("normal", "both", None):
+            self.assertEqual(tn.matchup(EVEN, EVEN, LEAGUE, kind, self.GAPS)[0], base)
+
+    def test_no_measured_effect_changes_nothing(self):
+        base, _ = tn.matchup(EVEN, EVEN, LEAGUE)
+        self.assertEqual(tn.matchup(EVEN, EVEN, LEAGUE, "tired", None)[0], base)
+        self.assertEqual(tn.matchup(EVEN, EVEN, LEAGUE, "tired", {"tired": None})[0], base)
+
+    def test_rest_does_not_move_expected_goals(self):
+        _, total = tn.matchup(EVEN, EVEN, LEAGUE)
+        self.assertEqual(tn.matchup(EVEN, EVEN, LEAGUE, "tired", self.GAPS)[1], total)
+
+
 class Score(unittest.TestCase):
     def score(self, **kw):
         args = {"win": 0.5, "total": 6.0, "league_total": 6.0, "odds": None, "star": None, "yours": [], "teams_followed": []}

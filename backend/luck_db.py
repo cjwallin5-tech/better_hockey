@@ -33,6 +33,17 @@ GOALIE_CALIBRATION_CTE = """gcal AS (
 GOALIE_XG = "least(0.99, xg * f)"  # one shot's calibrated chance of beating the goalie
 
 
+# One row per even-strength goal credit this season: role 'g' for the scorer, '1' and '2' for the primary and secondary
+# assists (from play-by-play, so it matches who the NHL credited). Strength comes from the goal's shot row.
+EV_CREDITS_SQL = """
+    SELECT a.scorer_id AS player_id, 'g' AS role FROM goal_assist a JOIN shot s USING (game_id, event_id)
+        WHERE s.strength = 'ev' AND a.scorer_id IS NOT NULL AND a.season_id = %(season)s
+    UNION ALL SELECT a.assist1_id, '1' FROM goal_assist a JOIN shot s USING (game_id, event_id)
+        WHERE s.strength = 'ev' AND a.assist1_id IS NOT NULL AND a.season_id = %(season)s
+    UNION ALL SELECT a.assist2_id, '2' FROM goal_assist a JOIN shot s USING (game_id, event_id)
+        WHERE s.strength = 'ev' AND a.assist2_id IS NOT NULL AND a.season_id = %(season)s"""
+
+
 def goalie_factor(conn, season):
     """The scale factor above for one season (1.0 when there is nothing to calibrate against)."""
     row = conn.execute(f"WITH {GOALIE_CALIBRATION_CTE} SELECT f FROM gcal WHERE season_id = %s", (season,)).fetchone()
@@ -64,12 +75,18 @@ def skater_rows(conn, season, games, position="", min_attempts=0, ids=None):
                        count(*) FILTER (WHERE kind = 'goal' AND xg IS NOT NULL AND strength = 'ev') AS ev_model_goals,
                        coalesce(sum(xg) FILTER (WHERE strength = 'ev'), 0) AS ev_ixg
                 FROM shot WHERE season_id = %(season)s AND shooter_id IS NOT NULL GROUP BY shooter_id),
+            ev AS (
+                SELECT player_id, count(*) FILTER (WHERE role = 'g') AS ev_goals,
+                       count(*) FILTER (WHERE role = '1') AS ev_a1, count(*) FILTER (WHERE role = '2') AS ev_a2
+                FROM ({EV_CREDITS_SQL}) c GROUP BY player_id),
             o AS (
                 SELECT player_id, sum(gf) AS gf, sum(ga) AS ga, sum(xgf) AS xgf, sum(xga) AS xga
                 FROM skater_game_onice WHERE season_id = %(season)s AND xgf IS NOT NULL GROUP BY player_id)
             SELECT a.*, p.name, p.team, p.position, p.games_played, p.pdo_5v5 AS pdo, p.points,
-                   p.goals AS season_goals, p.pp_goals, p.ev_points, p.ev_goals_for, o.gf, o.ga, o.xgf, o.xga
+                   p.ev_goals_for, coalesce(ev.ev_goals, 0) AS ev_goals, coalesce(ev.ev_a1, 0) AS ev_a1,
+                   coalesce(ev.ev_a2, 0) AS ev_a2, o.gf, o.ga, o.xgf, o.xga
             FROM a JOIN skater_season p ON p.player_id = a.player_id AND p.season_id = %(season)s
+                   LEFT JOIN ev ON ev.player_id = a.player_id
                    LEFT JOIN o ON o.player_id = a.player_id
             WHERE {' AND '.join(where)}""", params).fetchall()
     # Earlier seasons from the stored history, summed per player (see luck.finishing_skill).
@@ -82,14 +99,17 @@ def skater_rows(conn, season, games, position="", min_attempts=0, ids=None):
            WHERE h.season_id < %s AND shooter_id IS NOT NULL
              AND (%s::int[] IS NULL OR shooter_id = ANY(%s::int[]))
            GROUP BY shooter_id""", (season, params.get("ids"), params.get("ids")))}
-    # League assists per teammate even-strength goal, forwards and defensemen apart: the baseline each
-    # player's own rate is pulled toward (see luck.assist_rate).
-    baseline = {r["role"]: r["assists"] / r["mates"] for r in conn.execute(
-        """SELECT CASE WHEN position = 'D' THEN 'D' ELSE 'F' END AS role,
-                  sum(greatest(0, ev_points - (goals - pp_goals)))::float AS assists,
-                  sum(greatest(0, ev_goals_for - (goals - pp_goals)))::float AS mates
-           FROM skater_season WHERE season_id = %s AND ev_points IS NOT NULL AND ev_goals_for IS NOT NULL
-           GROUP BY 1 HAVING sum(greatest(0, ev_goals_for - (goals - pp_goals))) > 0""", (season,))}
+    # League primary and secondary assists per teammate even-strength goal, forwards and defensemen apart: the
+    # baselines each player's own rates are pulled toward (see luck.assist_rate).
+    baseline = {r["role"]: {"a1": r["a1"] / r["mates"], "a2": r["a2"] / r["mates"]} for r in conn.execute(
+        f"""WITH ev AS (SELECT player_id, count(*) FILTER (WHERE role = 'g') AS g, count(*) FILTER (WHERE role = '1') AS a1,
+                              count(*) FILTER (WHERE role = '2') AS a2
+                       FROM ({EV_CREDITS_SQL}) c GROUP BY player_id)
+           SELECT CASE WHEN p.position = 'D' THEN 'D' ELSE 'F' END AS role, sum(ev.a1)::float AS a1, sum(ev.a2)::float AS a2,
+                  sum(greatest(0, p.ev_goals_for - ev.g))::float AS mates
+           FROM ev JOIN skater_season p ON p.player_id = ev.player_id AND p.season_id = %(season)s
+           WHERE p.ev_goals_for IS NOT NULL
+           GROUP BY 1 HAVING sum(greatest(0, p.ev_goals_for - ev.g)) > 0""", {"season": season})}
     out = []
     for r in rows:
         line = luck.skater_line(r, games, baseline.get("D" if r["position"] == "D" else "F"), prior.get(r["player_id"]))

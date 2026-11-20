@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import NewsList from '../components/NewsList.jsx'
 import PageTabs from '../components/PageTabs.jsx'
 import { getJson } from '../lists.js'
-import Info from '../components/Info.jsx'
+import Note from '../components/Note.jsx'
 
 export default function News() {
   const [params, setParams] = useSearchParams()
@@ -29,10 +29,12 @@ export default function News() {
   return (
     <main>
       <header>
-        <h1>NHL news<Info label="About the news feed">Headlines from ESPN, The Athletic, Yahoo Sports, CBS Sports and the outlets Yahoo carries. Each story is tagged with the teams and
+        <h1>NHL news</h1>
+        <p>Headlines from across the NHL, tagged by team and player.</p>
+        <Note label="More detail">Headlines from ESPN, The Athletic, Yahoo Sports, CBS Sports and the outlets Yahoo carries. Each story is tagged with the teams and
           players it names, so you can follow one team, and links go to the publisher. Top stories are ranked, not just recent: trades, firings
           and retirements rank highest, then signings, waivers and injuries, with a boost for stars, for stories several outlets carry and for
-          ESPN's lead stories, and a penalty for game recaps, opinion pieces and non-NHL hockey. Newer stories rank above older ones.</Info></h1>
+          ESPN's lead stories, and a penalty for game recaps, opinion pieces and non-NHL hockey. Newer stories rank above older ones.</Note>
       </header>
 
       <div className="controls">

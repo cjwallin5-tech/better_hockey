@@ -92,8 +92,8 @@ class ProspectNhle(unittest.TestCase):
         return {"season_id": sid, "game_type": 2, "league": league, "team_name": "Club", "games": games, "points": points}
 
     def run_it(self, seasons, position="C"):
-        import api
-        return api._prospect_nhle({"position": position, "birth_date": date(2006, 5, 1)}, seasons, FACTORS, {})
+        from routes.league import _prospect_nhle
+        return _prospect_nhle({"position": position, "birth_date": date(2006, 5, 1)}, seasons, FACTORS, {})
 
     def test_this_season_is_used_once_it_has_enough_games(self):
         out = self.run_it([self.season(self.NOW, 25, 30), self.season(self.LAST, 60, 90)])

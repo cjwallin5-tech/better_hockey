@@ -27,7 +27,7 @@ export default function TrophyIndex({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Trophy winners" embedded={embedded}>Every NHL trophy with its winners by season. Open one to see the full list. For the Art Ross and Rocket Richard, the winner's season totals are shown too.</PageIntro>
+        <PageIntro title="Trophy winners" subtitle="Every NHL trophy with its winners by season. Open one for the full list." embedded={embedded}>For the Art Ross and Rocket Richard, the winner's season totals are shown too.</PageIntro>
       </header>
       {state.data.groups.map((group) => (
         <section key={group.title}>

@@ -97,9 +97,9 @@ def report(rows):
 
 def log_today(conn=None):
     """Store predictions for today's games that have not started. Returns the number of new rows."""
-    import api            # late import: importing api builds the whole app, and api imports this module
+    from routes.games import tonight_endpoint   # late import: the route modules pull in most of the app, and api imports this module
 
-    games = api.tonight_endpoint()
+    games = tonight_endpoint()
     day = games["date"]
     new = 0
     own = conn is None

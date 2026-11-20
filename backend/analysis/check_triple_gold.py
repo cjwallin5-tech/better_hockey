@@ -16,7 +16,7 @@ import requests
 from psycopg.rows import dict_row
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import api  # noqa: E402
+from routes import history  # noqa: E402
 import config  # noqa: E402
 import internationals  # noqa: E402
 
@@ -50,7 +50,7 @@ def main():
             "SELECT player_id, name FROM career_skater WHERE game_type = 2 UNION SELECT player_id, name FROM career_goalie WHERE game_type = 2")}
         done = {names[r["player_id"]] for r in conn.execute("SELECT player_id FROM player_international_fetched WHERE awards_done") if r["player_id"] in names}
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row) as conn:
-        members, fetched, total = api._triple_gold_members(conn, with_official=False)   # what the NHL's data alone gives
+        members, fetched, total = history._triple_gold_members(conn, with_official=False)   # what the NHL's data alone gives
     club = {"coverage": {"fetched": fetched, "total": total}}
     ours = {norm(m["name"]): m for m in members}
     collected = {norm(n) for n in done}

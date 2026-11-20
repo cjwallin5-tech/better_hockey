@@ -246,9 +246,7 @@ export default function HeadToHead({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Head-to-head" embedded={embedded}>How teams, skaters and goalies have done against each other, going back to 2005-06 (the first shootout season). The
-          Coyotes' games count toward Utah and the Thrashers' toward Winnipeg. A player's seasons before 2022-23 are fetched
-          from the NHL the first time you look them up, so that first look can take a few seconds.</PageIntro>
+        <PageIntro title="Head-to-head" subtitle="How teams, skaters and goalies have done against each other since 2005-06." embedded={embedded}>The Coyotes' games count toward Utah and the Thrashers' toward Winnipeg. A player's seasons before 2022-23 are fetched from the NHL the first time you look them up, so that first look can take a few seconds.</PageIntro>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={mode === 'team'} className={mode === 'team' ? 'on' : ''} onClick={() => update({ mode: '', p: '' })}>Team vs. team</button>

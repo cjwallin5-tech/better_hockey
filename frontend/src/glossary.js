@@ -114,7 +114,7 @@ const TERMS = {
   'Goals Z': 'How far the goals-minus-expected-goals gap is from what chance alone produces, in standard deviations (1.5 or more is flagged)',
   'Pts Z': 'How far the points luck is from what chance alone produces, in standard deviations (1.5 or more is flagged)',
   Z: 'How far the gap from expected is from what chance alone produces, in standard deviations (1.5 or more is flagged)',
-  xPts: 'Points expected from shot quality: own expected goals plus an estimate of assists', 'Pts luck': 'Points minus expected points. Positive means more than the chances suggested',
+  xPts: 'Points expected from shot quality: own expected goals plus an estimate of assists from real primary and secondary assist rates', 'Pts luck': 'Points minus expected points. Positive means more than the chances suggested',
   'Sh%': 'Shooting percentage', 'xSh%': 'Shooting percentage the quality of the shots predicts', 'Per 100 shots': 'Goals saved above expected for every 100 shots faced',
   'Sv%': 'Save percentage', 'xSv%': 'Save percentage the quality of the shots faced predicts', 'Shots faced': 'Shots on goal faced',
   'Goals allowed': 'Goals allowed on shots that have an expected-goals value (empty-net goals left out)', xGA: 'Expected goals against: the goals the quality of the shots faced would normally produce',

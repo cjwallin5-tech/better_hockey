@@ -19,7 +19,6 @@ Findings (run on 2026-10-28, test seasons 2023-24 to 2026-27 on earlier seasons 
   - Size: the zone detail's standard deviation is about 0.14 goals per game (overall record 0.23), so a typical matchup nudge is about a tenth of a goal.
   - Caveat: a goalie's "zone weakness" may partly be his team's defensive habits (pass types xG does not see), which would still predict goals allowed.
 """
-import math
 import sys
 from collections import defaultdict
 from pathlib import Path

@@ -57,38 +57,6 @@ const LABELS = {
   gaa: ['Goals-against average', (v) => v.toFixed(2), 'min 150 GP'],
   gsaa: ['Goals saved above average', (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`],
 }
-// Rate stats are floored differently for a single season than for a career.
-const SEASON_NOTES = { point_pace: 'half the busiest player\'s games', save_pct: 'half the busiest goalie\'s games', gaa: 'half the busiest goalie\'s games' }
-
-export function RankCards({ ranks, scope, noun }) {
-  const entries = Object.entries(ranks ?? {})
-  if (entries.length === 0) return <p className="status">No ranked stats for this selection.</p>
-  return (
-    <div className="def-grid">
-      {entries.map(([stat, r]) => {
-        const [label, fmt, careerNote] = LABELS[stat] ?? [stat, (v) => v]
-        const note = scope === 'season' ? SEASON_NOTES[stat] : careerNote
-        const pct = Math.max(2, 100 * (1 - (r.rank - 1) / r.of)) // top of the board = full bar
-        return (
-          <div className="def-card" key={stat}>
-            <div className="def-top">
-              <span>{label}</span>
-              <strong>{fmt(r.value)}</strong>
-            </div>
-            <div className="bar" title={`${placeLabel(r)} of ${r.of.toLocaleString()}`}>
-              <div style={{ width: `${pct}%` }} />
-            </div>
-            <div className="def-foot">
-              {placeLabel(r)} {scope === 'season' ? `of ${r.of.toLocaleString()} ${noun}s this season` : `all-time of ${r.of.toLocaleString()}`}
-              {note && <em> · {note}</em>}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 // Stats whose rank already shows on a stat tile (this season on the page's tiles, all-time on the Career tiles).
 const ON_SEASON_TILES = new Set(['games_played', 'goals', 'assists', 'points', 'plus_minus', 'wins', 'shutouts', 'save_pct', 'gaa'])
 const ON_CAREER_TILES = new Set(['games_played', 'goals', 'assists', 'points', 'points_per_game', 'plus_minus', 'pim', 'pp_goals', 'game_winning_goals', 'shots', 'wins', 'shutouts', 'save_pct', 'gaa'])

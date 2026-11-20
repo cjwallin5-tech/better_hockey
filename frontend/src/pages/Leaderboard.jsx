@@ -17,7 +17,7 @@ import PageShell from '../components/PageShell.jsx'
 import { getJson } from '../lists.js'
 import { fmt2 } from '../format.js'
 import { absenceMap, coverText, useAbsences } from '../absences.js'
-import Info from '../components/Info.jsx'
+import Note from '../components/Note.jsx'
 
 // Pace from fewer games than this is mostly noise, so it's dimmed and flagged.
 const STABLE_GP = 20
@@ -360,9 +360,11 @@ export default function Leaderboard({ embedded = false }) {
     <PageShell embedded={embedded}>
       <SeasonSwitch kind="skater" value={season} onChange={onSeason} />
       <header>
-        <h1>Skater Stats <span>{meta || season ? seasonName : ''}</span><Info label="About skater stats">{isPast
+        <h1>Skater Stats <span>{meta || season ? seasonName : ''}</span></h1>
+        <p>Every skater's season line, with pace and recent form.</p>
+        <Note label="More detail">{isPast
             ? `Final regular-season totals for ${seasonName}. Pace, last-games form and expected goals are only kept for the current season.`
-            : `Pace projects points over ${meta?.games_per_season ?? 84} games. L${meta?.recent_window ?? 10} Pace uses only each player's last ${meta?.recent_window ?? 10} games.`}</Info></h1>
+            : `Pace projects points over ${meta?.games_per_season ?? 84} games. L${meta?.recent_window ?? 10} Pace uses only each player's last ${meta?.recent_window ?? 10} games.`}</Note>
       </header>
       {maxGp < STABLE_GP && (
         <p className="notice">

@@ -5,7 +5,6 @@ import { useUrlSync } from '../urlState.js'
 import { describe } from '../glossary.js'
 import { Skeleton } from '../components/Skeleton.jsx'
 import Note from '../components/Note.jsx'
-import Info from '../components/Info.jsx'
 
 function useApi(url) {
   const [state, setState] = useState({ url: null, data: null, error: null })
@@ -37,8 +36,8 @@ export default function Roles() {
   return (
     <main>
       <header>
-        <h1>Role changes<Info label="About role changes">Who has moved up or down the power-play units, and who is playing more or less, over their last few games compared with
-          earlier this season. Ice time is the earliest sign of a new role, and it shows up before the points do.</Info></h1>
+        <h1>Role changes</h1>
+        <p>Who has moved up or down the power-play units, and who is playing more or less lately.</p>
       </header>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={dir === 'up'} className={dir === 'up' ? 'on' : ''} onClick={() => setDir('up')}>Moving up</button>

@@ -2,7 +2,7 @@
 import json
 import sys
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 

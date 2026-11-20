@@ -21,13 +21,11 @@ const Goalie = lazy(pages.Goalie)
 const Glossary = lazy(pages.Glossary)
 const Player = lazy(pages.Player)
 const ResetPassword = lazy(pages.ResetPassword)
-const Schedule = lazy(pages.Schedule)
 const Awards = lazy(pages.Awards)
 const History = lazy(pages.History)
 const Roles = lazy(pages.Roles)
 const Trophy = lazy(pages.Trophy)
 const Account = lazy(pages.Account)
-const Matchups = lazy(pages.Matchups)
 const Tonight = lazy(pages.Tonight)
 const MyTeam = lazy(pages.MyTeam)
 const League = lazy(pages.League)
@@ -94,9 +92,9 @@ function Pages() {
           <Route path="/best-seasons/goalies" element={<BestSeasonsRedirect goalie />} />
           <Route path="/game/:id" element={<Game />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/schedule" element={<Schedule />} />
-          <Route path="/schedule-strength" element={<RedirectToTab to="/schedule" tab="strength" />} />
-          <Route path="/rest" element={<RedirectToTab to="/schedule" tab="rest" />} />
+          <Route path="/schedule" element={<RedirectKeepQuery to="/games" />} />
+          <Route path="/schedule-strength" element={<RedirectKeepQuery to="/games" />} />
+          <Route path="/rest" element={<RedirectKeepQuery to="/games" />} />
           <Route path="/advanced-stats" element={<Navigate to="/standings" replace />} />
           <Route path="/special-teams" element={<Navigate to="/standings?stat=pp_xgf60" replace />} />
           <Route path="/score-effects" element={<Navigate to="/standings?stat=xg_pct_adj" replace />} />
@@ -104,7 +102,7 @@ function Pages() {
           <Route path="/head-to-head" element={<RedirectToTab to="/compare" tab="head-to-head" />} />
           <Route path="/luck" element={<Navigate to="/players" replace />} />
           <Route path="/roles" element={<Roles />} />
-          <Route path="/matchups" element={<Matchups />} />
+          <Route path="/matchups" element={<RedirectToTab to="/fantasy" tab="matchups" param="section" />} />
           <Route path="/awards" element={<Awards />} />
           <Route path="/history" element={<History />} />
           <Route path="/trophy" element={<RedirectToTab to="/awards" tab="winners" />} />
@@ -150,7 +148,7 @@ const MAIN_LINKS = [['/players', 'Players'], ['/standings', 'Standings'], ['/fan
 // The less-used pages, in two even columns.
 const moreGroups = (user) => [
   { title: 'Players', items: [['/compare', 'Compare'], ['/prospects', 'Prospects & draft'], ['/awards', 'Awards & milestones'], ['/history', 'NHL history']] },
-  { title: 'League & stats', items: [['/schedule', 'Schedule'], ['/matchups', 'Matchups'], ['/glossary', 'Glossary']] },
+  { title: 'League & stats', items: [['/glossary', 'Glossary']] },
 ]
 
 /** The top bar. Wide screens get the full link row; phones get the logo, search and a menu button that opens every page. */

@@ -4,10 +4,13 @@ import unittest
 import luck
 
 
+BASE = {"a1": 0.3, "a2": 0.2}
+
+
 def skater(**kw):
     base = {"attempts": 40, "shots_on_goal": 30, "goals": 10, "model_goals": 10, "ixg": 6.0, "variance": 4.0,
             "games_played": 10, "gf": 12, "ga": 6, "xgf": 9.0, "xga": 8.0,
-            "points": 15, "season_goals": 10, "pp_goals": 3, "ev_points": 11, "ev_goals_for": 20,
+            "points": 15, "ev_goals": 7, "ev_a1": 3, "ev_a2": 1, "ev_goals_for": 20,
             "ev_model_goals": 6, "ev_ixg": 4.0}
     return {**base, **kw}
 
@@ -98,13 +101,18 @@ class AssistRate(unittest.TestCase):
     def test_a_big_sample_dominates_the_baseline(self):
         self.assertAlmostEqual(luck.assist_rate(100, 100, 0.2), (100 + 2) / 110)
 
+    def test_secondary_assists_are_pulled_harder_toward_the_league(self):
+        own = luck.assist_rate(10, 20, 0.1, luck.PRIOR_GOALS_A2)
+        self.assertLess(abs(own - 0.1), abs(luck.assist_rate(10, 20, 0.1) - 0.1))
+
 
 class PointsLuck(unittest.TestCase):
     def test_goal_luck_plus_assist_luck(self):
-        # own ev goals 10-3=7, ev assists 11-7=4, teammate goals 20-7=13, rate (4+5)/(13+10)=9/23
-        # teammate gap (12-6) - (9-4) = 1, so assist luck 9/23 and points luck 4 + 9/23
-        out = luck.skater_line(skater(), 82, 0.5)
-        k = 9 / 23
+        # own ev goals 7, primary 3, secondary 1, teammate goals 20-7=13, baselines 0.3 and 0.2
+        # k1 = (3+3)/(13+10) = 6/23, k2 = (1+4)/(13+20) = 5/33; teammate gap (12-6) - (9-4) = 1
+        out = luck.skater_line(skater(), 82, BASE)
+        k1, k = 6 / 23, 6 / 23 + 5 / 33
+        self.assertAlmostEqual(out["assist_rate_primary"], k1)
         self.assertAlmostEqual(out["assist_rate"], k)
         self.assertAlmostEqual(out["assist_luck"], k)
         self.assertAlmostEqual(out["points_diff"], 4 + k)
@@ -113,7 +121,7 @@ class PointsLuck(unittest.TestCase):
         self.assertEqual(out["points_flag"], "hot")
 
     def test_unlucky_teammates_make_a_player_colder(self):
-        out = luck.skater_line(skater(gf=3), 82, 0.5)  # teammate gap (3-6) - (9-4) = -8
+        out = luck.skater_line(skater(gf=3), 82, BASE)  # teammate gap (3-6) - (9-4) = -8
         self.assertLess(out["assist_luck"], 0)
         self.assertLess(out["points_diff"], out["diff"])
 
@@ -124,13 +132,13 @@ class PointsLuck(unittest.TestCase):
         self.assertEqual(out["points"], 15)
 
     def test_missing_nhl_or_onice_figures_give_none_not_zero(self):
-        for missing in ("ev_goals_for", "ev_points", "gf", "xgf"):
-            out = luck.skater_line(skater(**{missing: None}), 82, 0.5)
+        for missing in ("ev_goals_for", "ev_a1", "ev_a2", "ev_goals", "gf", "xgf"):
+            out = luck.skater_line(skater(**{missing: None}), 82, BASE)
             self.assertIsNone(out["points_diff"], missing)
 
     def test_negative_counts_are_clamped(self):
-        # more power-play goals than total goals would give negative even-strength goals
-        out = luck.skater_line(skater(season_goals=1, pp_goals=3, ev_points=0), 82, 0.5)
+        # more even-strength goals than the NHL's on-ice total would give negative teammate goals
+        out = luck.skater_line(skater(ev_goals=25), 82, BASE)
         self.assertGreaterEqual(out["assist_rate"], 0)
 
 
@@ -155,7 +163,7 @@ class FinishingSkill(unittest.TestCase):
 
 class AdjustedForHistory(unittest.TestCase):
     def test_a_proven_finisher_is_judged_against_their_own_norm(self):
-        out = luck.skater_line(skater(), 82, 0.5, PRIOR)
+        out = luck.skater_line(skater(), 82, BASE, PRIOR)
         skill = 20 / 70
         # plain: 10 goals vs 6 xG is +4 (z 2.0, hot); against 6 * (1 + skill) it is much less surprising
         self.assertAlmostEqual(out["z"], 2.0)
@@ -169,14 +177,14 @@ class AdjustedForHistory(unittest.TestCase):
         self.assertAlmostEqual(out["prior_z"], 20 / math.sqrt(30))
 
     def test_points_luck_uses_the_adjusted_goal_gap_too(self):
-        out = luck.skater_line(skater(), 82, 0.5, PRIOR)
-        k = 9 / 23
+        out = luck.skater_line(skater(), 82, BASE, PRIOR)
+        k = 6 / 23 + 5 / 33
         self.assertAlmostEqual(out["points_diff_adj"], 10 - 6 * (1 + 20 / 70) + k)
         self.assertAlmostEqual(out["points_z_adj"], out["points_diff_adj"] / math.sqrt(4 + k * k * 5))
         self.assertLess(out["points_diff_adj"], out["points_diff"])
 
     def test_without_history_the_adjusted_figures_match_the_plain_ones(self):
-        out = luck.skater_line(skater(), 82, 0.5)
+        out = luck.skater_line(skater(), 82, BASE)
         self.assertFalse(out["has_history"])
         self.assertEqual(out["prior_seasons"], 0)
         self.assertIsNone(out["prior_z"])
@@ -187,7 +195,7 @@ class AdjustedForHistory(unittest.TestCase):
 
     def test_a_chronic_underperformer_is_less_cold_than_average_suggests(self):
         poor = {"model_goals": 30, "ixg": 40.0, "variance": 30.0, "seasons": 3}
-        out = luck.skater_line(skater(goals=2, model_goals=2), 82, 0.5, poor)
+        out = luck.skater_line(skater(goals=2, model_goals=2), 82, BASE, poor)
         self.assertGreater(out["z_adj"], out["z"])
 
 

@@ -2,7 +2,7 @@ import re
 import unittest
 from datetime import datetime, timedelta, timezone
 
-import api
+from routes import analytics
 import edge
 import ingest
 
@@ -152,7 +152,7 @@ class Consistency(unittest.TestCase):
 
     def test_every_leaderboard_stat_reads_real_columns(self):
         cols = {c for c, _ in edge.SKATER_COLUMNS}
-        for stat, (expr, _label, _unit, pct, date, game) in api.TRACKING_STATS.items():
+        for stat, (expr, _label, _unit, pct, date, game) in analytics.TRACKING_STATS.items():
             used = set(re.findall(r"e\.(\w+)", expr))
             self.assertTrue(used, stat)
             self.assertTrue(used <= cols, f"{stat}: {used - cols}")
@@ -162,7 +162,7 @@ class Consistency(unittest.TestCase):
 
     def test_every_goalie_stat_reads_real_columns(self):
         cols = {c for c, _ in edge.GOALIE_COLUMNS}
-        for stat, (col, _label, shots, minimum) in api.GOALIE_TRACKING.items():
+        for stat, (col, _label, shots, minimum) in analytics.GOALIE_TRACKING.items():
             self.assertIn(col, cols, stat)
             self.assertTrue(set(shots) <= cols, stat)
             self.assertGreater(minimum, 0)

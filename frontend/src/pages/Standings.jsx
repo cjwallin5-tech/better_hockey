@@ -9,7 +9,7 @@ import PageSkeleton from '../components/Skeleton.jsx'
 import { teamColor } from '../teamColors.js'
 import { useUrlSync } from '../urlState.js'
 import { TEAM_STATS, leagueRanks, sortByStat, statById, statValue } from '../teamStats.js'
-import Info from '../components/Info.jsx'
+import Note from '../components/Note.jsx'
 
 const VIEWS = [
   { id: 'division', label: 'Division', rank: 'division_rank', group: (t) => t.division, order: ['Atlantic', 'Metropolitan', 'Central', 'Pacific'] },
@@ -108,8 +108,10 @@ export default function Standings() {
   return (
     <main>
       <header>
-        <h1>Standings<Info label="About the standings">Pace projects each team's points over {games} games (max {games * 2}). A dot marks a team in a playoff position:
-          the top three in its division, plus two wild cards in each conference.</Info></h1>
+        <h1>Standings</h1>
+        <p>Every team's record, points pace and playoff position.</p>
+        <Note label="More detail">Pace projects each team's points over {games} games (max {games * 2}). A dot marks a team in a playoff position:
+          the top three in its division, plus two wild cards in each conference.</Note>
       </header>
       {early && viewId !== 'odds' && (
         <p className="notice">

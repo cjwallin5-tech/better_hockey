@@ -5,7 +5,7 @@ hits and defensive stats, possession (Corsi/Fenwick), expected goals, lines, sho
 analytics, career history, milestones and more.
 
 - **backend/** Python: `ingest.py` pulls data from the NHL's public (unofficial) APIs into Postgres;
-  `api.py` is a FastAPI app serving JSON.
+  `api.py` builds the FastAPI app and `routes/` holds its endpoints, one module per area.
 - **frontend/** React + Vite single-page app (proxies `/api` to the backend in development).
 
 ## Run it locally
@@ -14,7 +14,7 @@ analytics, career history, milestones and more.
 createdb hockey_stats
 cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python ingest.py                      # first run takes a few minutes; later runs are incremental
-.venv/bin/uvicorn api:app --port 8000           # API (restart it after editing api.py)
+.venv/bin/uvicorn api:app --port 8000           # API (restart it after editing backend code)
 cd ../frontend && npm install && npm run dev    # http://localhost:5173
 ```
 
@@ -179,7 +179,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   on other teams exactly instead of guessing ("likely available") and labels who owns each one, and the matchup projector can load a
   league-mate's team as the opponent. Only members can see rosters, and only team names are shown, never emails; the owner can rename or
   remove teams, reset the invite code or delete the league, and members can leave. **One roster per league**: the league picker on the Fantasy
-  page chooses which roster you are working on, and the Fantasy page, the "Add to team" stars, Tonight and the schedule grid all use
+  page chooses which roster you are working on, and the Fantasy page, the "Add to team" stars, Tonight and the Matchups tab all use
   it ("League: None" is your personal roster, which still syncs as before). When you switch to a league whose team has no roster yet, the page
   asks whether to copy your personal roster or start empty; until you choose, that team keeps showing your personal roster, which is also how
   teams made before this existed behave. **Scoring, league format, slots, team count and categories are per league too.** They resolve in order: your own
@@ -242,7 +242,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   Poisson chance of no goals (`backend/streaming.py` documents the model and its assumptions). The goalie's own record barely
   counts, because a goalie's results barely repeat from year to year. It scores points under your scoring, or a z-score across the goalie
   categories in a category league. It can't see who is available in your league. `/api/streaming/goalies` supplies the plan.
-- **Matchups** (`/matchups`, under More): each team's schedule strength over the next few days (games and how soft or tough each
+- **Matchups** (the Matchups tab of the Fantasy page; `/matchups` redirects there): each team's schedule strength over the next few days (games and how soft or tough each
   opponent is, for skaters or for goalies) and every team's rating as an opponent. Ratings come from expected goals, not goals: a
   backtest on four past seasons found early-season goals against predicts the rest of the season worse than assuming the league
   average, while xG against pulled toward the league average by 20 games' worth cuts the error about 10%. A goalie's effect is
@@ -263,7 +263,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   nothing is fetched from an outside site. A country the NHL lists that has no file there simply shows no flag; add it to
   `frontend/src/countries.js` and drop the matching `<two-letter code>.png` into that folder.
 - **Trophy winners** (`/trophy`, under More): every NHL trophy with its winners by season (`/trophy/<id>`), linked from the Awards table on
-  each player page. Winners come live from the NHL's records site (cached a day by `backend/trophies.py` and `api.py`). Only the Art Ross
+  each player page. Winners come live from the NHL's records site (cached a day by `backend/trophies.py` and `routes/awards.py`). Only the Art Ross
   and Rocket Richard show stats (the winner's season totals); the other awards are voted or team-based and list winners and teams only.
 - **Game page extras**: "Lines and pairings" lists each team's five-on-five forward lines and defense pairs for the game, most-used first
   (combinations under a minute are left out), with ice time, shot attempts for and against, CF% and goals. The defense pairs are the rows
@@ -370,8 +370,8 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   division-and-wild-card bracket, best-of-seven series with home ice, each game from the same strength gap) for round-two, conference-final,
   final and Cup chances; each field is advanced exactly rather than sampled, so the odds are smooth. Backtested on past playoffs (`backend/analysis/backtest_playoff_odds.py`, findings in its docstring): the
   series model beats a coin flip modestly once its per-game scale was cut from 0.9 to 0.6, the odds of making the playoffs are strong, and
-  Cup odds themselves are barely better than a flat 1-in-16 guess over nine seasons, so treat them as rough. **Schedule grid** (`/schedule`, under More): games per team per week, with light
-  weeks, heavy weeks and back-to-backs marked. Both need the full-season schedule, which the nightly ingest now loads.
+  Cup odds themselves are barely better than a flat 1-in-16 guess over nine seasons, so treat them as rough.
+  The playoff odds need the full-season schedule, which the nightly ingest loads.
 - **Award odds** (bottom of the Trophy races page): win chances for the Hart, Norris, Calder, Selke and Vezina (`backend/awards.py`, `/api/award-odds`).
   A conditional logit over each award's candidates (top scorers, defensemen, rookies, goalies), fitted on the 20 seasons from 2005-06 to 2024-25
   (`backend/analysis/backtest_award_odds.py`; data cached by `analysis/award_data.py` in `backend/data/award_backtest.json`) and scored leave-one-season-out:
@@ -431,12 +431,6 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
   nine zones, pooled over seasons and shrunk toward average by 300 pseudo-shots), in goals per game to the shooting team on top of the goalie's overall level
   (`backend/matchupfit.py`; `frontend/src/matchupTip.js`). Only fits of 0.1 goals or more are shown. `analysis/backtest_goalie_zones.py` checked it from
   earlier seasons only: the zone detail predicted later goals allowed with a coefficient of about 1.0 (se 0.4), but a typical fit is only about 0.1 goals.
-- **Schedule strength** (a "Schedule strength" page under More; `/api/schedule-strength`): how hard each team's remaining games are, next to the schedule already
-  played, the next ten games and the back-to-backs left (`backend/sos.py`; `frontend/src/pages/ScheduleStrength.jsx`, `scheduleStrength.js`). Every game is
-  priced with the Games page's on-paper model (xG ratings with home ice); a team's figure is its expected points over those games minus what it
-  would expect against a league-average opponent at the same venues, so home and road mix does not count and negative means harder. It uses today's ratings for
-  every opponent, so it moves as the season does, and it is small early (about plus or minus 0.8 points over 70 games, a few tenths of a point is noise).
-  Not an input to the playoff odds, which simulate the real schedule themselves.
 - **Draft lottery** (a "Draft lottery" page under More; `/api/lottery`): every team's chance of missing the playoffs, of the worst record, and of each pick from first to
   sixteenth. The playoff odds simulation ranks the 16 teams that miss the playoffs in every simulated ending (`lottery_seed` in `playoff_odds.simulate`, worst
   record first), and `backend/lottery.py` turns a seed into a pick distribution by enumerating the NHL's two drawings with the 2026 guide's odds (18.5% down to
@@ -458,7 +452,7 @@ Afterwards, by hand: restart the API, commit `config.py`, and optionally refit t
 ## Layout
 
 `backend/`:
-- `ingest.py` (all data loading, including the manual `backfill-*` commands), `api.py` (all endpoints), `schema.sql`.
+- `ingest.py` (all data loading, including the manual `backfill-*` commands), `api.py` (builds the app), `routes/` (the endpoints: `skaters`, `players`, `goalies`, `teams`, `games`, `fantasy`, `awards`, `history`, `analytics`, `league`, and `common` for what they share), `schema.sql`.
 - On-ice and shot math: `corsi.py`, `shots.py`, `html_shifts.py`. Tracking: `edge.py`.
 - One module per analysis, each with the method in its docstring: `luck.py` / `luck_db.py` (luck and regression), `roles.py` /
   `roles_db.py` (role changes), `matchups.py` / `matchups_db.py` (matchup quality), `streaming.py` (streaming goalies), `era.py`,

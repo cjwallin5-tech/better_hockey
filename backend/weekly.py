@@ -15,7 +15,8 @@ Like the page, it cannot see injuries, who else owns whom, or lines changing.
 """
 from datetime import timedelta
 
-import api
+from routes import fantasy as fantasy_routes
+from routes import games as game_routes
 import config
 
 GROUPS = ("C", "L", "R", "D", "G")
@@ -223,8 +224,8 @@ def load_shared(conn):
     """What every account's Sunday section shares: skater rows and track records, the week's schedule and the goalie plan.
     Returns (rows, priors, goalie_plan, today); the days are tomorrow through the Sunday after (the Monday-Sunday week)."""
     rows = conn.execute("SELECT * FROM skater_season WHERE season_id = %s AND games_played > 0", (config.SEASON_ID,)).fetchall()
-    priors = api.fantasy_priors()["players"]
-    plan = api.streaming_goalies(days=8)
+    priors = fantasy_routes.fantasy_priors()["players"]
+    plan = game_routes.streaming_goalies(days=8)
     today = conn.execute("SELECT (now() AT TIME ZONE 'America/New_York')::date AS d").fetchone()["d"]
     return rows, priors, plan["goalies"], today
 
@@ -244,7 +245,7 @@ def section(roster, scoring, league, shared):
     days = week_dates(today)
     dates = set(days)
     ids = [p["id"] for p in roster]
-    week = api.fantasy_week(ids=",".join(map(str, ids)), days=8)["players"] if ids else {}
+    week = fantasy_routes.fantasy_week(ids=",".join(map(str, ids)), days=8)["players"] if ids else {}
     entries = build_entries(roster, week, goalie_plan, skater_rates(rows, scoring, priors), scoring, dates)
     plan = optimize(entries, slots)
     heavy, light = week_load(entries)

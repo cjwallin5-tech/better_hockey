@@ -1,6 +1,6 @@
 import unittest
 
-import api
+from routes import games as game_routes
 import winprob as wp
 
 
@@ -100,11 +100,11 @@ class Story(unittest.TestCase):
 
 class Live(unittest.TestCase):
     def test_elapsed_time_from_the_period_and_clock(self):
-        self.assertEqual(api._live_elapsed({"period": 1, "time_remaining": "20:00"}), 0)
-        self.assertEqual(api._live_elapsed({"period": 2, "time_remaining": "05:30"}), 1200 + 870)
-        self.assertEqual(api._live_elapsed({"period": 3, "time_remaining": "00:10"}), 3590)
-        self.assertEqual(api._live_elapsed({"period": 4, "time_remaining": "03:00"}), 3600)
-        self.assertEqual(api._live_elapsed({"period": 2, "time_remaining": None}), 1200)
+        self.assertEqual(game_routes._live_elapsed({"period": 1, "time_remaining": "20:00"}), 0)
+        self.assertEqual(game_routes._live_elapsed({"period": 2, "time_remaining": "05:30"}), 1200 + 870)
+        self.assertEqual(game_routes._live_elapsed({"period": 3, "time_remaining": "00:10"}), 3590)
+        self.assertEqual(game_routes._live_elapsed({"period": 4, "time_remaining": "03:00"}), 3600)
+        self.assertEqual(game_routes._live_elapsed({"period": 2, "time_remaining": None}), 1200)
 
 
 if __name__ == "__main__":

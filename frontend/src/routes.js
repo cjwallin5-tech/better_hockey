@@ -12,13 +12,11 @@ export const pages = {
   Glossary: () => import('./pages/Glossary.jsx'),
   Player: () => import('./pages/Player.jsx'),
   ResetPassword: () => import('./pages/ResetPassword.jsx'),
-  Schedule: () => import('./pages/Schedule.jsx'),
   Awards: () => import('./pages/Awards.jsx'),
   History: () => import('./pages/History.jsx'),
   Roles: () => import('./pages/Roles.jsx'),
   Trophy: () => import('./pages/Trophy.jsx'),
   Account: () => import('./pages/Account.jsx'),
-  Matchups: () => import('./pages/Matchups.jsx'),
   Tonight: () => import('./pages/Tonight.jsx'),
   MyTeam: () => import('./pages/MyTeam.jsx'),
   League: () => import('./pages/League.jsx'),
@@ -38,14 +36,12 @@ const PATHS = {
   '/alltime/skaters': 'AllTime',
   '/alltime/goalies': 'AllTime',
   '/reset-password': 'ResetPassword',
-  '/schedule': 'Schedule',
   '/awards': 'Awards',
   '/history': 'History',
   '/roles': 'Roles',
   '/account': 'Account',
   '/fantasy': 'Fantasy',
   '/prospects': 'Prospects',
-  '/matchups': 'Matchups',
   '/games': 'Tonight',
   '/news': 'News',
   '/my-team': 'MyTeam',
@@ -58,7 +54,6 @@ const SKATERS = '/api/skaters'
 const GOALIES = '/api/goalies'
 const DATA = {
   '/players': [SKATERS], '/skaters': [SKATERS], '/goalies': [GOALIES], '/fantasy': [SKATERS, GOALIES], '/compare': [SKATERS, GOALIES],
-  '/schedule': [SKATERS, GOALIES],
 }
 const warmed = new Set()
 

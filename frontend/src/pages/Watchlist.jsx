@@ -39,7 +39,7 @@ export default function Watchlist({ embedded = false }) {
   if (!signedIn) {
     return (
       <PageShell embedded={embedded}>
-        <header><PageIntro title="Watchlist" embedded={embedded}>Follow players, prospects and teams outside your fantasy roster and get a section about them in the morning email.</PageIntro></header>
+        <header><PageIntro title="Watchlist" subtitle="Follow players, prospects and teams outside your fantasy roster." embedded={embedded}>You get a section about them in the morning email.</PageIntro></header>
         <SignInPrompt lead="Follow any player, prospect or team and get their games, hot and cold spells and milestones in your morning email.">
           <WatchSuggestions />
         </SignInPrompt>
@@ -65,7 +65,7 @@ export default function Watchlist({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Watchlist" embedded={embedded}>Follow players, prospects and teams outside your fantasy roster. The morning email gets a Watchlist section with their games
+        <PageIntro title="Watchlist" subtitle="Follow players, prospects and teams outside your fantasy roster." embedded={embedded}>The morning email gets a Watchlist section with their games
           today, who is hot or cold, role changes and career milestones that are close or just reached. For a prospect it says how
           their season is going and what changed lately, and tells you when one reaches the NHL.</PageIntro>
       </header>

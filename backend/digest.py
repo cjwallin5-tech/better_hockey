@@ -20,10 +20,12 @@ import psycopg
 from fastapi import HTTPException
 from psycopg.rows import dict_row
 
-import api
 import absences_db
 import config
 import fatigue
+from routes import common
+from routes import games as game_routes
+from routes import league as league_routes
 import luck_db
 import mail
 import matchupfit
@@ -65,8 +67,7 @@ def rest_note(game):
 
 def todays_rest(conn, today):
     """{team: 'tired' | 'edge'} for today's games where one side played yesterday and the other is rested."""
-    import api   # the rows are built there; imported late so tests of the pure parts don't need the API
-    _, current, _ = api._team_games(conn, with_past=False)
+    _, current, _ = common._team_games(conn, with_past=False)
     rest = fatigue.rest_days(current)
     out = {}
     for r in current:
@@ -121,10 +122,10 @@ def luck_alerts(league, players, hot=True, cold=True):
 
 
 def _roster_rows(conn, ids):
-    skaters = {r["player_id"]: r for r in conn.execute(api.SKATERS_SQL, {
+    skaters = {r["player_id"]: r for r in conn.execute(common.SKATERS_SQL, {
         "season": config.SEASON_ID, "window": config.RECENT_WINDOW, "games": config.GAMES_PER_SEASON}).fetchall()
         if r["player_id"] in ids}
-    goalies = {r["player_id"]: r for r in conn.execute(api.GOALIES_SQL, api._goalie_params()).fetchall()
+    goalies = {r["player_id"]: r for r in conn.execute(common.GOALIES_SQL, common._goalie_params()).fetchall()
                if r["player_id"] in ids}
     return skaters, goalies
 
@@ -132,7 +133,7 @@ def _roster_rows(conn, ids):
 def shot_fits(conn):
     """Today's goalie matchup fits for every game (what the What to watch page shows), or {} when they cannot be had. One run's emails share it."""
     try:
-        return api._shot_fits(conn, api.probable_goalies_endpoint()["games"])
+        return game_routes._shot_fits(conn, game_routes.probable_goalies_endpoint()["games"])
     except (HTTPException, psycopg.Error, KeyError):
         return {}
 
@@ -184,7 +185,7 @@ def gather(conn, players, league=None, roster=True, watched=frozenset(), absent=
 
     # likely starters from the probable-goalies model, for rostered goalies
     likely = {}
-    for g in api.probable_goalies_endpoint()["games"]:
+    for g in game_routes.probable_goalies_endpoint()["games"]:
         for side in (g["away_goalies"], g["home_goalies"]):
             for c in side["candidates"]:
                 likely[c["player_id"]] = (c["probability"], side["confirmed"])
@@ -258,7 +259,7 @@ def absent_line(e):
 
 
 def milestone_alerts(ms, ids, today):
-    """Milestones for these player ids from api.milestones(): reached in the last MILESTONE_RECENT_DAYS days, or
+    """Milestones for these player ids from league_routes.milestones(): reached in the last MILESTONE_RECENT_DAYS days, or
     within MILESTONE_SOON games at the current pace. Reached ones first, then the nearest. Dicts ready for render()."""
     out = []
     for m in ms["reached"]:
@@ -585,7 +586,7 @@ def main(argv):
             return 0
         sent = skipped = 0
         league = None  # luck rows for every player: one query set shared by all the emails
-        ms = None  # api.milestones() scans every player, so it runs once and only if someone watches a player
+        ms = None  # league_routes.milestones() scans every player, so it runs once and only if someone watches a player
         absent = absences_db.current(conn, config.SEASON_ID)   # who is out, shared by every email
         fits = shot_fits(conn)                                  # today's goalie matchup fits, shared by every email
         users = due_users(conn)
@@ -593,7 +594,7 @@ def main(argv):
         for u in users:
             items = conn.execute("SELECT kind, ref, name FROM watch_item WHERE user_id = %s", (u["id"],)).fetchall()
             if ms is None and any(i["kind"] == "player" for i in items):
-                ms = api.milestones()
+                ms = league_routes.milestones()
             mine = in_leagues.get(u["id"], [])
             players, labels = combine_rosters(u["players"], mine)
             roster_ids = {p["id"] for p in players}

@@ -3,7 +3,6 @@
 export const NET_X = 89
 export const RANGE_FT = { close: [0, 15], mid: [15, 35], long: [35, 62] }
 export const MIDDLE_ANGLE = 15
-export const RANGE_LABEL = { close: 'Close (under 15 ft)', mid: 'Mid (15-35 ft)', long: 'Long (35 ft +)' }
 export const LANE_LABEL = { glove: 'Glove side', middle: 'Middle', blocker: 'Blocker side' }
 
 /** Rink y sign of the glove side: a left-catching goalie has the glove toward negative y (the shooter's left is +y). */

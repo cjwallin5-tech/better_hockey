@@ -19,7 +19,6 @@ Findings (run on 2026-10-27, 5,248 games, 629,760 sampled states):
   - Limits: it sees only the score, the time and the pregame ratings, not who is on the ice, penalties, injuries, or the shots so far (the stored history
     has shot quality but not shot times), so it is a baseline: a team being outshot badly while leading is treated like any other leader.
 """
-import math
 import sys
 from collections import defaultdict
 from pathlib import Path

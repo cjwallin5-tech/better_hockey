@@ -9,7 +9,7 @@ import gzip
 import json
 import sys
 import time
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import psycopg

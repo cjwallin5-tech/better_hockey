@@ -150,7 +150,7 @@ export default function LuckPanel({ playerId, goalie }) {
           <>
             <Tile label="Points" value={row.points ?? '–'} note={f.xpoints == null ? null : `${n1(f.xpoints)} expected (${signed(f.pointsDiff)})`} />
             <Tile label="Goals" value={row.goals} note={`${n1(row.ixg)} xG, ${signed(f.goalsDiff)} vs their norm`} />
-            <Tile label="Assist luck" value={signed(row.assist_luck)} note="estimate from teammates' finishing" />
+            <Tile label="Assist luck" value={signed(row.assist_luck)} note="from teammates' finishing, using real primary and secondary assist rates" />
             <Tile label="On-ice luck (5v5)" value={signed(row.onice_diff)} note={row.pdo == null ? null : `PDO ${row.pdo.toFixed(3)}`} />
           </>
         )}

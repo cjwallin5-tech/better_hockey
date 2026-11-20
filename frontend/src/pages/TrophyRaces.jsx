@@ -26,8 +26,8 @@ export default function TrophyRaces({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Trophy races" embedded={embedded}>Who is in the running for each stat-driven award: the top {data.size} (ties included) in the stat that
-          decides it. Early in the season this changes fast. Win chances for the voted Hart, Norris, Calder, Selke and Vezina are further down.</PageIntro>
+        <PageIntro title="Trophy races" subtitle="Who is in the running for each stat-driven award." embedded={embedded}>The top {data.size} (ties included) in the stat that
+          decides each award. Early in the season this changes fast. Win chances for the voted Hart, Norris, Calder, Selke and Vezina are further down.</PageIntro>
       </header>
       {data.races.map((race) => (
         <section key={race.trophy}>

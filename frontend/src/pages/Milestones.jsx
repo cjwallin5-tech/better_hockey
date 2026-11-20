@@ -55,9 +55,7 @@ export default function Milestones({ embedded = false }) {
   return (
     <PageShell embedded={embedded}>
       <header>
-        <PageIntro title="Milestone watch" embedded={embedded}>Active players closing in on career milestones. "Games" are the player's own
-          appearances at their current rate: this season's pace once they have 20 GP, otherwise
-          their career average.</PageIntro>
+        <PageIntro title="Milestone watch" subtitle="Active players closing in on career milestones." embedded={embedded}>"Games" are the player's own appearances at their current rate: this season's pace once they have 20 GP, otherwise their career average.</PageIntro>
       </header>
 
       <div className="controls">
