@@ -1,0 +1,3 @@
+# only needed to retrain the xG model (train_xg.py), not to run the site:
+-r requirements.txt
+scikit-learn
